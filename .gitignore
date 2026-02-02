@@ -1,0 +1,47 @@
+# dependencies
+**/node_modules/
+/.pnp
+.pnp.js
+
+# testing
+**/coverage
+
+# next.js
+**/.next/
+/web/out/
+
+# production
+**/build
+**/dist
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+**/.env.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# local database
+foodcoach.db
+*.db
+
+# python
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# temp directories
+.tmp/
