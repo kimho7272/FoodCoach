@@ -1,6 +1,6 @@
 // Google Gemini API Integration for Food & Nutrient Analysis
 const GEMINI_API_KEY = 'AIzaSyAfzKzZzWSwW0xbzJe9aHpyyBoEewq8zjs';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 export type AnalysisResult = {
     food_name: string;
@@ -44,11 +44,24 @@ export const analyzeMealImage = async (base64Image: string): Promise<AnalysisRes
         );
 
         const data = await response.json();
+
+        if (data.error) {
+            console.error('Gemini API Error Response:', data.error);
+            throw new Error(`Gemini API Error: ${data.error.message}`);
+        }
+
         const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
-        // Clean JSON if Gemini adds markdown markers
-        const cleanedJson = resultText.replace(/```json|```/g, '').trim();
-        const parsed = JSON.parse(cleanedJson);
+        // Robust JSON extraction using regex
+        let parsed = { food_name: "Unknown Food", calories: 0, macros: { protein: "0g", fat: "0g", carbs: "0g" }, score: 0 };
+        try {
+            const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                parsed = JSON.parse(jsonMatch[0]);
+            }
+        } catch (e) {
+            console.error('Failed to parse Gemini JSON:', e);
+        }
 
         // Auto-categorize based on current time
         const hour = new Date().getHours();
@@ -58,8 +71,15 @@ export const analyzeMealImage = async (base64Image: string): Promise<AnalysisRes
         else if (hour >= 16 && hour < 22) category = 'Dinner';
 
         return {
-            ...parsed,
-            category,
+            food_name: parsed.food_name || "Unknown Food",
+            calories: parsed.calories || 0,
+            macros: {
+                protein: parsed.macros?.protein || "0g",
+                fat: parsed.macros?.fat || "0g",
+                carbs: parsed.macros?.carbs || "0g"
+            },
+            score: parsed.score || 0,
+            category
         };
     } catch (error) {
         console.error('Gemini Vision Error:', error);

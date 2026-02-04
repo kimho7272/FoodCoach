@@ -1,8 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Camera as CameraIcon, RotateCcw, Check, X, Flame, Zap, BarChart2 } from 'lucide-react-native';
 import { analyzeMealImage, AnalysisResult } from '../../src/api/vision_api';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 export default function AnalysisScreen() {
     const [permission, requestPermission] = useCameraPermissions();
@@ -13,7 +16,7 @@ export default function AnalysisScreen() {
 
     if (!permission) {
         return (
-            <View className="flex-1 bg-[#0f172a] justify-center items-center">
+            <View style={styles.loadingContainer}>
                 <ActivityIndicator color="#10b981" />
             </View>
         );
@@ -21,13 +24,13 @@ export default function AnalysisScreen() {
 
     if (!permission.granted) {
         return (
-            <View className="flex-1 bg-[#0f172a] justify-center items-center p-6">
-                <Text className="text-white text-center mb-6 text-lg">Grant access to your camera to identify your meals</Text>
+            <View style={styles.permissionContainer}>
+                <Text style={styles.permissionText}>Grant access to your camera to identify your meals</Text>
                 <TouchableOpacity
                     onPress={requestPermission}
-                    className="bg-[#10b981] px-8 py-3 rounded-full shadow-lg shadow-emerald-900"
+                    style={styles.enableBtn}
                 >
-                    <Text className="text-white font-bold">Enable Camera</Text>
+                    <Text style={styles.enableBtnText}>Enable Camera</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -35,7 +38,7 @@ export default function AnalysisScreen() {
 
     const takePicture = async () => {
         if (cameraRef.current) {
-            const options = { quality: 0.5, base64: true };
+            const options = { quality: 0.5, base64: true, shutterSound: false };
             const data = await cameraRef.current.takePictureAsync(options);
             setPhoto({ uri: data.uri, base64: data.base64 });
         }
@@ -60,101 +63,101 @@ export default function AnalysisScreen() {
     };
 
     return (
-        <View className="flex-1 bg-[#0f172a]">
+        <View style={styles.container}>
             {!photo ? (
                 <CameraView
                     ref={cameraRef}
-                    className="flex-1"
+                    style={styles.camera}
                     facing="back"
                 >
-                    <View className="flex-1 justify-between p-8">
-                        <View className="flex-row justify-center mt-4">
-                            <View className="bg-white/20 px-4 py-2 rounded-full border border-white/20">
-                                <Text className="text-white font-bold">Scan Meal</Text>
+                    <View style={styles.cameraOverlay}>
+                        <View style={styles.cameraHeader}>
+                            <View style={styles.scanBadge}>
+                                <Text style={styles.scanBadgeText}>Scan Meal</Text>
                             </View>
                         </View>
 
-                        <View className="items-center pb-10">
+                        <View style={styles.shutterContainer}>
                             <TouchableOpacity
                                 onPress={takePicture}
-                                className="w-20 h-20 bg-white/20 rounded-full border-4 border-white items-center justify-center"
+                                style={styles.shutterBtn}
                             >
-                                <View className="w-16 h-16 bg-white rounded-full" />
+                                <View style={styles.shutterInner} />
                             </TouchableOpacity>
                         </View>
                     </View>
                 </CameraView>
             ) : (
-                <View className="flex-1">
-                    <Image source={{ uri: photo.uri }} className="flex-1" />
+                <View style={styles.fullScreen}>
+                    <Image source={{ uri: photo.uri }} style={styles.fullScreen} />
 
                     {analyzing && (
-                        <View className="absolute inset-0 bg-black/70 justify-center items-center">
+                        <View style={styles.analyzingOverlay}>
                             <ActivityIndicator size="large" color="#10b981" />
-                            <Text className="text-white mt-6 font-bold text-lg tracking-wider">AI ANALYZING MEAL...</Text>
+                            <Text style={styles.analyzingText}>AI ANALYZING MEAL...</Text>
                         </View>
                     )}
 
                     {result ? (
-                        <View className="absolute bottom-0 left-0 right-0 bg-[#1e293b] p-8 rounded-t-[40] border-t border-white/10">
-                            <View className="flex-row justify-between items-start mb-6">
+                        <View style={styles.resultCard}>
+                            <View style={styles.resultHeader}>
                                 <View>
-                                    <View className="bg-emerald-500/10 px-2 py-1 rounded-md self-start mb-1">
-                                        <Text className="text-[#10b981] font-bold text-[10px] uppercase">{result.category} Detected</Text>
+                                    <View style={styles.categoryBadge}>
+                                        <Text style={styles.categoryBadgeText}>{result.category} Detected</Text>
                                     </View>
-                                    <Text className="text-white text-3xl font-bold">{result.food_name}</Text>
+                                    <Text style={styles.foodName}>{result.food_name}</Text>
                                 </View>
-                                <View className="bg-[#10b981] px-4 py-2 rounded-2xl shadow-lg">
-                                    <Text className="text-white font-bold text-lg">{result.score}%</Text>
-                                    <Text className="text-white/70 text-[8px] text-center font-bold">CONFIDENCE</Text>
+                                <View style={styles.scoreBadge}>
+                                    <Text style={styles.scoreValue}>{result.score}%</Text>
+                                    <Text style={styles.scoreLabel}>CONFIDENCE</Text>
                                 </View>
                             </View>
 
-                            <View className="flex-row gap-4 mb-8">
-                                <View className="flex-1 bg-slate-800/50 p-4 rounded-3xl border border-white/5">
+                            <View style={styles.macroRow}>
+                                <View style={styles.macroItem}>
                                     <Flame size={20} color="#f59e0b" />
-                                    <Text className="text-white font-bold text-xl mt-2">{result.calories}</Text>
-                                    <Text className="text-slate-400 text-[10px]">kcal</Text>
+                                    <Text style={styles.macroValueText}>{result.calories}</Text>
+                                    <Text style={styles.macroUnit}>kcal</Text>
                                 </View>
-                                <View className="flex-1 bg-slate-800/50 p-4 rounded-3xl border border-white/5">
+                                <View style={styles.macroItem}>
                                     <Zap size={20} color="#10b981" />
-                                    <Text className="text-white font-bold text-xl mt-2">{result.macros.protein}</Text>
-                                    <Text className="text-slate-400 text-[10px]">Protein</Text>
+                                    <Text style={styles.macroValueText}>{result.macros.protein}</Text>
+                                    <Text style={styles.macroUnit}>Protein</Text>
                                 </View>
-                                <View className="flex-1 bg-slate-800/50 p-4 rounded-3xl border border-white/5">
+                                <View style={styles.macroItem}>
                                     <BarChart2 size={20} color="#6366f1" />
-                                    <Text className="text-white font-bold text-xl mt-2">{result.macros.carbs}</Text>
-                                    <Text className="text-slate-400 text-[10px]">Carbs</Text>
+                                    <Text style={styles.macroValueText}>{result.macros.carbs}</Text>
+                                    <Text style={styles.macroUnit}>Carbs</Text>
                                 </View>
                             </View>
 
-                            <View className="flex-row gap-4">
+                            <View style={styles.actionRow}>
                                 <TouchableOpacity
                                     onPress={reset}
-                                    className="flex-1 bg-slate-800 h-14 rounded-2xl items-center justify-center border border-white/10"
+                                    style={styles.discardBtn}
                                 >
-                                    <Text className="text-white font-bold">Discard</Text>
+                                    <Text style={styles.discardBtnText}>Discard</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => Alert.alert("Success", "Meal logged to your dashboard!")}
-                                    className="flex-1 bg-[#10b981] h-14 rounded-2xl items-center justify-center shadow-lg shadow-emerald-500/20"
+                                    style={styles.logBtn}
                                 >
-                                    <Text className="text-white font-bold text-lg">Log This Meal</Text>
+                                    <Text style={styles.logBtnText}>Log This Meal</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
                     ) : (
                         !analyzing && (
-                            <View className="absolute bottom-12 left-0 right-0 flex-row justify-center gap-10">
+                            <View style={styles.confirmRow}>
                                 <TouchableOpacity
                                     onPress={reset}
-                                    className="w-16 h-16 bg-white/10 rounded-full items-center justify-center border border-white/20 backdrop-blur-md"
+                                    style={styles.cancelBtn}
                                 >
                                     <X color="white" size={32} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={handleAnalyze}
-                                    className="w-20 h-20 bg-[#10b981] rounded-full items-center justify-center shadow-2xl shadow-emerald-500"
+                                    style={styles.confirmBtn}
                                 >
                                     <Check color="white" size={32} />
                                 </TouchableOpacity>
@@ -166,3 +169,43 @@ export default function AnalysisScreen() {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#0f172a' },
+    loadingContainer: { flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' },
+    permissionContainer: { flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    permissionText: { color: 'white', textAlign: 'center', marginBottom: 24, fontSize: 18 },
+    enableBtn: { backgroundColor: '#10b981', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 30 },
+    enableBtnText: { color: 'white', fontWeight: 'bold' },
+    camera: { flex: 1 },
+    cameraOverlay: { flex: 1, justifyContent: 'space-between', padding: 32 },
+    cameraHeader: { flexDirection: 'row', justifyContent: 'center', marginTop: 16 },
+    scanBadge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    scanBadgeText: { color: 'white', fontWeight: 'bold' },
+    shutterContainer: { alignItems: 'center', marginBottom: 40 },
+    shutterBtn: { width: 80, height: 80, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 40, borderWidth: 4, borderColor: 'white', alignItems: 'center', justifyContent: 'center' },
+    shutterInner: { width: 64, height: 64, backgroundColor: 'white', borderRadius: 32 },
+    fullScreen: { flex: 1 },
+    analyzingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+    analyzingText: { color: 'white', marginTop: 24, fontWeight: 'bold', fontSize: 18, letterSpacing: 1.5 },
+    resultCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#1e293b', padding: 32, borderTopLeftRadius: 40, borderTopRightRadius: 40, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+    resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+    categoryBadge: { backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginBottom: 4 },
+    categoryBadgeText: { color: '#10b981', fontWeight: 'bold', fontSize: 10, textTransform: 'uppercase' },
+    foodName: { color: 'white', fontSize: 30, fontWeight: 'bold' },
+    scoreBadge: { backgroundColor: '#10b981', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 },
+    scoreValue: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+    scoreLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 8, textAlign: 'center', fontWeight: 'bold' },
+    macroRow: { flexDirection: 'row', gap: 16, marginBottom: 32 },
+    macroItem: { flex: 1, backgroundColor: 'rgba(30,41,59,0.5)', padding: 16, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    macroValueText: { color: 'white', fontWeight: 'bold', fontSize: 20, marginTop: 8 },
+    macroUnit: { color: '#64748b', fontSize: 10 },
+    actionRow: { flexDirection: 'row', gap: 16 },
+    discardBtn: { flex: 1, backgroundColor: '#334155', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    discardBtnText: { color: 'white', fontWeight: 'bold' },
+    logBtn: { flex: 1, backgroundColor: '#10b981', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    logBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+    confirmRow: { position: 'absolute', bottom: 48, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 40 },
+    cancelBtn: { width: 64, height: 64, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 32, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    confirmBtn: { width: 80, height: 80, backgroundColor: '#10b981', borderRadius: 40, alignItems: 'center', justifyContent: 'center' }
+});
