@@ -12,6 +12,7 @@
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@supabase/supabase-js": "^2.93.3",
     "babel-preset-expo": "^54.0.10",
+    "base64-arraybuffer": "^1.0.2",
     "expo": "~54.0.33",
     "expo-auth-session": "~7.0.10",
     "expo-blur": "~15.0.8",

@@ -18,45 +18,91 @@ const GlassCard = ({ children, style }: { children: React.ReactNode, style?: any
     </BlurView>
 );
 
+import { runProactiveAgent } from '../../src/lib/proactive_agent';
+
 export default function HomeScreen() {
     const router = useRouter();
     const [userProfile, setUserProfile] = useState<any>(null);
+    const [logs, setLogs] = useState<any[]>([]);
+    const [totals, setTotals] = useState({ protein: '0g', carbs: '0g', fat: '0g', calories: 0 });
+    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchProfile = async () => {
+    const fetchData = React.useCallback(async () => {
+        try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-                setUserProfile(data);
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                setUserProfile(profile);
+
+                const { data: mealLogs } = await supabase
+                    .from('food_logs')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+
+                setLogs(mealLogs || []);
+
+                // Calculate today's totals
+                const today = new Date().toDateString();
+                const todayLogs = (mealLogs || []).filter(log => new Date(log.created_at).toDateString() === today);
+
+                const stats = todayLogs.reduce((acc, log) => {
+                    acc.calories += log.calories || 0;
+                    acc.protein += parseInt(log.protein) || 0;
+                    acc.carbs += parseInt(log.carbs) || 0;
+                    acc.fat += parseInt(log.fat) || 0;
+                    return acc;
+                }, { protein: 0, carbs: 0, fat: 0, calories: 0 });
+
+                setTotals({
+                    calories: stats.calories,
+                    protein: `${stats.protein}g`,
+                    carbs: `${stats.carbs}g`,
+                    fat: `${stats.fat}g`
+                });
+
+                // Trigger Proactive Agent
+                await runProactiveAgent();
             }
-        };
-        fetchProfile();
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    // Prevent back navigation to login screen
     useFocusEffect(
         React.useCallback(() => {
-            const onBackPress = () => {
-                // Return true to prevent default back action
-                return true;
-            };
+            fetchData();
+        }, [fetchData])
+    );
 
+    // Prevent back navigation
+    useFocusEffect(
+        React.useCallback(() => {
+            const onBackPress = () => true;
             const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
             return () => subscription.remove();
         }, [])
     );
 
-    const dailyKcal = 1450;
     const targetKcal = 1800;
-    const percentage = dailyKcal / targetKcal;
+    const percentage = Math.min(totals.calories / targetKcal, 1);
     const strokeWidth = 12;
     const radius = 60;
     const circumference = 2 * Math.PI * radius;
 
+    // AI Insight Generator
+    const getInsight = () => {
+        if (logs.length === 0) return "Start by scanning your first meal to get personalized AI coaching!";
+        const latest = logs[0];
+        if (latest.health_score >= 8) return "Legendary choice! That meal was packed with nutrients. Keep the momentum!";
+        if (latest.health_score <= 4) return "Your last meal was a bit heavy. Try a light salad or a 20-min walk now.";
+        return "Good balance today. Hydrate well and aim for some fiber in your next snack.";
+    };
+
     return (
         <View style={styles.container}>
-            {/* Dynamic Background */}
             <LinearGradient
                 colors={['#fef3c7', '#dcfce7', '#d1fae5', '#e0e7ff', '#fae8ff']}
                 start={{ x: 0, y: 0 }}
@@ -78,16 +124,16 @@ export default function HomeScreen() {
                                 )}
                             </View>
                             <View style={styles.userTextContainer}>
-                                <Text style={styles.dateText}>Tuesday, Feb 3</Text>
+                                <Text style={styles.dateText}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Text>
                                 <Text style={styles.greetingText}>
                                     Hey, {userProfile?.nickname || userProfile?.full_name?.split(' ')[0] || 'Friend'}!
                                 </Text>
                             </View>
                         </View>
                         <BlurView intensity={80} tint="light" style={styles.streakBadge}>
-                            <Text style={styles.streakLabel}>Streak</Text>
+                            <Text style={styles.streakLabel}>🔥 Streak</Text>
                             <View style={styles.streakCountBox}>
-                                <Text style={styles.streakCount}>5</Text>
+                                <Text style={styles.streakCount}>{logs.length > 0 ? '3' : '0'}</Text>
                             </View>
                         </BlurView>
                     </View>
@@ -128,7 +174,7 @@ export default function HomeScreen() {
                                     />
                                 </Svg>
                                 <View style={styles.ringCenterText}>
-                                    <Text style={styles.kcalValue}>{dailyKcal.toLocaleString()}</Text>
+                                    <Text style={styles.kcalValue}>{totals.calories.toLocaleString()}</Text>
                                     <Text style={styles.kcalTarget}>/ {targetKcal} kcal</Text>
                                 </View>
                             </View>
@@ -137,7 +183,7 @@ export default function HomeScreen() {
                                 <View style={styles.statusIcon}>
                                     <TrendingUp size={20} color="#10b981" />
                                 </View>
-                                <Text style={styles.statusText}>On Track</Text>
+                                <Text style={styles.statusText}>{percentage > 0.8 ? 'Near Target' : 'On Track'}</Text>
                             </View>
                         </View>
                     </GlassCard>
@@ -147,20 +193,17 @@ export default function HomeScreen() {
                         <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(251, 146, 60, 0.1)' }]}>
                             <BarChart2 size={16} color="#fb923c" />
                             <Text style={styles.macroLabel}>Carbs</Text>
-                            <Text style={styles.macroValue}>180g</Text>
-                            <Text style={styles.macroPercent}>(40%)</Text>
+                            <Text style={styles.macroValue}>{totals.carbs}</Text>
                         </BlurView>
                         <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                             <Zap size={16} color="#10b981" />
-                            <Text style={styles.macroLabel}>Protien</Text>
-                            <Text style={styles.macroValue}>92g</Text>
-                            <Text style={styles.macroPercent}>(20%)</Text>
+                            <Text style={styles.macroLabel}>Protein</Text>
+                            <Text style={styles.macroValue}>{totals.protein}</Text>
                         </BlurView>
                         <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
                             <Flame size={16} color="#6366f1" />
                             <Text style={styles.macroLabel}>Fats</Text>
-                            <Text style={styles.macroValue}>55g</Text>
-                            <Text style={styles.macroPercent}>(25%)</Text>
+                            <Text style={styles.macroValue}>{totals.fat}</Text>
                         </BlurView>
                     </View>
 
@@ -168,56 +211,51 @@ export default function HomeScreen() {
 
                     {/* Meal Slider */}
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mealSlider} contentContainerStyle={{ paddingRight: 20 }}>
-                        <View style={styles.mealCard}>
-                            <View style={styles.mealCardContent}>
-                                <View style={styles.mealInfo}>
-                                    <Text style={styles.mealType}>Lunch</Text>
-                                    <Text style={styles.mealName}>Cobb Salad</Text>
-                                    <Text style={styles.mealKcal}>420 kcal</Text>
-                                    <Text style={styles.mealTime}>🕒 12:30 PM</Text>
-                                </View>
-                                <View style={styles.mealImagePlaceholder}>
-                                    <Text style={styles.mealEmoji}>🥗</Text>
+                        {logs.slice(0, 5).map((meal, idx) => (
+                            <View key={meal.id} style={styles.mealCard}>
+                                <View style={styles.mealCardContent}>
+                                    <View style={styles.mealInfo}>
+                                        <Text style={styles.mealType}>{meal.meal_type}</Text>
+                                        <Text style={styles.mealName} numberOfLines={1}>{meal.food_name}</Text>
+                                        <Text style={styles.mealKcal}>{meal.calories} kcal</Text>
+                                        <Text style={styles.mealTime}>🕒 {new Date(meal.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                    </View>
+                                    <View style={styles.mealImagePlaceholder}>
+                                        {meal.image_url ? (
+                                            <Image source={{ uri: meal.image_url }} style={{ width: '100%', height: '100%' }} />
+                                        ) : (
+                                            <Text style={styles.mealEmoji}>🍱</Text>
+                                        )}
+                                    </View>
                                 </View>
                             </View>
-                        </View>
+                        ))}
 
-                        <TouchableOpacity style={styles.addMealCard}>
+                        <TouchableOpacity
+                            style={styles.addMealCard}
+                            onPress={() => router.push('/(tabs)/analysis' as any)}
+                        >
                             <View style={styles.addIconCircle}>
                                 <Plus size={24} color="#64748b" />
                             </View>
-                            <Text style={styles.addMealLabel}>Log Lunch</Text>
+                            <Text style={styles.addMealLabel}>Log Meal</Text>
                         </TouchableOpacity>
-
-                        <View style={[styles.mealCard, { opacity: 0.6 }]}>
-                            <View style={styles.mealCardContent}>
-                                <View style={styles.mealInfo}>
-                                    <Text style={styles.mealType}>Dinner</Text>
-                                    <Text style={styles.mealName}>Grilled Salmon</Text>
-                                    <Text style={styles.mealKcal}>--- kcal</Text>
-                                    <Text style={styles.mealTime}>🕒 Pending</Text>
-                                </View>
-                                <View style={styles.mealImagePlaceholder}>
-                                    <Text style={styles.mealEmoji}>🐟</Text>
-                                </View>
-                            </View>
-                        </View>
                     </ScrollView>
 
-                    {/* Activity Exchange */}
-                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Activity Exchange</Text>
+                    {/* Proactive Insight */}
+                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>AI Coach Insight</Text>
                     <GlassCard style={styles.activityCard}>
                         <View style={styles.activityInner}>
                             <View style={styles.activityIcon}>
-                                <Text style={{ fontSize: 24 }}>🏃‍♂️</Text>
+                                <Heart size={24} color="#ef4444" />
                             </View>
                             <View style={styles.activityTextContainer}>
                                 <Text style={styles.activityText}>
-                                    Walk 30 min to balance{"\n"}your afternoon snack!
+                                    {getInsight()}
                                 </Text>
                             </View>
                             <TouchableOpacity style={styles.goBtn}>
-                                <Text style={styles.goBtnTxt}>Go</Text>
+                                <Text style={styles.goBtnTxt}>Tip</Text>
                             </TouchableOpacity>
                         </View>
                     </GlassCard>

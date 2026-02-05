@@ -12,6 +12,9 @@ export type AnalysisResult = {
     };
     score: number;
     category: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+    is_food: boolean;
+    health_score: number; // 0-10
+    description: string;
 };
 
 export const analyzeMealImage = async (base64Image: string): Promise<AnalysisResult> => {
@@ -28,7 +31,18 @@ export const analyzeMealImage = async (base64Image: string): Promise<AnalysisRes
                         {
                             parts: [
                                 {
-                                    text: "Analyze this food image. Provide: 1. Food Name, 2. Estimated total calories, 3. Macros (Protein, Fat, Carbs in grams), 4. Confidence score (0-100). Format the output as raw JSON only: {\"food_name\": \"...\", \"calories\": 0, \"macros\": {\"protein\": \"...\", \"fat\": \"...\", \"carbs\": \"...\"}, \"score\": 0}",
+                                    text: `Analyze this image. 
+                                    1. Determine if this image contains primarily edible food or drinks.
+                                    2. If it IS NOT food (e.g., a person, building, car, text-only document), set "is_food": false.
+                                    3. If it IS food:
+                                       - "food_name": short name.
+                                       - "calories": estimated total.
+                                       - "macros": {protein, fat, carbs in grams, e.g., "15g"}.
+                                       - "score": confidence (0-100).
+                                       - "health_score": 0 (unhealthy) to 10 (superfood).
+                                       - "description": 1-sentence health insight.
+                                       - "is_food": true.
+                                    Format the output as raw JSON only: {"is_food": boolean, "food_name": "...", "calories": 0, "macros": {"protein": "...", "fat": "...", "carbs": "..."}, "score": 0, "health_score": 5, "description": "..."}`,
                                 },
                                 {
                                     inline_data: {
@@ -53,7 +67,7 @@ export const analyzeMealImage = async (base64Image: string): Promise<AnalysisRes
         const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
         // Robust JSON extraction using regex
-        let parsed = { food_name: "Unknown Food", calories: 0, macros: { protein: "0g", fat: "0g", carbs: "0g" }, score: 0 };
+        let parsed: any = { is_food: false, food_name: "Unknown", calories: 0, macros: { protein: "0g", fat: "0g", carbs: "0g" }, score: 0, health_score: 0, description: "Could not identify content." };
         try {
             const jsonMatch = resultText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
@@ -71,7 +85,8 @@ export const analyzeMealImage = async (base64Image: string): Promise<AnalysisRes
         else if (hour >= 16 && hour < 22) category = 'Dinner';
 
         return {
-            food_name: parsed.food_name || "Unknown Food",
+            is_food: !!parsed.is_food,
+            food_name: parsed.food_name || "Unknown",
             calories: parsed.calories || 0,
             macros: {
                 protein: parsed.macros?.protein || "0g",
@@ -79,6 +94,8 @@ export const analyzeMealImage = async (base64Image: string): Promise<AnalysisRes
                 carbs: parsed.macros?.carbs || "0g"
             },
             score: parsed.score || 0,
+            health_score: parsed.health_score || 0,
+            description: parsed.description || "No description available.",
             category
         };
     } catch (error) {
