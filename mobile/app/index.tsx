@@ -21,10 +21,13 @@ export default function Index() {
 
                     if (profile?.nickname) {
                         router.replace('/(tabs)');
-                    } else {
-                        // Request 252: treat incomplete as new user
+                    } else if (!profile) {
+                        // DB∞ùÉ ∞£á∞áÇ ∞áòδ│┤Ω░Ç ∞òä∞ÿê ∞ùå∞£╝δ⌐┤(∞é¡∞á£δÉÿ∞ùêΩ▒░δéÿ ∞ÿñδÑÿ) ∞ä╕∞àÿ φîîΩ╕░ φ¢ä δí£Ω╖╕∞¥╕δ╢Çφä░ δïñ∞ï£
                         await supabase.auth.signOut();
                         router.replace('/login');
+                    } else {
+                        // ∞ä╕∞àÿ∞¥Ç ∞₧êΩ│á DB∞ùÉ ∞£á∞áÇδèö ∞â¥∞ä▒δÉÿ∞ùê∞£╝δéÿ ∞ÿ¿δ│┤δö⌐ ∞áä∞¥╕ Ω▓╜∞Ü░
+                        router.replace('/onboarding');
                     }
                 } else {
                     router.replace('/login');

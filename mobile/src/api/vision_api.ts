@@ -1,5 +1,5 @@
 // Google Gemini API Integration for Food & Nutrient Analysis
-const GEMINI_API_KEY = 'AIzaSyAfzKzZzWSwW0xbzJe9aHpyyBoEewq8zjs';
+const GEMINI_API_KEY = 'AIzaSyCPwfxB8SKAkIsFntGe6FgpVP3rGS04Gzw';
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
 export type AnalysisResult = {
@@ -58,13 +58,19 @@ export const analyzeMealImage = async (base64Image: string): Promise<AnalysisRes
         );
 
         const data = await response.json();
+        console.log('Gemini raw response:', JSON.stringify(data).substring(0, 500));
 
         if (data.error) {
             console.error('Gemini API Error Response:', data.error);
             throw new Error(`Gemini API Error: ${data.error.message}`);
         }
 
-        const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        if (!data.candidates || data.candidates.length === 0) {
+            console.error('Gemini No Candidates:', data);
+            throw new Error('No analysis results returned from AI. This may be due to safety filters or an invalid image.');
+        }
+
+        const resultText = data.candidates[0].content?.parts?.[0]?.text || '{}';
 
         // Robust JSON extraction using regex
         let parsed: any = { is_food: false, food_name: "Unknown", calories: 0, macros: { protein: "0g", fat: "0g", carbs: "0g" }, score: 0, health_score: 0, description: "Could not identify content." };

@@ -16,22 +16,34 @@ export type MealLog = {
 
 export const uploadMealImage = async (userId: string, base64Data: string) => {
     try {
+        console.log('Starting image upload for user:', userId);
+
+        // Clean base64 data if it contains metadata prefix
+        const cleanBase64 = base64Data.includes('base64,')
+            ? base64Data.split('base64,')[1]
+            : base64Data;
+
         const fileName = `${userId}/${Date.now()}.jpg`;
         const { data, error } = await supabase.storage
             .from('meal-images')
-            .upload(fileName, decode(base64Data), {
-                contentType: 'image/jpeg'
+            .upload(fileName, decode(cleanBase64), {
+                contentType: 'image/jpeg',
+                upsert: true
             });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase Storage Error:', error.message);
+            throw error;
+        }
 
         const { data: { publicUrl } } = supabase.storage
             .from('meal-images')
             .getPublicUrl(fileName);
 
+        console.log('Upload successful! Public URL:', publicUrl);
         return publicUrl;
-    } catch (error) {
-        console.error('Image upload failed:', error);
+    } catch (error: any) {
+        console.error('Image upload failed details:', error);
         return null;
     }
 };
@@ -64,5 +76,50 @@ export const getMealLogs = async (userId: string) => {
     } catch (error) {
         console.error('Get meal logs failed:', error);
         return { data: [], error };
+    }
+};
+
+export const deleteMealLog = async (id: string) => {
+    try {
+        const { error } = await supabase
+            .from('food_logs')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return { error: null };
+    } catch (error) {
+        console.error('Delete meal log failed:', error);
+        return { error };
+    }
+};
+
+export const updateMealLogCategory = async (id: string, category: string) => {
+    try {
+        const { error } = await supabase
+            .from('food_logs')
+            .update({ meal_type: category })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { error: null };
+    } catch (error) {
+        console.error('Update meal log category failed:', error);
+        return { error };
+    }
+};
+
+export const updateMealLogName = async (id: string, name: string) => {
+    try {
+        const { error } = await supabase
+            .from('food_logs')
+            .update({ food_name: name })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { error: null };
+    } catch (error) {
+        console.error('Update meal log name failed:', error);
+        return { error };
     }
 };

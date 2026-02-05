@@ -13,7 +13,7 @@ import Animated, {
 import { Apple, Fingerprint } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { signInWithSocial } from '../src/lib/auth_service';
-import { Alert } from 'react-native';
+import { Alert, ActivityIndicator } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const fruitCharacter = require('../assets/applei.png');
@@ -23,6 +23,7 @@ const kakaoLogo = require('../assets/kakao_logo.png');
 export default function LoginScreen() {
     const router = useRouter();
     const bobValue = useSharedValue(0);
+    const [isLoading, setIsLoading] = React.useState(false);
 
     useEffect(() => {
         bobValue.value = withRepeat(
@@ -40,10 +41,14 @@ export default function LoginScreen() {
     }));
 
     const handleSocialLogin = async (provider: 'apple' | 'google' | 'kakao') => {
+        setIsLoading(true);
         const { user, error } = await signInWithSocial(provider);
         if (error) {
+            setIsLoading(false);
             Alert.alert('Login Failed', error.message);
         } else if (user) {
+            // Once user is authenticated, index.tsx will also handle routing
+            // but we call replace here for immediate feedback if index hasn't caught up
             router.replace('/onboarding');
         }
     };
@@ -129,6 +134,18 @@ export default function LoginScreen() {
 
                 </View>
             </SafeAreaView>
+
+            {/* Loading Overlay */}
+            {isLoading && (
+                <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
+                    <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill}>
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color="#10b981" />
+                            <Text style={styles.loadingText}>Connecting to Applei...</Text>
+                        </View>
+                    </BlurView>
+                </View>
+            )}
         </View>
     );
 }
@@ -268,5 +285,19 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.4)',
         letterSpacing: 2,
         textAlign: 'center',
+    },
+    loadingOverlay: {
+        zIndex: 100,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 15,
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#10b981',
     }
 });

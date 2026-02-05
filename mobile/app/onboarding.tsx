@@ -282,7 +282,7 @@ export default function EnhancedOnboarding() {
                                                     <Text style={[styles.unitBtnText, weightUnit === 'lb' && styles.unitBtnTextActive]}>lb</Text>
                                                 </TouchableOpacity>
                                             </View>
-                                            <Text style={[styles.valueTxt, { color: '#F43F5E' }]}>{weight} {weightUnit}</Text>
+                                            <Text style={styles.valueTxt}>{weight} {weightUnit}</Text>
                                             <View style={styles.btnRow}>
                                                 {[-5, -1, 1, 5].map(val => (
                                                     <TouchableOpacity
