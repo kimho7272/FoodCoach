@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Camera as CameraIcon, RotateCcw, Check, X, Flame, Zap, BarChart2 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { analyzeMealImage, AnalysisResult } from '../../src/api/vision_api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../src/lib/supabase';
@@ -10,11 +12,14 @@ import { uploadMealImage, saveMealLog } from '../../src/lib/meal_service';
 const { width, height } = Dimensions.get('window');
 
 export default function AnalysisScreen() {
+    const router = useRouter();
     const [permission, requestPermission] = useCameraPermissions();
     const [photo, setPhoto] = useState<{ uri: string, base64: string } | null>(null);
     const [analyzing, setAnalyzing] = useState(false);
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const cameraRef = useRef<any>(null);
+    const [selectedMealType, setSelectedMealType] = useState<AnalysisResult['category']>('Snack');
+    const [logging, setLogging] = useState(false);
 
     if (!permission) {
         return (
@@ -46,17 +51,33 @@ export default function AnalysisScreen() {
         }
     };
 
-    const [selectedMealType, setSelectedMealType] = useState<AnalysisResult['category']>('Snack');
-    const [logging, setLogging] = useState(false);
-
     const handleAnalyze = async () => {
         if (!photo?.base64) return;
         setAnalyzing(true);
         try {
-            const data = await analyzeMealImage(photo.base64);
+            // Fetch user profile for height/weight context
+            const { data: { user } } = await supabase.auth.getUser();
+            let userProfile = undefined;
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('height, weight')
+                    .eq('id', user.id)
+                    .single();
+
+                if (profile) {
+                    userProfile = {
+                        height: profile.height,
+                        weight: profile.weight
+                    };
+                }
+            }
+
+            const data = await analyzeMealImage(photo.base64, userProfile);
             setResult(data);
             setSelectedMealType(data.category);
         } catch (error) {
+            console.error('Analysis Error:', error);
             Alert.alert("Analysis Failed", "Could not identify the food. Please try again with a clearer photo.");
         } finally {
             setAnalyzing(false);
@@ -91,6 +112,7 @@ export default function AnalysisScreen() {
 
             Alert.alert("Success", "Meal logged to your dashboard!");
             reset();
+            router.push('/(tabs)');
         } catch (error: any) {
             console.error(error);
             Alert.alert("Logging Failed", error.message || "Failed to save meal log.");
@@ -109,17 +131,27 @@ export default function AnalysisScreen() {
     return (
         <View style={styles.container}>
             {!photo ? (
-                <CameraView
-                    ref={cameraRef}
-                    style={styles.camera}
-                    facing="back"
-                >
+                <View style={styles.container}>
+                    <CameraView
+                        ref={cameraRef}
+                        style={styles.camera}
+                        facing="back"
+                    />
                     <View style={styles.cameraOverlay}>
-                        <View style={styles.cameraHeader}>
-                            <View style={styles.scanBadge}>
-                                <Text style={styles.scanBadgeText}>Scan Meal</Text>
+                        <SafeAreaView>
+                            <View style={styles.cameraHeader}>
+                                <TouchableOpacity
+                                    onPress={() => router.push('/(tabs)')}
+                                    style={styles.closeBtn}
+                                >
+                                    <X size={24} color="white" />
+                                </TouchableOpacity>
+                                <View style={styles.scanBadge}>
+                                    <Text style={styles.scanBadgeText}>Scan Meal</Text>
+                                </View>
+                                <View style={{ width: 44 }} />
                             </View>
-                        </View>
+                        </SafeAreaView>
 
                         <View style={styles.shutterContainer}>
                             <TouchableOpacity
@@ -130,7 +162,7 @@ export default function AnalysisScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </CameraView>
+                </View>
             ) : (
                 <View style={styles.fullScreen}>
                     <Image source={{ uri: photo.uri }} style={styles.fullScreen} />
@@ -265,8 +297,9 @@ const styles = StyleSheet.create({
     enableBtn: { backgroundColor: '#10b981', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 30 },
     enableBtnText: { color: 'white', fontWeight: 'bold' },
     camera: { flex: 1 },
-    cameraOverlay: { flex: 1, justifyContent: 'space-between', padding: 32 },
-    cameraHeader: { flexDirection: 'row', justifyContent: 'center', marginTop: 16 },
+    cameraOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', padding: 32 },
+    cameraHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20 },
+    closeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
     scanBadge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
     scanBadgeText: { color: 'white', fontWeight: 'bold' },
     shutterContainer: { alignItems: 'center', marginBottom: 40 },
@@ -275,7 +308,7 @@ const styles = StyleSheet.create({
     fullScreen: { flex: 1 },
     analyzingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
     analyzingText: { color: 'white', marginTop: 24, fontWeight: 'bold', fontSize: 18, letterSpacing: 1.5 },
-    resultCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#1e293b', padding: 32, borderTopLeftRadius: 40, borderTopRightRadius: 40, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+    resultCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#1e293b', padding: 32, paddingBottom: Platform.OS === 'ios' ? 44 : 32, borderTopLeftRadius: 40, borderTopRightRadius: 40, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
     resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
     categoryBadge: { backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginBottom: 4 },
     categoryBadgeText: { color: '#10b981', fontWeight: 'bold', fontSize: 10, textTransform: 'uppercase' },

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Calendar, Trash2, ArrowUp, ArrowDown, ChevronRight, Flame, Zap, BarChart2, ChevronUp, ChevronDown } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName } from '../src/lib/meal_service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,15 +15,32 @@ const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
 export default function MealHistoryScreen() {
     const router = useRouter();
-    const [selectedDate, setSelectedDate] = useState(new Date());
+    const { date, highlightId } = useLocalSearchParams();
+
+    // Initialize selectedDate from params if present
+    const [selectedDate, setSelectedDate] = useState(() => {
+        if (date) {
+            // Robust local date parsing for YYYY-MM-DD
+            const parts = (date as string).split('-');
+            if (parts.length === 3) {
+                return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            }
+            return new Date(date as string);
+        }
+        return new Date();
+    });
+
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
     const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(null);
+    const hasScrolledRef = useRef<string | null>(null);
+    const scrollAttempts = useRef(0);
     const dateScrollRef = useRef<ScrollView>(null);
     const mainScrollRef = useRef<ScrollView>(null);
+    const itemPositions = useRef<Map<string, number>>(new Map());
 
     // Generate dates (today at the left)
     const dates = Array.from({ length: 14 }).map((_, i) => {
@@ -81,6 +98,60 @@ export default function MealHistoryScreen() {
     useEffect(() => {
         fetchLogs();
     }, [fetchLogs]);
+
+    // Reset/Sync state when navigation parameters change
+    useEffect(() => {
+        if (date) {
+            const parts = (date as string).split('-');
+            if (parts.length === 3) {
+                const newDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                if (newDate.toDateString() !== selectedDate.toDateString()) {
+                    setSelectedDate(newDate);
+                    itemPositions.current.clear(); // Only clear when the ACTUAL date changes
+                }
+            }
+        }
+        hasScrolledRef.current = null;
+        scrollAttempts.current = 0;
+    }, [highlightId, date, selectedDate]);
+
+    const performScroll = useCallback((force = false) => {
+        if (!highlightId || !mainScrollRef.current || loading) return;
+        const targetId = String(highlightId);
+
+        // Skip if already scrolled to this ID (unless forced via onLayout)
+        if (!force && hasScrolledRef.current === targetId) return;
+
+        const yPos = itemPositions.current.get(targetId);
+        if (yPos !== undefined && yPos > 0) {
+            const screenHeight = Dimensions.get('window').height;
+            // Center the card: Item Y - (Screen/2) + Header Offset correction
+            const targetOffset = Math.max(0, yPos - (screenHeight / 2) + 160);
+
+            mainScrollRef.current.scrollTo({ y: targetOffset, animated: true });
+            hasScrolledRef.current = targetId;
+            return true;
+        }
+
+        if (scrollAttempts.current < 15) {
+            scrollAttempts.current++;
+            setTimeout(() => performScroll(), 100);
+        }
+        return false;
+    }, [loading, highlightId]);
+
+    useEffect(() => {
+        if (!loading && highlightId && logs.length > 0) {
+            // Multiple attempts to catch slow rendering
+            performScroll();
+            const t1 = setTimeout(() => performScroll(), 500);
+            const t2 = setTimeout(() => performScroll(), 1500);
+            return () => {
+                clearTimeout(t1);
+                clearTimeout(t2);
+            };
+        }
+    }, [loading, highlightId, logs.length, performScroll]);
 
     const saveOrder = async (newLogs: any[]) => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -157,8 +228,21 @@ export default function MealHistoryScreen() {
     };
 
     const MealCard = ({ item, index }: { item: any, index: number }) => {
+        const isHighlighted = item.id === highlightId;
+
         return (
-            <View style={styles.mealCard}>
+            <View
+                onLayout={(e) => {
+                    itemPositions.current.set(item.id, e.nativeEvent.layout.y);
+                    if (String(item.id) === String(highlightId)) {
+                        performScroll(true);
+                    }
+                }}
+                style={[
+                    styles.mealCard,
+                    isHighlighted && { borderColor: '#10b981', borderWidth: 2, shadowOpacity: 0.1, shadowRadius: 20 }
+                ]}
+            >
                 <View style={styles.cardHeader}>
                     <View style={styles.headerLeft}>
                         <TouchableOpacity onPress={() => setShowCategoryPicker(item.id)} style={styles.typeBadge}>

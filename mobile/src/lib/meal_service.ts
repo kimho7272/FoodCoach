@@ -8,6 +8,8 @@ export type MealLog = {
     protein: string;
     fat: string;
     carbs: string;
+    sugar?: string;
+    fiber?: string;
     meal_type: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
     image_url?: string;
     health_score?: number;
@@ -121,5 +123,48 @@ export const updateMealLogName = async (id: string, name: string) => {
     } catch (error) {
         console.error('Update meal log name failed:', error);
         return { error };
+    }
+};
+
+export const getWeeklyStats = async (userId: string) => {
+    try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const { data, error } = await supabase
+            .from('food_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('created_at', sevenDaysAgo.toISOString())
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        // Group by day for the trend chart
+        const dailyTrends: Record<string, { health_score: number, calories: number, count: number }> = {};
+
+        (data || []).forEach(log => {
+            const date = new Date(log.created_at).toDateString();
+            if (!dailyTrends[date]) {
+                dailyTrends[date] = { health_score: 0, calories: 0, count: 0 };
+            }
+            dailyTrends[date].health_score += log.health_score || 0;
+            dailyTrends[date].calories += log.calories || 0;
+            dailyTrends[date].count += 1;
+        });
+
+        const formattedTrends = Object.entries(dailyTrends).map(([date, stats]) => ({
+            label: date.split(' ')[0], // Mon, Tue, etc.
+            avgScore: Math.round(stats.health_score / stats.count),
+            totalCalories: stats.calories
+        }));
+
+        // Calculate Diversity (unique foods)
+        const uniqueFoods = new Set((data || []).map(l => l.food_name.toLowerCase())).size;
+
+        return { trends: formattedTrends, diversity: uniqueFoods, raw: data, error: null };
+    } catch (error) {
+        console.error('Get weekly stats failed:', error);
+        return { trends: [], diversity: 0, raw: [], error };
     }
 };

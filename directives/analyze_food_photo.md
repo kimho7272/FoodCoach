@@ -6,9 +6,10 @@ Accurately identify food items and portion sizes from user-uploaded photos to mi
 ## Process
 1. **Image Reception**: Accept photo from the `web` frontend or proactive chat.
 2. **Vision Processing (Layer 3)**: Call `execution/vision_analyzer.py` which uses Gemini 1.5 Pro Vision.
+    - **Personalization**: Pass user's height and weight to estimate the specific "1-person serving size" for the user.
 3. **Data Mapping**:
     - Identify dominant ingredients (e.g., "Salmon", "Asparagus").
-    - Estimate volume/weight (e.g., "150g", "1 cup").
+    - Estimate volume/weight (e.g., "150g", "1 cup") relative to the user's physical needs.
     - Match with Nutritionix/USDA database.
 4. **User Confirmation**: Present the identified items and estimated calories to the user for correction ("Snap & Correct").
 

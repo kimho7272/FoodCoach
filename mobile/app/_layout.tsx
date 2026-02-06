@@ -6,6 +6,10 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 
+import { LanguageProvider } from '../src/lib/i18n';
+import { TourProvider } from '../src/context/TourContext';
+import { TourOverlay } from '../src/components/TourOverlay';
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -24,13 +28,18 @@ export default function RootLayout() {
     if (!fontsLoaded) return null;
 
     return (
-        <SafeAreaProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="login" />
-                <Stack.Screen name="onboarding" />
-                <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-            </Stack>
-        </SafeAreaProvider>
+        <LanguageProvider>
+            <TourProvider>
+                <SafeAreaProvider>
+                    <Stack screenOptions={{ headerShown: false }}>
+                        <Stack.Screen name="index" />
+                        <Stack.Screen name="login" />
+                        <Stack.Screen name="onboarding" />
+                        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                    </Stack>
+                    <TourOverlay />
+                </SafeAreaProvider>
+            </TourProvider>
+        </LanguageProvider>
     );
 }
