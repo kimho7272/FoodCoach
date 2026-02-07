@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Camera as CameraIcon, RotateCcw, Check, X, Flame, Zap, BarChart2 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { analyzeMealImage, AnalysisResult } from '../../src/api/vision_api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../src/lib/supabase';
@@ -20,6 +20,39 @@ export default function AnalysisScreen() {
     const cameraRef = useRef<any>(null);
     const [selectedMealType, setSelectedMealType] = useState<AnalysisResult['category']>('Snack');
     const [logging, setLogging] = useState(false);
+    const params = useLocalSearchParams();
+
+    useEffect(() => {
+        if (params.imageUri && params.imageBase64) {
+            const uri = params.imageUri as string;
+            const base64 = params.imageBase64 as string;
+            setPhoto({ uri, base64 });
+            // We use a small timeout to ensure the state is updated before analysis
+            // or we can call handleAnalyze directly with the data
+            analyzeDirectly(base64);
+        }
+    }, [params.imageUri, params.imageBase64]);
+
+    const analyzeDirectly = async (base64: string) => {
+        setAnalyzing(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            let userProfile = undefined;
+            if (user) {
+                const { data: profile } = await supabase.from('profiles').select('height, weight').eq('id', user.id).single();
+                if (profile) userProfile = { height: profile.height, weight: profile.weight };
+            }
+
+            const data = await analyzeMealImage(base64, userProfile);
+            setResult(data);
+            setSelectedMealType(data.category);
+        } catch (error) {
+            console.error('Analysis Error:', error);
+            Alert.alert("Analysis Failed", "Could not identify the food. Please try again with a clearer photo.");
+        } finally {
+            setAnalyzing(false);
+        }
+    };
 
     if (!permission) {
         return (
@@ -53,35 +86,7 @@ export default function AnalysisScreen() {
 
     const handleAnalyze = async () => {
         if (!photo?.base64) return;
-        setAnalyzing(true);
-        try {
-            // Fetch user profile for height/weight context
-            const { data: { user } } = await supabase.auth.getUser();
-            let userProfile = undefined;
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('height, weight')
-                    .eq('id', user.id)
-                    .single();
-
-                if (profile) {
-                    userProfile = {
-                        height: profile.height,
-                        weight: profile.weight
-                    };
-                }
-            }
-
-            const data = await analyzeMealImage(photo.base64, userProfile);
-            setResult(data);
-            setSelectedMealType(data.category);
-        } catch (error) {
-            console.error('Analysis Error:', error);
-            Alert.alert("Analysis Failed", "Could not identify the food. Please try again with a clearer photo.");
-        } finally {
-            setAnalyzing(false);
-        }
+        await analyzeDirectly(photo.base64);
     };
 
     const handleLogMeal = async () => {

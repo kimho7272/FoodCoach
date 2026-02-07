@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, StyleSheet, BackHandler, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, StyleSheet, BackHandler, Alert, Modal, Platform } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -11,6 +11,8 @@ import { supabase } from '../../src/lib/supabase';
 import { useTranslation } from '../../src/lib/i18n';
 import { useTour } from '../../src/context/TourContext';
 import { TourTarget } from '../../src/components/TourTarget';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera as CameraIcon, Image as ImageIcon, X as CloseIcon } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +40,7 @@ export default function HomeScreen() {
     const [hourlyDistribution, setHourlyDistribution] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedMacro, setSelectedMacro] = useState<string | null>(null);
+    const [showLogOptions, setShowLogOptions] = useState(false);
 
     // Reanimated Shared Values
     const readinessProgress = useSharedValue(0);
@@ -113,7 +116,28 @@ export default function HomeScreen() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [userProfile?.target_calories, readinessProgress, qualityProgress, triangleScale, triangleRotation, hourlyDistribution]);
+
+    const handlePickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: 'images',
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.5,
+            base64: true,
+        });
+
+        if (!result.canceled && result.assets && result.assets[0].base64) {
+            setShowLogOptions(false);
+            router.push({
+                pathname: '/analysis',
+                params: {
+                    imageUri: result.assets[0].uri,
+                    imageBase64: result.assets[0].base64
+                }
+            });
+        }
+    };
 
     useFocusEffect(
         React.useCallback(() => {
@@ -429,7 +453,7 @@ export default function HomeScreen() {
                         <TourTarget id="log_food_area">
                             <TouchableOpacity
                                 style={styles.addMealCard}
-                                onPress={() => router.push('/(tabs)/analysis' as any)}
+                                onPress={() => setShowLogOptions(true)}
                             >
                                 <View style={styles.addIconCircle}>
                                     <Plus size={24} color="#64748b" />
@@ -509,6 +533,60 @@ export default function HomeScreen() {
                                     );
                                 })}
                         </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* Selection Modal for Log Meal */}
+            <Modal
+                visible={showLogOptions}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowLogOptions(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowLogOptions(false)}
+                >
+                    <View style={[styles.modalContent, { minHeight: 0, paddingBottom: Platform.OS === 'ios' ? 40 : 24 }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{t('logMeal')}</Text>
+                            <TouchableOpacity onPress={() => setShowLogOptions(false)} style={styles.closeBtn}>
+                                <CloseIcon size={24} color="#64748b" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={{ gap: 16, marginTop: 10 }}>
+                            <TouchableOpacity
+                                style={styles.selectionBtn}
+                                onPress={() => {
+                                    setShowLogOptions(false);
+                                    router.push('/analysis');
+                                }}
+                            >
+                                <View style={[styles.selectionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                                    <CameraIcon size={24} color="#10b981" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.selectionTitle}>{t('takePhoto')}</Text>
+                                    <Text style={styles.selectionDesc}>{language === 'Korean' ? '카메라로 식단을 촬영하여 분석합니다' : 'Take a photo of your meal to analyze'}</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.selectionBtn}
+                                onPress={handlePickImage}
+                            >
+                                <View style={[styles.selectionIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                                    <ImageIcon size={24} color="#3b82f6" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.selectionTitle}>{t('chooseGallery')}</Text>
+                                    <Text style={styles.selectionDesc}>{language === 'Korean' ? '갤러리에서 사진을 선택하여 분석합니다' : 'Select a photo from your library'}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </TouchableOpacity>
             </Modal>
@@ -621,5 +699,32 @@ const styles = StyleSheet.create({
     breakdownName: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
     breakdownTime: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
     breakdownValue: { fontSize: 18, fontWeight: '800', color: '#10b981' },
+    selectionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        backgroundColor: '#f8fafc',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        gap: 16,
+    },
+    selectionIcon: {
+        width: 52,
+        height: 52,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    selectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1e293b',
+    },
+    selectionDesc: {
+        fontSize: 12,
+        color: '#64748b',
+        marginTop: 2,
+    },
 });
 
