@@ -11,6 +11,8 @@ import { supabase } from '../../src/lib/supabase';
 import { getMealLogs, getWeeklyStats } from '../../src/lib/meal_service';
 import { useTranslation } from '../../src/lib/i18n';
 
+import { TourTarget } from '../../src/components/TourTarget';
+
 const { width } = Dimensions.get('window');
 
 const GlassCard = ({ children, style }: { children: React.ReactNode, style?: any }) => (
@@ -167,25 +169,27 @@ export default function StatsScreen() {
                 </View>
 
                 {/* Main Dynamic Highlight Card */}
-                <LinearGradient
-                    colors={highlight.colors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{ borderRadius: 32, padding: 24, marginBottom: 24, shadowColor: highlight.colors[0], shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 }}
-                >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 16 }}>
-                            {highlight.icon}
+                <TourTarget id="stats_highlight">
+                    <LinearGradient
+                        colors={highlight.colors}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{ borderRadius: 32, padding: 24, marginBottom: 24, shadowColor: highlight.colors[0], shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 }}
+                    >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 16 }}>
+                                {highlight.icon}
+                            </View>
+                            <View style={{ alignItems: 'flex-end' }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>{highlight.title}</Text>
+                                <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>{highlight.value}</Text>
+                            </View>
                         </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' }}>{highlight.title}</Text>
-                            <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>{highlight.value}</Text>
-                        </View>
-                    </View>
-                    <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold', lineHeight: 28 }}>
-                        {highlight.message}
-                    </Text>
-                </LinearGradient>
+                        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold', lineHeight: 28 }}>
+                            {highlight.message}
+                        </Text>
+                    </LinearGradient>
+                </TourTarget>
 
                 <View style={{ flexDirection: 'row', gap: 16, marginBottom: 24 }}>
                     {/* Health Score Trend - Clickable for details */}
@@ -193,34 +197,36 @@ export default function StatsScreen() {
                         style={{ flex: 1 }}
                         onPress={() => router.push('/health_details')}
                     >
-                        <GlassCard>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' }}>{t('healthTrend')}</Text>
-                                <TrendingUp color="#10b981" size={14} />
-                            </View>
-                            <View style={{ height: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                                {weeklyData.trends.length > 0 ? (
-                                    weeklyData.trends.map((day: any, i: number) => (
-                                        <View key={i} style={{ alignItems: 'center' }}>
-                                            <View style={{
-                                                width: 8,
-                                                height: `${Math.max(day.avgScore * 10, 5)}%`,
-                                                backgroundColor: i === weeklyData.trends.length - 1 ? '#10b981' : 'rgba(16, 185, 129, 0.2)',
-                                                borderRadius: 4
-                                            }} />
-                                            <Text style={{ color: '#64748b', fontSize: 8, marginTop: 4 }}>{day.label}</Text>
-                                        </View>
-                                    ))
-                                ) : (
-                                    [4, 6, 8, 5, 9, 7, 8].map((v, i) => (
-                                        <View key={i} style={{ width: 8, height: `${v * 10}%`, backgroundColor: 'rgba(148, 163, 184, 0.1)', borderRadius: 4 }} />
-                                    ))
-                                )}
-                            </View>
-                            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: 12 }}>
-                                {weeklyData.trends.length > 3 ? t('detailedAnalysis') : t('stabilizing')}
-                            </Text>
-                        </GlassCard>
+                        <TourTarget id="stats_trend">
+                            <GlassCard>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' }}>{t('healthTrend')}</Text>
+                                    <TrendingUp color="#10b981" size={14} />
+                                </View>
+                                <View style={{ height: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                                    {weeklyData.trends.length > 0 ? (
+                                        weeklyData.trends.map((day: any, i: number) => (
+                                            <View key={i} style={{ alignItems: 'center' }}>
+                                                <View style={{
+                                                    width: 8,
+                                                    height: `${Math.max(day.avgScore * 10, 5)}%`,
+                                                    backgroundColor: i === weeklyData.trends.length - 1 ? '#10b981' : 'rgba(16, 185, 129, 0.2)',
+                                                    borderRadius: 4
+                                                }} />
+                                                <Text style={{ color: '#64748b', fontSize: 8, marginTop: 4 }}>{day.label}</Text>
+                                            </View>
+                                        ))
+                                    ) : (
+                                        [4, 6, 8, 5, 9, 7, 8].map((v, i) => (
+                                            <View key={i} style={{ width: 8, height: `${v * 10}%`, backgroundColor: 'rgba(148, 163, 184, 0.1)', borderRadius: 4 }} />
+                                        ))
+                                    )}
+                                </View>
+                                <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: 12 }}>
+                                    {weeklyData.trends.length > 3 ? t('detailedAnalysis') : t('stabilizing')}
+                                </Text>
+                            </GlassCard>
+                        </TourTarget>
                     </TouchableOpacity>
 
                     {/* Diversity Meter - Clickable for details */}
@@ -228,24 +234,26 @@ export default function StatsScreen() {
                         style={{ flex: 1 }}
                         onPress={() => router.push('/diversity_details')}
                     >
-                        <GlassCard>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' }}>{t('diversity')}</Text>
-                                <Zap color="#3b82f6" size={14} />
-                            </View>
-                            <View style={{ alignItems: 'center', justifyContent: 'center', height: 100 }}>
-                                <Svg width={80} height={80}>
-                                    <Circle cx={40} cy={40} r={35} stroke="rgba(255,255,255,0.05)" strokeWidth={8} fill="none" />
-                                    <Circle
-                                        cx={40} cy={40} r={35} stroke="#3b82f6" strokeWidth={8} fill="none"
-                                        strokeDasharray={220} strokeDashoffset={220 * (1 - Math.min(weeklyData.diversity / 20, 1))}
-                                        strokeLinecap="round"
-                                    />
-                                </Svg>
-                                <Text style={{ position: 'absolute', color: 'white', fontWeight: 'bold', fontSize: 20 }}>{weeklyData.diversity}</Text>
-                            </View>
-                            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: 12, textAlign: 'center' }}>{t('uniqueItems')}</Text>
-                        </GlassCard>
+                        <TourTarget id="stats_diversity">
+                            <GlassCard>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' }}>{t('diversity')}</Text>
+                                    <Zap color="#3b82f6" size={14} />
+                                </View>
+                                <View style={{ alignItems: 'center', justifyContent: 'center', height: 100 }}>
+                                    <Svg width={80} height={80}>
+                                        <Circle cx={40} cy={40} r={35} stroke="rgba(255,255,255,0.05)" strokeWidth={8} fill="none" />
+                                        <Circle
+                                            cx={40} cy={40} r={35} stroke="#3b82f6" strokeWidth={8} fill="none"
+                                            strokeDasharray={220} strokeDashoffset={220 * (1 - Math.min(weeklyData.diversity / 20, 1))}
+                                            strokeLinecap="round"
+                                        />
+                                    </Svg>
+                                    <Text style={{ position: 'absolute', color: 'white', fontWeight: 'bold', fontSize: 20 }}>{weeklyData.diversity}</Text>
+                                </View>
+                                <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: 12, textAlign: 'center' }}>{t('uniqueItems')}</Text>
+                            </GlassCard>
+                        </TourTarget>
                     </TouchableOpacity>
                 </View>
 

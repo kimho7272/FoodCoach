@@ -13,7 +13,8 @@ import Animated, {
 import { Apple, Fingerprint } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { signInWithSocial } from '../src/lib/auth_service';
-import { Alert, ActivityIndicator } from 'react-native';
+import { ActivityIndicator } from 'react-native';
+import { useAlert } from '../src/context/AlertContext';
 
 const { width, height } = Dimensions.get('window');
 const fruitCharacter = require('../assets/applei.png');
@@ -22,6 +23,7 @@ const kakaoLogo = require('../assets/kakao_logo.png');
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { showAlert } = useAlert();
     const bobValue = useSharedValue(0);
     const [isLoading, setIsLoading] = React.useState(false);
 
@@ -45,7 +47,7 @@ export default function LoginScreen() {
         const { user, error } = await signInWithSocial(provider);
         if (error) {
             setIsLoading(false);
-            Alert.alert('Login Failed', error.message);
+            showAlert({ title: 'Login Failed', message: error.message, type: 'error' });
         } else if (user) {
             // Once user is authenticated, index.tsx will also handle routing
             // but we call replace here for immediate feedback if index hasn't caught up

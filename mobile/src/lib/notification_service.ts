@@ -30,10 +30,9 @@ export const registerForPushNotificationsAsync = async () => {
 };
 
 export const scheduleLocalNotification = async (title: string, body: string, trigger: any) => {
-    console.log('Notifications (Stub):', title, body);
-    // In a real build, we would use Notifications.scheduleNotificationAsync here
+    // console.log('Notifications (Stub):', title, body);
 };
 
 export const cancelAllNotifications = async () => {
-    console.log('Notifications (Stub): Cancel all');
+    // console.log('Notifications (Stub): Cancel all');
 };

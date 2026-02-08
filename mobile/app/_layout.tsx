@@ -2,15 +2,17 @@ import '../global.css';
 import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { View } from 'react-native';
+import { View, LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 
 import { LanguageProvider } from '../src/lib/i18n';
 import { TourProvider } from '../src/context/TourContext';
+import { AlertProvider } from '../src/context/AlertContext';
 import { TourOverlay } from '../src/components/TourOverlay';
 
 SplashScreen.preventAutoHideAsync();
+LogBox.ignoreLogs(['SafeAreaView has been deprecated']);
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -29,17 +31,19 @@ export default function RootLayout() {
 
     return (
         <LanguageProvider>
-            <TourProvider>
-                <SafeAreaProvider>
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="index" />
-                        <Stack.Screen name="login" />
-                        <Stack.Screen name="onboarding" />
-                        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-                    </Stack>
-                    <TourOverlay />
-                </SafeAreaProvider>
-            </TourProvider>
+            <AlertProvider>
+                <TourProvider>
+                    <SafeAreaProvider>
+                        <Stack screenOptions={{ headerShown: false }}>
+                            <Stack.Screen name="index" />
+                            <Stack.Screen name="login" />
+                            <Stack.Screen name="onboarding" />
+                            <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                        </Stack>
+                        <TourOverlay />
+                    </SafeAreaProvider>
+                </TourProvider>
+            </AlertProvider>
         </LanguageProvider>
     );
 }

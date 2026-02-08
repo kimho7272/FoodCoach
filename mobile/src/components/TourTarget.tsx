@@ -4,7 +4,7 @@ import { useTour } from '../context/TourContext';
 
 interface TourTargetProps extends ViewProps {
     id: string;
-    children: React.ReactNode;
+    children?: React.ReactNode;
 }
 
 export const TourTarget: React.FC<TourTargetProps> = ({ id, children, style, ...props }) => {

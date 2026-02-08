@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions, Alert, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName } from '../src/lib/meal_service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAlert } from '../src/context/AlertContext';
 
 const { width } = Dimensions.get('window');
 
@@ -15,7 +16,9 @@ const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
 export default function MealHistoryScreen() {
     const router = useRouter();
-    const { date, highlightId } = useLocalSearchParams();
+    const { showAlert } = useAlert();
+    const params = useLocalSearchParams();
+    const { date, highlightId } = params;
 
     // Initialize selectedDate from params if present
     const [selectedDate, setSelectedDate] = useState(() => {
@@ -123,19 +126,22 @@ export default function MealHistoryScreen() {
         if (!force && hasScrolledRef.current === targetId) return;
 
         const yPos = itemPositions.current.get(targetId);
-        if (yPos !== undefined && yPos > 0) {
+        // Changed to >= 0 to include the first item
+        if (yPos !== undefined && yPos >= 0) {
             const screenHeight = Dimensions.get('window').height;
-            // Center the card: Item Y - (Screen/2) + Header Offset correction
-            const targetOffset = Math.max(0, yPos - (screenHeight / 2) + 160);
+            // Center the card: Item Y - (Screen/2) + Offset for Header/DateSelector
+            // A higher offset (like 250) accounts for the top UI elements
+            const cardHeight = 250; // Estimated card height
+            const targetOffset = Math.max(0, yPos - (screenHeight / 2) + (cardHeight / 2) + 150);
 
             mainScrollRef.current.scrollTo({ y: targetOffset, animated: true });
             hasScrolledRef.current = targetId;
             return true;
         }
 
-        if (scrollAttempts.current < 15) {
+        if (scrollAttempts.current < 20) {
             scrollAttempts.current++;
-            setTimeout(() => performScroll(), 100);
+            setTimeout(() => performScroll(), 150);
         }
         return false;
     }, [loading, highlightId]);
@@ -173,25 +179,20 @@ export default function MealHistoryScreen() {
     };
 
     const handleDelete = (id: string) => {
-        Alert.alert(
-            "Delete Meal",
-            "Are you sure you want to delete this meal record?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        const { error } = await deleteMealLog(id);
-                        if (!error) {
-                            setLogs(logs.filter(l => l.id !== id));
-                        } else {
-                            Alert.alert("Error", "Failed to delete meal.");
-                        }
-                    }
+        showAlert({
+            title: "Delete Meal",
+            message: "Are you sure you want to delete this meal record?",
+            type: 'confirm',
+            confirmText: "Delete",
+            onConfirm: async () => {
+                const { error } = await deleteMealLog(id);
+                if (!error) {
+                    setLogs(logs.filter(l => l.id !== id));
+                } else {
+                    showAlert({ title: "Error", message: "Failed to delete meal.", type: 'error' });
                 }
-            ]
-        );
+            }
+        });
     };
 
     const handleUpdateCategory = async (id: string, newCategory: any) => {
@@ -200,7 +201,7 @@ export default function MealHistoryScreen() {
         if (!error) {
             setLogs(prev => prev.map(l => l.id === id ? { ...l, meal_type: newCategory } : l));
         } else {
-            Alert.alert("Error", "Failed to update category.");
+            showAlert({ title: "Error", message: "Failed to update category.", type: 'error' });
         }
         setUpdatingId(null);
         setShowCategoryPicker(null);
@@ -216,7 +217,7 @@ export default function MealHistoryScreen() {
         if (!error) {
             setLogs(prev => prev.map(l => l.id === id ? { ...l, food_name: newName } : l));
         } else {
-            Alert.alert("Error", "Failed to update name.");
+            showAlert({ title: "Error", message: "Failed to update name.", type: 'error' });
         }
         setEditingId(null);
     };
@@ -228,13 +229,14 @@ export default function MealHistoryScreen() {
     };
 
     const MealCard = ({ item, index }: { item: any, index: number }) => {
-        const isHighlighted = item.id === highlightId;
+        const isHighlighted = highlightId && String(item.id) === String(highlightId);
 
         return (
             <View
                 onLayout={(e) => {
-                    itemPositions.current.set(item.id, e.nativeEvent.layout.y);
-                    if (String(item.id) === String(highlightId)) {
+                    const y = e.nativeEvent.layout.y;
+                    itemPositions.current.set(String(item.id), y);
+                    if (highlightId && String(item.id) === String(highlightId)) {
                         performScroll(true);
                     }
                 }}
@@ -284,7 +286,7 @@ export default function MealHistoryScreen() {
                             <Image source={{ uri: item.image_url }} style={styles.mealImage} />
                         ) : (
                             <View style={styles.imagePlaceholder}>
-                                <Text style={{ fontSize: 32 }}>≡ƒì▒</Text>
+                                <Text style={{ fontSize: 32 }}>🍱</Text>
                             </View>
                         )}
                     </View>

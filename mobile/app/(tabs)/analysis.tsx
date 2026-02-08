@@ -6,30 +6,36 @@ import { Camera as CameraIcon, RotateCcw, Check, X, Flame, Zap, BarChart2 } from
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { analyzeMealImage, AnalysisResult } from '../../src/api/vision_api';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { supabase } from '../../src/lib/supabase';
 import { uploadMealImage, saveMealLog } from '../../src/lib/meal_service';
+import { useAlert } from '../../src/context/AlertContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function AnalysisScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const { showAlert } = useAlert();
     const [permission, requestPermission] = useCameraPermissions();
-    const [photo, setPhoto] = useState<{ uri: string, base64: string } | null>(null);
+
+    // Initialize photo from params if available to avoid flicker
+    const [photo, setPhoto] = useState<{ uri: string, base64: string } | null>(
+        params.imageUri && params.imageBase64
+            ? { uri: params.imageUri as string, base64: params.imageBase64 as string }
+            : null
+    );
+
     const [analyzing, setAnalyzing] = useState(false);
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const cameraRef = useRef<any>(null);
     const [selectedMealType, setSelectedMealType] = useState<AnalysisResult['category']>('Snack');
     const [logging, setLogging] = useState(false);
-    const params = useLocalSearchParams();
 
     useEffect(() => {
-        if (params.imageUri && params.imageBase64) {
-            const uri = params.imageUri as string;
-            const base64 = params.imageBase64 as string;
-            setPhoto({ uri, base64 });
-            // We use a small timeout to ensure the state is updated before analysis
-            // or we can call handleAnalyze directly with the data
-            analyzeDirectly(base64);
+        // If we have params but analysis hasn't started
+        if (params.imageUri && params.imageBase64 && !result && !analyzing) {
+            analyzeDirectly(params.imageBase64 as string);
         }
     }, [params.imageUri, params.imageBase64]);
 
@@ -48,7 +54,11 @@ export default function AnalysisScreen() {
             setSelectedMealType(data.category);
         } catch (error) {
             console.error('Analysis Error:', error);
-            Alert.alert("Analysis Failed", "Could not identify the food. Please try again with a clearer photo.");
+            showAlert({
+                title: "Analysis Failed",
+                message: "Could not identify the food. Please try again with a clearer photo.",
+                type: 'error'
+            });
         } finally {
             setAnalyzing(false);
         }
@@ -115,12 +125,20 @@ export default function AnalysisScreen() {
 
             if (error) throw error;
 
-            Alert.alert("Success", "Meal logged to your dashboard!");
+            showAlert({
+                title: "Success",
+                message: "Meal logged to your dashboard!",
+                type: 'success'
+            });
             reset();
             router.push('/(tabs)');
         } catch (error: any) {
             console.error(error);
-            Alert.alert("Logging Failed", error.message || "Failed to save meal log.");
+            showAlert({
+                title: "Logging Failed",
+                message: error.message || "Failed to save meal log.",
+                type: 'error'
+            });
         } finally {
             setLogging(false);
         }
@@ -173,12 +191,17 @@ export default function AnalysisScreen() {
                     <Image source={{ uri: photo.uri }} style={styles.fullScreen} />
 
                     {(analyzing || logging) && (
-                        <View style={styles.analyzingOverlay}>
-                            <ActivityIndicator size="large" color="#10b981" />
-                            <Text style={styles.analyzingText}>
-                                {logging ? 'SAVING DATA...' : 'AI ANALYZING MEAL...'}
-                            </Text>
-                        </View>
+                        <BlurView intensity={20} tint="dark" style={styles.analyzingOverlay}>
+                            <View style={styles.loaderContainer}>
+                                <ActivityIndicator size="large" color="#10b981" />
+                                <View style={styles.analyzingTextWrapper}>
+                                    <Text style={styles.analyzingText}>
+                                        {logging ? 'SAVING DATA...' : 'AI ANALYZING MEAL...'}
+                                    </Text>
+                                    {!logging && <Text style={styles.analyzingSubText}>Identifying nutrients & portion size</Text>}
+                                </View>
+                            </View>
+                        </BlurView>
                     )}
 
                     {result && !logging ? (
@@ -311,8 +334,11 @@ const styles = StyleSheet.create({
     shutterBtn: { width: 80, height: 80, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 40, borderWidth: 4, borderColor: 'white', alignItems: 'center', justifyContent: 'center' },
     shutterInner: { width: 64, height: 64, backgroundColor: 'white', borderRadius: 32 },
     fullScreen: { flex: 1 },
-    analyzingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-    analyzingText: { color: 'white', marginTop: 24, fontWeight: 'bold', fontSize: 18, letterSpacing: 1.5 },
+    analyzingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' },
+    loaderContainer: { backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: 40, borderRadius: 32, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    analyzingTextWrapper: { alignItems: 'center', marginTop: 24 },
+    analyzingText: { color: 'white', fontWeight: 'bold', fontSize: 18, letterSpacing: 1.5, textAlign: 'center' },
+    analyzingSubText: { color: '#94a3b8', fontSize: 12, marginTop: 8, fontWeight: '500' },
     resultCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#1e293b', padding: 32, paddingBottom: Platform.OS === 'ios' ? 44 : 32, borderTopLeftRadius: 40, borderTopRightRadius: 40, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
     resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
     categoryBadge: { backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginBottom: 4 },

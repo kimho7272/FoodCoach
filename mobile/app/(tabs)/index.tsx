@@ -13,6 +13,7 @@ import { useTour } from '../../src/context/TourContext';
 import { TourTarget } from '../../src/components/TourTarget';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera as CameraIcon, Image as ImageIcon, X as CloseIcon } from 'lucide-react-native';
+import { EditProfileModal } from '../../src/components/EditProfileModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,6 +42,8 @@ export default function HomeScreen() {
     const [loading, setLoading] = useState(true);
     const [selectedMacro, setSelectedMacro] = useState<string | null>(null);
     const [showLogOptions, setShowLogOptions] = useState(false);
+    const [isEditProfileModalVisible, setIsEditProfileModalVisible] = useState(false);
+    const [streak, setStreak] = useState(0);
 
     // Reanimated Shared Values
     const readinessProgress = useSharedValue(0);
@@ -60,8 +63,36 @@ export default function HomeScreen() {
                     .select('*')
                     .eq('user_id', user.id)
                     .order('created_at', { ascending: false });
-
                 setLogs(mealLogs || []);
+
+                // Calculate Streak
+                if (mealLogs && mealLogs.length > 0) {
+                    const uniqueDates = Array.from(new Set(mealLogs.map(log =>
+                        new Date(log.created_at).toLocaleDateString('en-CA')
+                    )));
+
+                    let currentStreak = 0;
+                    const today = new Date();
+                    const todayStr = today.toLocaleDateString('en-CA');
+
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toLocaleDateString('en-CA');
+
+                    // If not logged today AND not logged yesterday, streak is broken
+                    if (!uniqueDates.includes(todayStr) && !uniqueDates.includes(yesterdayStr)) {
+                        setStreak(0);
+                    } else {
+                        let checkDate = uniqueDates.includes(todayStr) ? today : yesterday;
+                        while (uniqueDates.includes(checkDate.toLocaleDateString('en-CA'))) {
+                            currentStreak++;
+                            checkDate.setDate(checkDate.getDate() - 1);
+                        }
+                        setStreak(currentStreak);
+                    }
+                } else {
+                    setStreak(0);
+                }
 
                 // Calculate today's totals
                 const today = new Date().toDateString();
@@ -116,13 +147,12 @@ export default function HomeScreen() {
         } finally {
             setLoading(false);
         }
-    }, [userProfile?.target_calories, readinessProgress, qualityProgress, triangleScale, triangleRotation, hourlyDistribution]);
+    }, [userProfile?.target_calories, readinessProgress, qualityProgress, triangleScale, triangleRotation]);
 
     const handlePickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: 'images',
             allowsEditing: true,
-            aspect: [4, 3],
             quality: 0.5,
             base64: true,
         });
@@ -233,24 +263,31 @@ export default function HomeScreen() {
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.userInfo}>
-                            <View style={styles.avatarContainer}>
-                                {userProfile?.avatar_url ? (
-                                    <Image source={{ uri: userProfile.avatar_url }} style={styles.avatar as any} />
-                                ) : (
-                                    <Text style={styles.avatarEmoji}>👦</Text>
-                                )}
-                            </View>
+                            <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.8}>
+                                <View style={styles.avatarContainer}>
+                                    {userProfile?.avatar_url ? (
+                                        <Image source={{ uri: userProfile.avatar_url }} style={styles.avatar as any} />
+                                    ) : (
+                                        <Text style={styles.avatarEmoji}>👦</Text>
+                                    )}
+                                </View>
+                            </TouchableOpacity>
                             <View style={styles.userTextContainer}>
                                 <Text style={styles.dateText}>{new Date().toLocaleDateString(language === 'Korean' ? 'ko-KR' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Text>
-                                <Text style={styles.greetingText}>
-                                    {t('hello')}, {userProfile?.nickname || userProfile?.full_name?.split(' ')[0] || (language === 'Korean' ? '친구' : 'Friend')}{language === 'Korean' ? '님' : ''}!
-                                </Text>
+                                <TouchableOpacity
+                                    onPress={() => setIsEditProfileModalVisible(true)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.greetingText}>
+                                        {t('hello')}, {userProfile?.nickname || userProfile?.full_name?.split(' ')[0] || (language === 'Korean' ? '친구' : 'Friend')}{language === 'Korean' ? '님' : ''}!
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
                         <BlurView intensity={80} tint="light" style={styles.streakBadge}>
                             <Text style={styles.streakLabel}>🔥 {t('streak')}</Text>
                             <View style={styles.streakCountBox}>
-                                <Text style={styles.streakCount}>{logs.length > 0 ? '3' : '0'}</Text>
+                                <Text style={styles.streakCount}>{streak}</Text>
                             </View>
                         </BlurView>
                     </View>
@@ -345,7 +382,8 @@ export default function HomeScreen() {
                                     </View>
                                 </View>
 
-                                <TourTarget id="progress_rings" style={[styles.ringContainer, { padding: 10 }]}>
+                                <View style={[styles.ringContainer, { padding: 10 }]}>
+                                    <TourTarget id="progress_rings" style={StyleSheet.absoluteFill} />
                                     <Svg width={140} height={140} viewBox="0 0 140 140">
                                         <Defs>
                                             <SvgGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -385,20 +423,19 @@ export default function HomeScreen() {
                                         />
 
                                         {/* Center Macro Triangle */}
-                                        <TourTarget id="macro_triangle">
-                                            <AnimatedG animatedProps={animatedGProps}>
-                                                <Polygon
-                                                    points="0,-18 16,10 -16,10"
-                                                    fill="#1e293b"
-                                                    opacity={0.1}
-                                                />
-                                                <Circle r="4" fill="#fb923c" cx="0" cy="-18" /> {/* Carbs */}
-                                                <Circle r="4" fill="#10b981" cx="16" cy="10" />  {/* Protein */}
-                                                <Circle r="4" fill="#6366f1" cx="-16" cy="10" /> {/* Fat */}
-                                            </AnimatedG>
-                                        </TourTarget>
+                                        <AnimatedG animatedProps={animatedGProps}>
+                                            <Polygon
+                                                points="0,-18 16,10 -16,10"
+                                                fill="#1e293b"
+                                                opacity={0.1}
+                                            />
+                                            <Circle r="4" fill="#fb923c" cx="0" cy="-18" />
+                                            <Circle r="4" fill="#10b981" cx="16" cy="10" />
+                                            <Circle r="4" fill="#6366f1" cx="-16" cy="10" />
+                                        </AnimatedG>
                                     </Svg>
-                                </TourTarget>
+                                    <TourTarget id="macro_triangle" style={{ position: 'absolute', width: 40, height: 40, top: 60, left: 60 }} />
+                                </View>
                             </Animated.View>
                         </TouchableOpacity>
                     </GlassCard>
@@ -463,7 +500,21 @@ export default function HomeScreen() {
                         </TourTarget>
 
                         {logs.slice(0, 5).map((meal, idx) => (
-                            <View key={meal.id} style={styles.mealCard}>
+                            <TouchableOpacity
+                                key={meal.id}
+                                style={styles.mealCard}
+                                onPress={() => {
+                                    const d = new Date(meal.created_at);
+                                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    router.push({
+                                        pathname: '/meal_history',
+                                        params: {
+                                            date: dateStr,
+                                            highlightId: meal.id
+                                        }
+                                    } as any);
+                                }}
+                            >
                                 <View style={styles.mealCardContent}>
                                     <View style={styles.mealInfo}>
                                         <Text style={styles.mealType}>{meal.meal_type}</Text>
@@ -479,7 +530,7 @@ export default function HomeScreen() {
                                         )}
                                     </View>
                                 </View>
-                            </View>
+                            </TouchableOpacity>
                         ))}
                     </ScrollView>
 
@@ -521,7 +572,22 @@ export default function HomeScreen() {
                                     if (parseInt(value) === 0) return null;
 
                                     return (
-                                        <View key={log.id} style={styles.breakdownItem}>
+                                        <TouchableOpacity
+                                            key={log.id}
+                                            style={styles.breakdownItem}
+                                            onPress={() => {
+                                                setSelectedMacro(null);
+                                                const d = new Date(log.created_at);
+                                                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                                router.push({
+                                                    pathname: '/meal_history',
+                                                    params: {
+                                                        date: dateStr,
+                                                        highlightId: log.id
+                                                    }
+                                                } as any);
+                                            }}
+                                        >
                                             <View style={styles.breakdownLeft}>
                                                 <Text style={styles.breakdownName}>{log.food_name}</Text>
                                                 <Text style={styles.breakdownTime}>
@@ -529,7 +595,7 @@ export default function HomeScreen() {
                                                 </Text>
                                             </View>
                                             <Text style={styles.breakdownValue}>{parseInt(value) || 0}g</Text>
-                                        </View>
+                                        </TouchableOpacity>
                                     );
                                 })}
                         </ScrollView>
@@ -590,6 +656,12 @@ export default function HomeScreen() {
                     </View>
                 </TouchableOpacity>
             </Modal>
+
+            <EditProfileModal
+                visible={isEditProfileModalVisible}
+                onClose={() => setIsEditProfileModalVisible(false)}
+                onProfileUpdated={fetchData}
+            />
         </View>
     );
 }

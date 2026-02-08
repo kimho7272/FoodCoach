@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions, Platform, Modal, TextInput, Alert, ActivityIndicator, Switch, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions, Platform, Modal, TextInput, ActivityIndicator, Switch, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Settings, Bell, LogOut, ChevronRight, Award, ShieldCheck, Heart, Zap, Save, X, Globe, Smartphone, Camera, Lock, Trash2, Key, Info } from 'lucide-react-native';
+import { User, Settings, Bell, LogOut, ChevronRight, Award, ShieldCheck, Heart, Zap, Save, X, Globe, Smartphone, Camera, Lock, Trash2, Key, Info, Watch } from 'lucide-react-native';
 import { supabase } from '../../src/lib/supabase';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getPreferences, savePreferences, runProactiveAgent, UserPreferences } from '../../src/lib/proactive_agent';
 import { useTranslation } from '../../src/lib/i18n';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,7 +13,10 @@ import { decode } from 'base64-arraybuffer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useTour } from '../../src/context/TourContext';
+import { useAlert } from '../../src/context/AlertContext';
 import { TourTarget } from '../../src/components/TourTarget';
+import { EditProfileModal } from '../../src/components/EditProfileModal';
+import { HealthSyncModal } from '../../src/components/HealthSyncModal';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
@@ -53,25 +56,17 @@ const GlassItem = ({ icon, title, badge, onPress, isLast = false }: any) => (
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const { showAlert } = useAlert();
     const [userProfile, setUserProfile] = useState<any>(null);
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-    const [editName, setEditName] = useState('');
-    const [editNickname, setEditNickname] = useState('');
-    const [editHeight, setEditHeight] = useState('');
-    const [editWeight, setEditWeight] = useState('');
-    const [heightVal, setHeightVal] = useState(170);
-    const [weightVal, setWeightVal] = useState(70);
-    const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
-    const [weightUnit, setWeightUnit] = useState<'kg' | 'lb'>('kg');
-    const [feet, setFeet] = useState(5);
-    const [inches, setInches] = useState(7);
-    const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
     const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
     const [isPrivacyModalVisible, setIsPrivacyModalVisible] = useState(false);
     const [isFuelingModalVisible, setIsFuelingModalVisible] = useState(false);
     const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
+    const [isHealthModalVisible, setIsHealthModalVisible] = useState(false);
     const [strategy, setStrategy] = useState<FuelingStrategy>(DEFAULT_STRATEGY);
     const [hapticsEnabled, setHapticsEnabled] = useState(true);
     const { language, setLanguage, t } = useTranslation();
@@ -88,15 +83,6 @@ export default function ProfileScreen() {
         if (user) {
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
             setUserProfile(profile);
-            setEditName(profile.full_name || '');
-            setEditNickname(profile.nickname || '');
-
-            const h = profile.height || 170;
-            const w = profile.weight || 70;
-            setHeightVal(h);
-            setWeightVal(w);
-            setEditHeight(String(h));
-            setEditWeight(String(w));
         }
     };
 
@@ -106,7 +92,11 @@ export default function ProfileScreen() {
         loadLanguage();
         loadStrategy();
         loadSettings();
-    }, []);
+
+        if (params.edit === 'true') {
+            setIsEditModalVisible(true);
+        }
+    }, [params.edit]);
 
     const loadSettings = async () => {
         try {
@@ -166,46 +156,49 @@ export default function ProfileScreen() {
         await runProactiveAgent();
     };
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        router.replace('/login');
+    const handleLogout = () => {
+        showAlert({
+            title: t('signOutTitle' as any) || 'Sign Out',
+            message: t('signOutConfirm' as any) || 'Are you sure you want to sign out?',
+            type: 'confirm',
+            confirmText: t('signOut' as any) || 'Sign Out',
+            onConfirm: async () => {
+                await supabase.auth.signOut();
+                router.replace('/login');
+            }
+        });
     };
 
     const handleDeleteAccount = async () => {
-        Alert.alert(
-            t('deleteConfirmTitle'),
-            t('deleteAccountWarning'),
-            [
-                { text: t('cancel'), style: 'cancel' },
-                {
-                    text: t('deleteConfirmBtn'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const { data: { user } } = await supabase.auth.getUser();
-                            if (!user) return;
+        showAlert({
+            title: t('deleteConfirmTitle' as any),
+            message: t('deleteAccountWarning' as any),
+            type: 'confirm',
+            confirmText: t('deleteConfirmBtn' as any),
+            onConfirm: async () => {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
 
-                            // Delete logs
-                            await supabase
-                                .from('food_logs')
-                                .delete()
-                                .eq('user_id', user.id);
+                    // Delete logs
+                    await supabase
+                        .from('food_logs')
+                        .delete()
+                        .eq('user_id', user.id);
 
-                            // Delete profile
-                            await supabase
-                                .from('profiles')
-                                .delete()
-                                .eq('id', user.id);
+                    // Delete profile
+                    await supabase
+                        .from('profiles')
+                        .delete()
+                        .eq('id', user.id);
 
-                            await supabase.auth.signOut();
-                            router.replace('/login');
-                        } catch (error: any) {
-                            Alert.alert(t('error'), error.message);
-                        }
-                    }
+                    await supabase.auth.signOut();
+                    router.replace('/login');
+                } catch (error: any) {
+                    showAlert({ title: t('error'), message: error.message, type: 'error' });
                 }
-            ]
-        );
+            }
+        });
     };
 
     const handleChangePassword = async () => {
@@ -213,9 +206,13 @@ export default function ProfileScreen() {
         if (user?.email) {
             const { error } = await supabase.auth.resetPasswordForEmail(user.email);
             if (error) {
-                Alert.alert(t('error'), error.message);
+                showAlert({ title: t('error'), message: error.message, type: 'error' });
             } else {
-                Alert.alert(t('success'), language === 'Korean' ? "비밀번호 재설정 이메일이 발송되었습니다." : "Password reset email sent!");
+                showAlert({
+                    title: t('success'),
+                    message: language === 'Korean' ? "비밀번호 재설정 이메일이 발송되었습니다." : "Password reset email sent!",
+                    type: 'success'
+                });
             }
         }
     };
@@ -223,7 +220,7 @@ export default function ProfileScreen() {
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission Rejected', 'We need access to your gallery to change your profile picture.');
+            showAlert({ title: 'Permission Rejected', message: 'We need access to your gallery to change your profile picture.', type: 'error' });
             return;
         }
 
@@ -268,48 +265,20 @@ export default function ProfileScreen() {
             if (updateError) throw updateError;
 
             await fetchProfile();
-            Alert.alert(t('success'), language === 'Korean' ? "프로필 사진이 업데이트되었습니다!" : "Profile picture updated!");
+            showAlert({
+                title: t('success'),
+                message: language === 'Korean' ? "프로필 사진이 업데이트되었습니다!" : "Profile picture updated!",
+                type: 'success'
+            });
         } catch (error: any) {
-            Alert.alert(t('failed'), error.message);
+            showAlert({ title: t('failed'), message: error.message, type: 'error' });
         } finally {
             setUploading(false);
         }
     };
 
-    const handleUpdateProfile = async () => {
-        if (!editName.trim()) {
-            Alert.alert(t('error'), language === 'Korean' ? "이름을 입력해주세요" : "Name cannot be empty");
-            return;
-        }
-
-        setSaving(true);
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("No user found");
-
-            const finalHeight = heightUnit === 'ft' ? Math.round((feet * 12 + inches) * 2.54) : heightVal;
-            const finalWeight = weightUnit === 'lb' ? Math.round(weightVal * 0.453592) : weightVal;
-
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    full_name: editName,
-                    nickname: editNickname,
-                    height: finalHeight,
-                    weight: finalWeight
-                })
-                .eq('id', user.id);
-
-            if (error) throw error;
-
-            await fetchProfile();
-            setIsEditModalVisible(false);
-            Alert.alert(t('success'), t('profileUpdated'));
-        } catch (error: any) {
-            Alert.alert(t('error'), error.message);
-        } finally {
-            setSaving(false);
-        }
+    const handleUpdateProfile = () => {
+        setIsEditModalVisible(true);
     };
 
     const calculateBMI = () => {
@@ -329,8 +298,12 @@ export default function ProfileScreen() {
     const bmiValue = calculateBMI();
     const bmiInfo = bmiValue ? getBMICategory(parseFloat(bmiValue)) : null;
 
-    const unitHeight = heightUnit === 'cm' ? (userProfile?.height || '—') : `${feet}'${inches}"`;
-    const unitWeight = weightUnit === 'kg' ? (userProfile?.weight || '—') : Math.round((userProfile?.weight || 0) * 2.20462);
+    const unitHeight = userProfile?.height ? `${userProfile.height}cm` : '—';
+    const unitWeight = userProfile?.weight ? `${userProfile.weight}kg` : '—';
+
+    const handleHealthLink = () => {
+        setIsHealthModalVisible(true);
+    };
 
     return (
         <View style={styles.container}>
@@ -385,12 +358,12 @@ export default function ProfileScreen() {
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
                                 <Text style={styles.statValue}>{unitHeight}</Text>
-                                <Text style={styles.statLabel}>{t('height')} ({heightUnit})</Text>
+                                <Text style={styles.statLabel}>{t('height')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
                                 <Text style={styles.statValue}>{unitWeight}</Text>
-                                <Text style={styles.statLabel}>{t('weight')} ({weightUnit})</Text>
+                                <Text style={styles.statLabel}>{t('weight')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
@@ -409,18 +382,6 @@ export default function ProfileScreen() {
                             onPress={() => setIsEditModalVisible(true)}
                         />
                         <GlassItem
-                            icon={<Bell size={20} color="#3b82f6" />}
-                            title={t('notifications')}
-                            badge={notifPrefs.lunch_enabled || notifPrefs.dinner_enabled ? t('active') : t('inactive')}
-                            onPress={() => setIsNotificationModalVisible(true)}
-                        />
-                        <GlassItem
-                            icon={<Globe size={20} color="#6366f1" />}
-                            title={t('language')}
-                            badge={language}
-                            onPress={() => setIsLanguageModalVisible(true)}
-                        />
-                        <GlassItem
                             icon={<ShieldCheck size={20} color="#6366f1" />}
                             title={t('privacySecurity')}
                             isLast
@@ -434,7 +395,7 @@ export default function ProfileScreen() {
                             icon={<Smartphone size={20} color="#10b981" />}
                             title={t('linkHealthApp')}
                             badge={t('beta')}
-                            onPress={() => Alert.alert(t('comingSoon'), "Apple Health & Google Fit integration is in progress.")}
+                            onPress={() => setIsHealthModalVisible(true)}
                         />
                         <GlassItem
                             icon={<Heart size={20} color="#ef4444" />}
@@ -462,164 +423,16 @@ export default function ProfileScreen() {
             </SafeAreaView>
 
             {/* Edit Profile Modal */}
-            <Modal
+            <EditProfileModal
                 visible={isEditModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setIsEditModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <BlurView intensity={90} tint="dark" style={styles.modalBlur}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>{t('editProfile')}</Text>
-                                <TouchableOpacity onPress={() => setIsEditModalVisible(false)}>
-                                    <X size={24} color="#94a3b8" />
-                                </TouchableOpacity>
-                            </View>
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>{t('fullName')}</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={editName}
-                                        onChangeText={setEditName}
-                                        placeholder={language === 'Korean' ? "이름을 입력하세요" : "Enter your name"}
-                                        placeholderTextColor="#64748b"
-                                    />
-                                </View>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>{t('nickname')}</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={editNickname}
-                                        onChangeText={setEditNickname}
-                                        placeholder={language === 'Korean' ? "닉네임을 입력하세요" : "Enter your nickname"}
-                                        placeholderTextColor="#64748b"
-                                    />
-                                </View>
+                onClose={() => setIsEditModalVisible(false)}
+                onProfileUpdated={fetchProfile}
+            />
 
-                                <View style={styles.inputGroup}>
-                                    <View style={styles.labelRow}>
-                                        <Text style={styles.inputLabel}>{t('height')}</Text>
-                                        <View style={styles.unitToggleRowInline}>
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    if (heightUnit === 'ft') {
-                                                        setHeightUnit('cm');
-                                                        const totalIn = feet * 12 + inches;
-                                                        setHeightVal(Math.round(totalIn * 2.54));
-                                                    }
-                                                }}
-                                                style={[styles.unitBtnSmall, heightUnit === 'cm' && styles.unitBtnActive]}
-                                            >
-                                                <Text style={[styles.unitBtnTextSmall, heightUnit === 'cm' && styles.unitBtnTextActive]}>cm</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    if (heightUnit === 'cm') {
-                                                        setHeightUnit('ft');
-                                                        const totalIn = heightVal / 2.54;
-                                                        setFeet(Math.floor(totalIn / 12));
-                                                        setInches(Math.round(totalIn % 12));
-                                                    }
-                                                }}
-                                                style={[styles.unitBtnSmall, heightUnit === 'ft' && styles.unitBtnActive]}
-                                            >
-                                                <Text style={[styles.unitBtnTextSmall, heightUnit === 'ft' && styles.unitBtnTextActive]}>ft/in</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-
-                                    {heightUnit === 'cm' ? (
-                                        <View style={styles.adjustmentRow}>
-                                            <TouchableOpacity onPress={() => setHeightVal(h => Math.max(1, h - 1))} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>-</Text></TouchableOpacity>
-                                            <Text style={styles.adjustValue}>{heightVal} cm</Text>
-                                            <TouchableOpacity onPress={() => setHeightVal(h => h + 1)} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>+</Text></TouchableOpacity>
-                                        </View>
-                                    ) : (
-                                        <View style={styles.ftInContainer}>
-                                            <View style={styles.ftInBlock}>
-                                                <Text style={styles.ftInValue}>{feet} ft</Text>
-                                                <View style={styles.miniBtnRow}>
-                                                    <TouchableOpacity onPress={() => setFeet(f => Math.max(1, f - 1))} style={styles.miniBtn}><Text>-</Text></TouchableOpacity>
-                                                    <TouchableOpacity onPress={() => setFeet(f => f + 1)} style={styles.miniBtn}><Text>+</Text></TouchableOpacity>
-                                                </View>
-                                            </View>
-                                            <View style={styles.ftInBlock}>
-                                                <Text style={styles.ftInValue}>{inches} in</Text>
-                                                <View style={styles.miniBtnRow}>
-                                                    <TouchableOpacity onPress={() => setInches(i => Math.max(0, i - 1))} style={styles.miniBtn}><Text>-</Text></TouchableOpacity>
-                                                    <TouchableOpacity onPress={() => setInches(i => i >= 11 ? 0 : i + 1)} style={styles.miniBtn}><Text>+</Text></TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <View style={styles.labelRow}>
-                                        <Text style={styles.inputLabel}>WEIGHT</Text>
-                                        <View style={styles.unitToggleRowInline}>
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    if (weightUnit === 'lb') {
-                                                        setWeightUnit('kg');
-                                                        setWeightVal(Math.round(weightVal * 0.453592));
-                                                    }
-                                                }}
-                                                style={[styles.unitBtnSmall, weightUnit === 'kg' && styles.unitBtnActive]}
-                                            >
-                                                <Text style={[styles.unitBtnTextSmall, weightUnit === 'kg' && styles.unitBtnTextActive]}>kg</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    if (weightUnit === 'kg') {
-                                                        setWeightUnit('lb');
-                                                        setWeightVal(Math.round(weightVal * 2.20462));
-                                                    }
-                                                }}
-                                                style={[styles.unitBtnSmall, weightUnit === 'lb' && styles.unitBtnActive]}
-                                            >
-                                                <Text style={[styles.unitBtnTextSmall, weightUnit === 'lb' && styles.unitBtnTextActive]}>lb</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                    <View style={styles.weightCenterRow}>
-                                        <Text style={styles.adjustValue}>{weightVal} {weightUnit}</Text>
-                                    </View>
-                                    <View style={styles.weightBtnRow}>
-                                        {[-5, -1, 1, 5].map(val => (
-                                            <TouchableOpacity
-                                                key={val}
-                                                onPress={() => setWeightVal(w => w + val)}
-                                                style={styles.stepBtn}
-                                            >
-                                                <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </View>
-
-                                <TouchableOpacity
-                                    style={[styles.saveBtn, saving && { opacity: 0.7 }]}
-                                    onPress={handleUpdateProfile}
-                                    disabled={saving}
-                                >
-                                    {saving ? (
-                                        <ActivityIndicator color="#fff" />
-                                    ) : (
-                                        <>
-                                            <Save size={20} color="#fff" />
-                                            <Text style={styles.saveBtnText}>{t('saveChanges')}</Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            </ScrollView>
-                        </View>
-                    </BlurView>
-                </View>
-            </Modal>
+            <HealthSyncModal
+                visible={isHealthModalVisible}
+                onClose={() => setIsHealthModalVisible(false)}
+            />
             {/* Notification Settings Modal */}
             <Modal
                 visible={isNotificationModalVisible}
@@ -855,10 +668,16 @@ export default function ProfileScreen() {
 
                                 {/* Legal Links */}
                                 <View style={{ marginTop: 24, gap: 12, alignItems: 'center' }}>
-                                    <TouchableOpacity onPress={() => Alert.alert(t('privacyPolicy'), "Privacy Policy details...")}>
+                                    <TouchableOpacity onPress={() => {
+                                        triggerHaptic();
+                                        showAlert({ title: t('privacyPolicy'), message: "Privacy Policy details...", type: 'info' });
+                                    }}>
                                         <Text style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: 12 }}>{t('privacyPolicy')}</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => Alert.alert(t('termsOfService'), "Terms of Service details...")}>
+                                    <TouchableOpacity onPress={() => {
+                                        triggerHaptic();
+                                        showAlert({ title: t('termsOfService'), message: "Terms of Service details...", type: 'info' });
+                                    }}>
                                         <Text style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: 12 }}>{t('termsOfService')}</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -984,7 +803,7 @@ export default function ProfileScreen() {
                                     style={styles.saveBtn}
                                     onPress={() => {
                                         setIsFuelingModalVisible(false);
-                                        Alert.alert(t('success'), t('strategySaved'));
+                                        showAlert({ title: t('success'), message: t('strategySaved'), type: 'success' });
                                     }}
                                 >
                                     <Save size={20} color="#fff" />
@@ -1017,8 +836,34 @@ export default function ProfileScreen() {
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 {/* App Preferences */}
                                 <Text style={styles.inputLabel}>{t('appPreferences')}</Text>
-                                <View style={styles.notifSection}>
-                                    <View style={styles.notifRow}>
+                                <View style={styles.menuContainer}>
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => {
+                                            triggerHaptic();
+                                            setIsSettingsModalVisible(false);
+                                            setIsNotificationModalVisible(true);
+                                        }}
+                                    >
+                                        <Bell size={20} color="#3b82f6" />
+                                        <Text style={[styles.menuTitle, { marginLeft: 16 }]}>{t('notifications')}</Text>
+                                        <ChevronRight size={18} color="#94a3b8" />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => {
+                                            triggerHaptic();
+                                            setIsSettingsModalVisible(false);
+                                            setIsLanguageModalVisible(true);
+                                        }}
+                                    >
+                                        <Globe size={20} color="#6366f1" />
+                                        <Text style={[styles.menuTitle, { marginLeft: 16 }]}>{t('language')}</Text>
+                                        <ChevronRight size={18} color="#94a3b8" />
+                                    </TouchableOpacity>
+
+                                    <View style={[styles.menuItem, { borderBottomWidth: 0 }]}>
                                         <View style={{ flex: 1 }}>
                                             <Text style={styles.notifTitle}>{t('hapticFeedback')}</Text>
                                             <Text style={styles.notifSub}>{t('hapticDesc')}</Text>
@@ -1029,8 +874,6 @@ export default function ProfileScreen() {
                                             trackColor={{ false: '#e2e8f0', true: '#10b981' }}
                                         />
                                     </View>
-
-
                                 </View>
 
                                 {/* Support */}
@@ -1064,11 +907,11 @@ export default function ProfileScreen() {
                                     </View>
                                     <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => {
                                         triggerHaptic();
-                                        Alert.alert(
-                                            t('openSource'),
-                                            "React Native, Expo, Supabase, Lucide Icons, Expo Blur, NativeWind, and more premium libraries.",
-                                            [{ text: "OK" }]
-                                        );
+                                        showAlert({
+                                            title: t('openSource'),
+                                            message: "React Native, Expo, Supabase, Lucide Icons, Expo Blur, NativeWind, and more premium libraries.",
+                                            type: 'info'
+                                        });
                                     }}>
                                         <Text style={[styles.menuTitle, { fontWeight: '600' }]}>{t('openSource')}</Text>
                                         <ChevronRight size={18} color="#94a3b8" />
@@ -1084,8 +927,8 @@ export default function ProfileScreen() {
                         </View>
                     </BlurView>
                 </View>
-            </Modal>
-        </View>
+            </Modal >
+        </View >
     );
 }
 
