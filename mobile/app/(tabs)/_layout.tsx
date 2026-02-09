@@ -1,5 +1,5 @@
 import { Tabs, usePathname } from 'expo-router';
-import { Home, Camera, User, BarChart2, Heart } from 'lucide-react-native';
+import { Home, Camera, User, BarChart2, Heart, Users } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { View, Platform, TouchableOpacity } from 'react-native';
 import { useTranslation } from '../../src/lib/i18n';
@@ -80,6 +80,13 @@ export default function TabLayout() {
                         </View>
                     ),
                     tabBarLabel: () => null,
+                }}
+            />
+            <Tabs.Screen
+                name="friends"
+                options={{
+                    title: t('friends') || 'Friends',
+                    tabBarIcon: ({ color }) => <View style={{ marginTop: -4 }}><Users size={22} color={color} /></View>,
                 }}
             />
             <Tabs.Screen

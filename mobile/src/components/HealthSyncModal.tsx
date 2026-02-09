@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Modal, ActivityIn
 import { BlurView } from 'expo-blur';
 import { X, Check, RefreshCw, Smartphone, Watch } from 'lucide-react-native';
 import { useTranslation } from '../lib/i18n';
-import { healthService, HealthData } from '../services/health_service_mock';
+import { useHealth } from '../context/HealthContext';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -15,44 +15,38 @@ interface HealthSyncModalProps {
 
 export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClose }) => {
     const { t, language } = useTranslation();
-    const [connecting, setConnecting] = useState<string | null>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [data, setData] = useState<HealthData | null>(null);
-    const [provider, setProvider] = useState<'apple' | 'samsung' | null>(null);
+    const { healthData, connect, disconnect, refreshData, isLoading } = useHealth();
+    const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
+
+    const isConnected = !!healthData?.isConnected;
+    // Simple heuristic for provider: if connected, assume Samsung for now as per Context implementation
+    const provider: 'apple' | 'samsung' | null = isConnected ? 'samsung' : null;
 
     const handleConnect = async (selectedProvider: 'apple' | 'samsung') => {
-        setConnecting(selectedProvider);
+        setConnectingProvider(selectedProvider);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            const success = await healthService.connect(selectedProvider === 'samsung' ? 'google' : 'apple');
+            const success = await connect(selectedProvider);
             if (success) {
-                setProvider(selectedProvider);
-                setIsConnected(true);
-                fetchData(selectedProvider);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+                Alert.alert(t('error'), "Failed to connect to Health App");
             }
         } catch (e) {
             Alert.alert(t('error'), "Failed to connect to Health App");
         } finally {
-            setConnecting(null);
+            setConnectingProvider(null);
         }
     };
 
-    const fetchData = async (p: 'apple' | 'samsung') => {
-        try {
-            const result = await healthService.fetchData(p === 'samsung' ? 'google' : 'apple');
-            setData(result);
-        } catch (e) {
-            console.error(e);
-        }
+    const handleRefresh = async () => {
+        await refreshData();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
     const handleDisconnect = async () => {
-        await healthService.disconnect();
-        setIsConnected(false);
-        setData(null);
-        setProvider(null);
+        await disconnect();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
@@ -85,7 +79,7 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
                                 <TouchableOpacity
                                     style={styles.optionCard}
                                     onPress={() => handleConnect('apple')}
-                                    disabled={!!connecting}
+                                    disabled={!!connectingProvider}
                                 >
                                     <View style={[styles.iconBox, { backgroundColor: '#ffe4e6' }]}>
                                         <HeartIcon color="#f43f5e" />
@@ -94,7 +88,7 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
                                         <Text style={styles.optionTitle}>Apple Health</Text>
                                         <Text style={styles.optionDesc}>Sync steps, sleep, and workouts</Text>
                                     </View>
-                                    {connecting === 'apple' ? (
+                                    {connectingProvider === 'apple' ? (
                                         <ActivityIndicator color="#f43f5e" />
                                     ) : (
                                         <ChevronRightIcon />
@@ -105,7 +99,7 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
                                 <TouchableOpacity
                                     style={styles.optionCard}
                                     onPress={() => handleConnect('samsung')}
-                                    disabled={!!connecting}
+                                    disabled={!!connectingProvider}
                                 >
                                     <View style={[styles.iconBox, { backgroundColor: '#dbeafe' }]}>
                                         <Watch size={24} color="#3b82f6" />
@@ -114,7 +108,7 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
                                         <Text style={styles.optionTitle}>Samsung / Health Connect</Text>
                                         <Text style={styles.optionDesc}>Galaxy Watch & Android Wear</Text>
                                     </View>
-                                    {connecting === 'samsung' ? (
+                                    {connectingProvider === 'samsung' ? (
                                         <ActivityIndicator color="#3b82f6" />
                                     ) : (
                                         <ChevronRightIcon />
@@ -140,23 +134,23 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
                                     <View style={styles.statBox}>
                                         <Text style={styles.statLabel}>{language === 'Korean' ? '걸음 수' : 'Steps'}</Text>
                                         <Text style={styles.statValue}>
-                                            {data?.steps.toLocaleString() || '—'}
+                                            {healthData?.steps.toLocaleString() || '—'}
                                         </Text>
                                         <Text style={styles.statUnit}>{language === 'Korean' ? '걸음' : 'steps'}</Text>
                                     </View>
                                     <View style={styles.statBox}>
                                         <Text style={styles.statLabel}>{language === 'Korean' ? '에너지' : 'Energy'}</Text>
                                         <Text style={styles.statValue}>
-                                            {data?.caloriesBurned || '—'}
+                                            {healthData?.caloriesBurned || '—'}
                                         </Text>
                                         <Text style={styles.statUnit}>kcal</Text>
                                     </View>
                                     <View style={styles.statBox}>
                                         <Text style={styles.statLabel}>{language === 'Korean' ? '수면' : 'Sleep'}</Text>
                                         <Text style={styles.statValue}>
-                                            {data?.sleepMinutes ? Math.floor(data.sleepMinutes / 60) : '—'}
+                                            {healthData?.sleepMinutes ? Math.floor(healthData.sleepMinutes / 60) : '—'}
                                             <Text style={styles.statUnitSmall}>h </Text>
-                                            {data?.sleepMinutes ? data.sleepMinutes % 60 : ''}
+                                            {healthData?.sleepMinutes ? healthData.sleepMinutes % 60 : ''}
                                             <Text style={styles.statUnitSmall}>m</Text>
                                         </Text>
                                     </View>
@@ -164,9 +158,14 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
 
                                 <TouchableOpacity
                                     style={styles.refreshBtn}
-                                    onPress={() => fetchData(provider!)}
+                                    onPress={handleRefresh}
+                                    disabled={isLoading}
                                 >
-                                    <RefreshCw size={20} color="#64748b" />
+                                    {isLoading ? (
+                                        <ActivityIndicator size="small" color="#64748b" style={{ marginRight: 8 }} />
+                                    ) : (
+                                        <RefreshCw size={20} color="#64748b" />
+                                    )}
                                     <Text style={styles.refreshText}>{language === 'Korean' ? '새로고침' : 'Refresh Data'}</Text>
                                 </TouchableOpacity>
 

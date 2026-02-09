@@ -10,6 +10,7 @@ import { LanguageProvider } from '../src/lib/i18n';
 import { TourProvider } from '../src/context/TourContext';
 import { AlertProvider } from '../src/context/AlertContext';
 import { TourOverlay } from '../src/components/TourOverlay';
+import { HealthProvider } from '../src/context/HealthContext';
 
 SplashScreen.preventAutoHideAsync();
 LogBox.ignoreLogs(['SafeAreaView has been deprecated']);
@@ -23,6 +24,8 @@ export default function RootLayout() {
 
     useEffect(() => {
         if (fontsLoaded) {
+            // Hide the splash screen once fonts are loaded
+            SplashScreen.hideAsync();
             setAppIsReady(true);
         }
     }, [fontsLoaded]);
@@ -31,19 +34,21 @@ export default function RootLayout() {
 
     return (
         <LanguageProvider>
-            <AlertProvider>
-                <TourProvider>
-                    <SafeAreaProvider>
-                        <Stack screenOptions={{ headerShown: false }}>
-                            <Stack.Screen name="index" />
-                            <Stack.Screen name="login" />
-                            <Stack.Screen name="onboarding" />
-                            <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-                        </Stack>
-                        <TourOverlay />
-                    </SafeAreaProvider>
-                </TourProvider>
-            </AlertProvider>
+            <HealthProvider>
+                <AlertProvider>
+                    <TourProvider>
+                        <SafeAreaProvider>
+                            <Stack screenOptions={{ headerShown: false }}>
+                                <Stack.Screen name="index" />
+                                <Stack.Screen name="login" />
+                                <Stack.Screen name="onboarding" />
+                                <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                            </Stack>
+                            <TourOverlay />
+                        </SafeAreaProvider>
+                    </TourProvider>
+                </AlertProvider>
+            </HealthProvider>
         </LanguageProvider>
     );
 }

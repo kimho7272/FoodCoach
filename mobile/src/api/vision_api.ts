@@ -22,13 +22,32 @@ export type AnalysisResult = {
 export type UserProfile = {
     height?: number;
     weight?: number;
+    healthContext?: {
+        readinessScore: number;
+        steps: number;
+        sleepMinutes: number;
+    };
 };
 
 export const analyzeMealImage = async (base64Image: string, userProfile?: UserProfile): Promise<AnalysisResult> => {
     try {
-        const userInfoPrompt = userProfile?.height && userProfile?.weight
-            ? `Considering the user's physical profile (Height: ${userProfile.height}cm, Weight: ${userProfile.weight}kg), estimate the portion size relative to a standard 1-person serving for their size.`
-            : "Estimate the portion size based on a standard 1-person serving.";
+        let userInfoPrompt = userProfile?.height && userProfile?.weight
+            ? `User Profile: Height ${userProfile.height}cm, Weight ${userProfile.weight}kg.`
+            : "User Profile: Standard adult.";
+
+        if (userProfile?.healthContext) {
+            const { readinessScore, steps, sleepMinutes } = userProfile.healthContext;
+            userInfoPrompt += `
+            Current Health State:
+            - Readiness Score: ${readinessScore}/100 (${readinessScore > 80 ? 'High/Peak' : readinessScore > 50 ? 'Moderate' : 'Low/Recovery'}).
+            - Sleep: ${Math.floor(sleepMinutes / 60)}h ${sleepMinutes % 60}m.
+            - Activity: ${steps} steps today.
+            CRITICAL: Tailor the "description" field to this state.
+            If readiness is LOW (<50), recommend if this food aids recovery (e.g. good carbs/protein) or worsens stress (sugar/alcohol).
+            If readiness is HIGH, mention how this fuels performance.`;
+        } else {
+            userInfoPrompt += " Estimate portion size based on standard serving.";
+        }
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         console.log('Gemini Request URL:', url.replace(GEMINI_API_KEY || '', 'HIDDEN_KEY'));
@@ -50,11 +69,11 @@ export const analyzeMealImage = async (base64Image: string, userProfile?: UserPr
                                     2. If it IS NOT food (e.g., a person, building, car, text-only document), set "is_food": false.
                                     3. If it IS food:
                                        - "food_name": short name.
-                                       - "calories": estimated total based on the quantity shown and the user's 1-person serving size.
+                                       - "calories": estimated total based on the quantity shown and user profile.
                                        - "macros": {protein, fat, carbs, sugar, fiber in grams, e.g., "15g"}.
                                        - "score": confidence (0-100).
                                        - "health_score": 0 (unhealthy) to 10 (superfood).
-                                       - "description": 1-sentence health insight.
+                                       - "description": 1-sentence health insight personalized to the user's readiness/sleep state if provided.
                                        - "is_food": true.
                                     Format the output as raw JSON only: {"is_food": boolean, "food_name": "...", "calories": 0, "macros": {"protein": "...", "fat": "...", "carbs": "...", "sugar": "...", "fiber": "..."}, "score": 0, "health_score": 5, "description": "..."}`,
                                 },

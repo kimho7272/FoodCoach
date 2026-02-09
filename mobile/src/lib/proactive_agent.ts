@@ -35,7 +35,7 @@ export const savePreferences = async (prefs: UserPreferences) => {
 /**
  * The Proactive Agent checks the user's meal state and schedules reminders.
  */
-export const runProactiveAgent = async () => {
+export const runProactiveAgent = async (healthData?: { readinessScore?: number; steps?: number; sleepMinutes?: number }) => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -52,20 +52,33 @@ export const runProactiveAgent = async () => {
         const lunchLogged = todayLogs.some(l => l.meal_type === 'Lunch');
         const dinnerLogged = todayLogs.some(l => l.meal_type === 'Dinner');
 
-        // 2. Clear existing reminders
+        // 2. Clear existing reminders (careful not to clear all if we want to keep others, but for now simple)
         await cancelAllNotifications();
 
         const now = new Date();
 
-        // 3. Schedule Lunch Reminder
+        // 3. MORNING READINESS INSIGHT (If score is available)
+        // We schedule this only if it's morning (e.g. before 10 AM) or just push it?
+        // Actually, Proactive Agent runs on app open. If we have a score, we can show a notification "For later" or just assume this function might be called by a background task too.
+        // For now, let's schedule it for 8 AM tomorrow if it's already past, or today if it's early?
+        // SIMPLIFICATION: If we have a score and it hasn't been shown today (we'd need to track that), we could show it.
+        // For this MVP, let's just schedule Lunch/Dinner based on Readiness.
+
+        // 3. Schedule Lunch Reminder (+ Readiness Context)
         if (prefs.lunch_enabled && !lunchLogged) {
             const lunchTime = new Date();
             lunchTime.setHours(prefs.lunch_time.hour, prefs.lunch_time.minute, 0);
 
             if (lunchTime > now) {
+                let body = "You haven't logged your lunch yet. Take a quick photo to stay on track!";
+                if (healthData?.readinessScore) {
+                    if (healthData.readinessScore < 50) body = "Recovery is low today. Try a high-protein, nutrient-dense lunch to recharge.";
+                    else if (healthData.readinessScore > 80) body = "You're primed for performance! Fuel up with complex carbs for energy.";
+                }
+
                 await scheduleLocalNotification(
                     "🍛 Time for Lunch?",
-                    "You haven't logged your lunch yet. Take a quick photo to stay on track!",
+                    body,
                     { hour: prefs.lunch_time.hour, minute: prefs.lunch_time.minute, repeats: false }
                 );
             }
@@ -77,9 +90,14 @@ export const runProactiveAgent = async () => {
             dinnerTime.setHours(prefs.dinner_time.hour, prefs.dinner_time.minute, 0);
 
             if (dinnerTime > now) {
+                let body = "Ready for dinner? Don't forget to scan your meal for an AI health score!";
+                if (healthData?.readinessScore && healthData.readinessScore < 50) {
+                    body = "Rough day? Focus on light, easy-to-digest foods for better sleep tonight.";
+                }
+
                 await scheduleLocalNotification(
                     "🥗 Dinner Reflection",
-                    "Ready for dinner? Don't forget to scan your meal for an AI health score!",
+                    body,
                     { hour: prefs.dinner_time.hour, minute: prefs.dinner_time.minute, repeats: false }
                 );
             }

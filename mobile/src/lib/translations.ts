@@ -217,7 +217,29 @@ export const translations = {
         tourStrategyDesc: "Set specific goals like Weight Loss or Muscle Build to optimize AI feedback. ACTION: Adjust your strategy as your fitness goals evolve.",
         skipTour: "Skip",
         nextStep: "Next",
-        finishTour: "Return to App"
+        finishTour: "Return to App",
+
+        // Social
+        friends: "Friends",
+        addFriend: "Add Friend",
+        invite: "Invite",
+        findFriends: "Find Friends",
+        contactsError: "Could not access contacts.",
+        requestSent: "Friend request sent!",
+        requestFailed: "Failed to send request.",
+        sent: "Sent",
+        connect: "Connect",
+        close: "Close",
+        meals: "Meals",
+        cheer: "Cheer",
+        recentMealsTitle: "Recent Meals (7 Days)",
+        friendAdded: "Friend added!",
+        connected: "Connected",
+        pendingRequests: "Pending Requests",
+        searchFriends: "Search friends...",
+        noFriendsTitle: "No Friends Yet",
+        noFriendsDesc: "Invite friends from contacts\nand get healthy together!",
+
     },
     Korean: {
         // Common
@@ -433,7 +455,29 @@ export const translations = {
         tourStrategyDesc: "체중 감량이나 근성장 등 목표를 설정해 AI 코칭을 최적화하세요. [미션: 목표가 바뀔 때마다 전략을 수정해보세요.]",
         skipTour: "건너뛰기",
         nextStep: "다음",
-        finishTour: "앱으로 돌아가기"
+        finishTour: "앱으로 돌아가기",
+
+        // Social
+        friends: "친구",
+        addFriend: "친구 추가",
+        invite: "초대",
+        findFriends: "친구 찾기",
+        contactsError: "연락처에 접근할 수 없습니다.",
+        requestSent: "친구 요청을 보냈습니다!",
+        requestFailed: "요청 전송에 실패했습니다.",
+        sent: "전송됨",
+        connect: "연결",
+        close: "닫기",
+        meals: "식사",
+        cheer: "응원하기",
+        recentMealsTitle: "최근 식단 (7일)",
+        friendAdded: "친구가 추가되었습니다!",
+        connected: "연결됨",
+        pendingRequests: "받은 요청",
+        searchFriends: "친구 검색...",
+        noFriendsTitle: "아직 친구가 없어요",
+        noFriendsDesc: "연락처에서 친구를 초대하고\n함께 건강해지세요!",
+
     }
 };
 

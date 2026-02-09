@@ -15,7 +15,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foodcoach.app"
+      "bundleIdentifier": "com.foodcoach.app",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Read and understand health data to provide personalized coaching.",
+        "NSHealthUpdateUsageDescription": "Share workout data with other apps to keep your health data consistent.",
+        "NSContactsUsageDescription": "Allow FoodCoach to access your contacts to help you find friends."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -44,7 +49,16 @@
           "locationAlwaysPermission": "Allow FoodCoach to use your location to find nearby healthy food options."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ]
   }
 }

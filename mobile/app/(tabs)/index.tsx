@@ -14,6 +14,8 @@ import { TourTarget } from '../../src/components/TourTarget';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera as CameraIcon, Image as ImageIcon, X as CloseIcon } from 'lucide-react-native';
 import { EditProfileModal } from '../../src/components/EditProfileModal';
+import { HealthStatsCard } from '../../src/components/HealthStatsCard';
+import { FriendsCard } from '../../src/components/FriendsCard';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,6 +29,8 @@ const GlassCard = ({ children, style }: { children: React.ReactNode, style?: any
 
 import { runProactiveAgent } from '../../src/lib/proactive_agent';
 
+import { useHealth } from '../../src/context/HealthContext';
+
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
@@ -36,6 +40,7 @@ export default function HomeScreen() {
     const [userProfile, setUserProfile] = useState<any>(null);
     const { t, language } = useTranslation();
     const { registerTarget } = useTour();
+    const { healthData } = useHealth(); // Get Health Data
     const [logs, setLogs] = useState<any[]>([]);
     const [totals, setTotals] = useState({ protein: 0, carbs: 0, fat: 0, calories: 0, healthScore: 0 });
     const [hourlyDistribution, setHourlyDistribution] = useState<number[]>([]);
@@ -139,15 +144,23 @@ export default function HomeScreen() {
                 });
                 setHourlyDistribution(distribution);
 
-                // Trigger Proactive Agent
-                await runProactiveAgent();
+                // Trigger Proactive Agent with Health Context
+                if (healthData && healthData.isConnected) {
+                    await runProactiveAgent({
+                        readinessScore: healthData.readinessScore,
+                        steps: healthData.steps,
+                        sleepMinutes: healthData.sleepMinutes
+                    });
+                } else {
+                    await runProactiveAgent();
+                }
             }
         } catch (error) {
             console.error(error);
         } finally {
             setLoading(false);
         }
-    }, [userProfile?.target_calories, readinessProgress, qualityProgress, triangleScale, triangleRotation]);
+    }, [userProfile?.target_calories, readinessProgress, qualityProgress, triangleScale, triangleRotation, healthData]);
 
     const handlePickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -273,7 +286,6 @@ export default function HomeScreen() {
                                 </View>
                             </TouchableOpacity>
                             <View style={styles.userTextContainer}>
-                                <Text style={styles.dateText}>{new Date().toLocaleDateString(language === 'Korean' ? 'ko-KR' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Text>
                                 <TouchableOpacity
                                     onPress={() => setIsEditProfileModalVisible(true)}
                                     activeOpacity={0.7}
@@ -292,8 +304,122 @@ export default function HomeScreen() {
                         </BlurView>
                     </View>
 
+                    {/* NEW: My Meals Today Section (Moved to Top) */}
+                    <View style={[styles.sectionHeader, { marginTop: 0 }]}>
+                        <Text style={styles.sectionTitle}>My Meals Today</Text>
+                        <TouchableOpacity onPress={() => router.push('/meal_history' as any)}>
+                            <Text style={styles.seeAllText}>{t('viewAll')}</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Meal Slider */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mealSlider} contentContainerStyle={{ paddingRight: 20 }}>
+                        <TourTarget id="log_food_area">
+                            <TouchableOpacity
+                                style={styles.addMealCard}
+                                onPress={() => setShowLogOptions(true)}
+                            >
+                                <View style={styles.addIconCircle}>
+                                    <Plus size={24} color="#64748b" />
+                                </View>
+                                <Text style={styles.addMealLabel}>{t('logMeal')}</Text>
+                            </TouchableOpacity>
+                        </TourTarget>
+
+                        {logs.filter(meal => new Date(meal.created_at).toDateString() === new Date().toDateString()).map((meal, idx) => (
+                            <TouchableOpacity
+                                key={meal.id}
+                                style={styles.mealCard}
+                                onPress={() => {
+                                    const d = new Date(meal.created_at);
+                                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    router.push({
+                                        pathname: '/meal_history',
+                                        params: {
+                                            date: dateStr,
+                                            highlightId: meal.id
+                                        }
+                                    } as any);
+                                }}
+                            >
+                                <View style={styles.mealCardContent}>
+                                    <View style={styles.mealInfo}>
+                                        <Text style={styles.mealType}>{meal.meal_type}</Text>
+                                        <Text style={styles.mealName} numberOfLines={1}>{meal.food_name}</Text>
+                                        <Text style={styles.mealKcal}>{meal.calories} kcal</Text>
+                                        <Text style={styles.mealTime}>🕒 {new Date(meal.created_at).toLocaleTimeString(language === 'Korean' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</Text>
+                                    </View>
+                                    <View style={styles.mealImagePlaceholder}>
+                                        {meal.image_url ? (
+                                            <Image source={{ uri: meal.image_url }} style={styles.mealImage} resizeMode="cover" />
+                                        ) : (
+                                            <Text style={styles.mealEmoji}>🍱</Text>
+                                        )}
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
+
+
+                    {/* Macro Cards */}
+                    <View style={[styles.macroRow, { marginTop: 16 }]}>
+                        <TouchableOpacity
+                            style={styles.macroTouch}
+                            onPress={() => setSelectedMacro('Calories')}
+                        >
+                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                                <Activity size={16} color="#ef4444" />
+                                <Text style={styles.macroLabel}>{t('calories') || 'Calories'}</Text>
+                                <Text style={styles.macroValue}>
+                                    {totals.calories} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>kcal</Text>
+                                </Text>
+                            </BlurView>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.macroTouch}
+                            onPress={() => setSelectedMacro('Carbs')}
+                        >
+                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(251, 146, 60, 0.1)' }]}>
+                                <BarChart2 size={16} color="#fb923c" />
+                                <Text style={styles.macroLabel}>{t('carbs')}</Text>
+                                <Text style={styles.macroValue}>
+                                    {totals.carbs} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>g</Text>
+                                </Text>
+                            </BlurView>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.macroTouch}
+                            onPress={() => setSelectedMacro('Protein')}
+                        >
+                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                                <Zap size={16} color="#10b981" />
+                                <Text style={styles.macroLabel}>{t('protein')}</Text>
+                                <Text style={styles.macroValue}>
+                                    {totals.protein} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>g</Text>
+                                </Text>
+                            </BlurView>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.macroTouch}
+                            onPress={() => setSelectedMacro('Fats')}
+                        >
+                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                                <Flame size={16} color="#6366f1" />
+                                <Text style={styles.macroLabel}>{t('fat')}</Text>
+                                <Text style={styles.macroValue}>
+                                    {totals.fat} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>g</Text>
+                                </Text>
+                            </BlurView>
+                        </TouchableOpacity>
+                    </View>
+
                     <TouchableOpacity
-                        style={styles.sectionHeader}
+                        style={[styles.sectionHeader, { marginTop: 0 }]}
                         onPress={() => {
                             router.push({
                                 pathname: '/metabolic_report',
@@ -311,7 +437,7 @@ export default function HomeScreen() {
                         }}
                     >
                         <View>
-                            <Text style={[styles.sectionTitle, { fontSize: 28, color: '#0f172a' }]}>{getHeadline()}</Text>
+                            <Text style={[styles.sectionTitle, { fontSize: 22, color: '#0f172a' }]}>{getHeadline()}</Text>
                         </View>
                         <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' }}>
                             <Text style={{ fontSize: 10, fontWeight: '800', color: '#059669' }}>{t('gradeLabel')}: {totals.healthScore >= 8 ? 'S' : totals.healthScore >= 6 ? 'A' : 'B'}</Text>
@@ -320,6 +446,7 @@ export default function HomeScreen() {
 
                     {/* Main Extreme Hero Card */}
                     <GlassCard style={[styles.summaryCard, { paddingVertical: 10 }]}>
+                        {/* ... existing hero card content ... */}
                         <TouchableOpacity
                             activeOpacity={0.9}
                             onPress={() => {
@@ -440,99 +567,11 @@ export default function HomeScreen() {
                         </TouchableOpacity>
                     </GlassCard>
 
+                    {/* NEW: Health Stats Card (Samsung Health Integration) */}
+                    <HealthStatsCard refreshTrigger={logs.length} />
 
-
-                    {/* Macro Cards */}
-                    <View style={styles.macroRow}>
-                        <TouchableOpacity
-                            style={styles.macroTouch}
-                            onPress={() => setSelectedMacro('Carbs')}
-                        >
-                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(251, 146, 60, 0.1)' }]}>
-                                <BarChart2 size={16} color="#fb923c" />
-                                <Text style={styles.macroLabel}>{t('carbs')}</Text>
-                                <Text style={styles.macroValue}>{totals.carbs}g</Text>
-                            </BlurView>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.macroTouch}
-                            onPress={() => setSelectedMacro('Protein')}
-                        >
-                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                                <Zap size={16} color="#10b981" />
-                                <Text style={styles.macroLabel}>{t('protein')}</Text>
-                                <Text style={styles.macroValue}>{totals.protein}g</Text>
-                            </BlurView>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.macroTouch}
-                            onPress={() => setSelectedMacro('Fats')}
-                        >
-                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                                <Flame size={16} color="#6366f1" />
-                                <Text style={styles.macroLabel}>{t('fat')}</Text>
-                                <Text style={styles.macroValue}>{totals.fat}g</Text>
-                            </BlurView>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={[styles.sectionHeader, { marginTop: 32 }]}>
-                        <Text style={styles.sectionTitle}>{t('yourMealsToday')}</Text>
-                        <TouchableOpacity onPress={() => router.push('/meal_history' as any)}>
-                            <Text style={styles.seeAllText}>{t('viewAll')}</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Meal Slider */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mealSlider} contentContainerStyle={{ paddingRight: 20 }}>
-                        <TourTarget id="log_food_area">
-                            <TouchableOpacity
-                                style={styles.addMealCard}
-                                onPress={() => setShowLogOptions(true)}
-                            >
-                                <View style={styles.addIconCircle}>
-                                    <Plus size={24} color="#64748b" />
-                                </View>
-                                <Text style={styles.addMealLabel}>{t('logMeal')}</Text>
-                            </TouchableOpacity>
-                        </TourTarget>
-
-                        {logs.slice(0, 5).map((meal, idx) => (
-                            <TouchableOpacity
-                                key={meal.id}
-                                style={styles.mealCard}
-                                onPress={() => {
-                                    const d = new Date(meal.created_at);
-                                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                    router.push({
-                                        pathname: '/meal_history',
-                                        params: {
-                                            date: dateStr,
-                                            highlightId: meal.id
-                                        }
-                                    } as any);
-                                }}
-                            >
-                                <View style={styles.mealCardContent}>
-                                    <View style={styles.mealInfo}>
-                                        <Text style={styles.mealType}>{meal.meal_type}</Text>
-                                        <Text style={styles.mealName} numberOfLines={1}>{meal.food_name}</Text>
-                                        <Text style={styles.mealKcal}>{meal.calories} kcal</Text>
-                                        <Text style={styles.mealTime}>🕒 {new Date(meal.created_at).toLocaleTimeString(language === 'Korean' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</Text>
-                                    </View>
-                                    <View style={styles.mealImagePlaceholder}>
-                                        {meal.image_url ? (
-                                            <Image source={{ uri: meal.image_url }} style={styles.mealImage} resizeMode="cover" />
-                                        ) : (
-                                            <Text style={styles.mealEmoji}>🍱</Text>
-                                        )}
-                                    </View>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
+                    {/* NEW: Friends Card (Below Health Stats) */}
+                    <FriendsCard refreshTrigger={logs.length} />
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -551,11 +590,26 @@ export default function HomeScreen() {
                 >
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{String(selectedMacro)} {t('breakdown')}</Text>
+                            <View>
+                                <Text style={styles.modalTitle}>{String(selectedMacro)} {t('breakdown')}</Text>
+                                <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '600', marginTop: 4 }}>
+                                    {language === 'Korean' ? '오늘의 섭취량 분석' : "Today's Intake Analysis"}
+                                </Text>
+                            </View>
                             <TouchableOpacity onPress={() => setSelectedMacro(null)} style={styles.closeBtn}>
                                 <Text style={styles.closeBtnText}>×</Text>
                             </TouchableOpacity>
                         </View>
+
+                        <Text style={{ fontSize: 32, fontWeight: '900', color: '#1e293b', marginBottom: 20 }}>
+                            {selectedMacro === 'Calories' ? totals.calories :
+                                selectedMacro === 'Carbs' ? totals.carbs :
+                                    selectedMacro === 'Protein' ? totals.protein :
+                                        totals.fat}
+                            <Text style={{ fontSize: 16, color: '#94a3b8', fontWeight: 'bold' }}>
+                                {selectedMacro === 'Calories' ? ' kcal' : ' g'}
+                            </Text>
+                        </Text>
 
                         <ScrollView showsVerticalScrollIndicator={false} style={styles.breakdownList}>
                             {logs
@@ -565,11 +619,17 @@ export default function HomeScreen() {
                                 })
                                 .map((log) => {
                                     let value = '0';
-                                    if (selectedMacro === 'Carbs') value = String(log.carbs);
-                                    if (selectedMacro === 'Protein') value = String(log.protein);
-                                    if (selectedMacro === 'Fats') value = String(log.fat);
+                                    let totalForMacro = 1; // prevent division by zero
 
-                                    if (parseInt(value) === 0) return null;
+                                    if (selectedMacro === 'Calories') { value = String(log.calories); totalForMacro = totals.calories || 1; }
+                                    if (selectedMacro === 'Carbs') { value = String(log.carbs); totalForMacro = totals.carbs || 1; }
+                                    if (selectedMacro === 'Protein') { value = String(log.protein); totalForMacro = totals.protein || 1; }
+                                    if (selectedMacro === 'Fats') { value = String(log.fat); totalForMacro = totals.fat || 1; }
+
+                                    const numericValue = parseInt(value) || 0;
+                                    if (numericValue === 0) return null;
+
+                                    const percentageShare = Math.min((numericValue / totalForMacro), 1);
 
                                     return (
                                         <TouchableOpacity
@@ -588,13 +648,29 @@ export default function HomeScreen() {
                                                 } as any);
                                             }}
                                         >
-                                            <View style={styles.breakdownLeft}>
-                                                <Text style={styles.breakdownName}>{log.food_name}</Text>
-                                                <Text style={styles.breakdownTime}>
-                                                    {new Date(log.created_at).toLocaleTimeString(language === 'Korean' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                                </Text>
+                                            <View style={{ flex: 1 }}>
+                                                <View style={styles.breakdownLeft}>
+                                                    <View>
+                                                        <Text style={styles.breakdownName}>{log.food_name}</Text>
+                                                        <Text style={styles.breakdownTime}>
+                                                            {new Date(log.created_at).toLocaleTimeString(language === 'Korean' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={styles.breakdownValue}>{numericValue} <Text style={{ fontSize: 12, color: '#94a3b8' }}>{selectedMacro === 'Calories' ? 'kcal' : 'g'}</Text></Text>
+                                                </View>
+                                                {/* Visual Bar */}
+                                                <View style={{ height: 6, backgroundColor: '#f1f5f9', borderRadius: 3, marginTop: 8, width: '100%', overflow: 'hidden' }}>
+                                                    <View style={{
+                                                        height: '100%',
+                                                        width: `${percentageShare * 100}%`,
+                                                        backgroundColor:
+                                                            selectedMacro === 'Calories' ? '#ef4444' :
+                                                                selectedMacro === 'Carbs' ? '#fb923c' :
+                                                                    selectedMacro === 'Protein' ? '#10b981' : '#6366f1',
+                                                        borderRadius: 3
+                                                    }} />
+                                                </View>
                                             </View>
-                                            <Text style={styles.breakdownValue}>{parseInt(value) || 0}g</Text>
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -674,13 +750,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 20,
     },
     userInfo: { flexDirection: 'row', alignItems: 'center' },
     avatarContainer: {
-        width: 54,
-        height: 54,
-        borderRadius: 27,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: '#fff',
         borderWidth: 2,
         borderColor: '#fff',
@@ -692,10 +768,10 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
     },
     avatar: { width: '100%', height: '100%', borderRadius: 27 },
-    avatarEmoji: { fontSize: 28 },
-    userTextContainer: { marginLeft: 12 },
+    avatarEmoji: { fontSize: 24 },
+    userTextContainer: { marginLeft: 10 },
     dateText: { fontSize: 12, color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
-    greetingText: { fontSize: 17, color: '#1e293b', fontWeight: '700' },
+    greetingText: { fontSize: 16, color: '#1e293b', fontWeight: '700' },
     streakBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -709,10 +785,10 @@ const styles = StyleSheet.create({
     streakLabel: { fontSize: 12, fontWeight: 'bold', color: '#f97316', marginRight: 6 },
     streakCountBox: { backgroundColor: '#ffedd5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
     streakCount: { color: '#ea580c', fontWeight: 'bold', fontSize: 12 },
-    sectionTitle: { fontSize: 22, fontWeight: '800', color: '#1e293b' },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    seeAllText: { fontSize: 14, fontWeight: '700', color: '#10b981' },
-    summaryCard: { marginBottom: 20, shadowColor: '#10b981', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 10 },
+    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    seeAllText: { fontSize: 13, fontWeight: '700', color: '#10b981' },
+    summaryCard: { marginBottom: 16, shadowColor: '#10b981', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 10 },
     glassCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)' },
     glassCardInner: { padding: 24 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -725,10 +801,10 @@ const styles = StyleSheet.create({
     statusBox: { alignItems: 'center' },
     statusIcon: { backgroundColor: '#dcfce7', padding: 10, borderRadius: 16, marginBottom: 4 },
     statusText: { fontSize: 10, color: '#10b981', fontWeight: 'bold' },
-    macroRow: { flexDirection: 'row', gap: 12, marginBottom: 30 },
-    macroCard: { flex: 1, padding: 15, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center' },
-    macroLabel: { fontSize: 10, color: '#64748b', fontWeight: '800', marginTop: 4 },
-    macroValue: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+    macroRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    macroCard: { flex: 1, padding: 12, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center' },
+    macroLabel: { fontSize: 9, color: '#64748b', fontWeight: '800', marginTop: 4 },
+    macroValue: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
     macroPercent: { fontSize: 10, color: '#94a3b8', fontWeight: 'bold' },
     mealSlider: { marginHorizontal: -24, paddingLeft: 24 },
     mealCard: { width: 260, height: 140, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', marginRight: 16, overflow: 'hidden' },

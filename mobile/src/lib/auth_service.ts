@@ -26,31 +26,48 @@ export const signInWithSocial = async (
         const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
         if (res.type === 'success' && res.url) {
-            // Supabase returns tokens in the hash fragment (#), not as query parameters (?)
+            // Handle PKCE (Auth Code Flow) - New Default
+            // URL looks like: exp://...?code=...
+            const urlObj = new URL(res.url);
+            const code = urlObj.searchParams.get('code');
+
+            if (code) {
+                const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
+                if (sessionError) throw sessionError;
+
+                if (sessionData.user) {
+                    await syncUserProfile(sessionData.user, additionalData);
+                }
+                return { user: sessionData.user, error: null };
+            }
+
+            // Handle Implicit Flow (Legacy) - If enabled in Dashboard
+            // URL looks like: exp://...#access_token=...&refresh_token=...
+            // Supabase returns tokens in the hash fragment (#)
             const fragment = res.url.split('#')[1];
-            if (!fragment) throw new Error('No auth tokens found in URL fragment');
 
-            const params = new URLSearchParams(fragment);
-            const access_token = params.get('access_token');
-            const refresh_token = params.get('refresh_token');
+            if (fragment) {
+                const params = new URLSearchParams(fragment);
+                const access_token = params.get('access_token');
+                const refresh_token = params.get('refresh_token');
 
-            if (!access_token || !refresh_token) {
-                throw new Error('No access_token or refresh_token found in response');
+                if (access_token && refresh_token) {
+                    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                        access_token: access_token as string,
+                        refresh_token: refresh_token as string,
+                    });
+
+                    if (sessionError) throw sessionError;
+
+                    if (sessionData.user) {
+                        await syncUserProfile(sessionData.user, additionalData);
+                    }
+
+                    return { user: sessionData.user, error: null };
+                }
             }
 
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                access_token: access_token as string,
-                refresh_token: refresh_token as string,
-            });
-
-            if (sessionError) throw sessionError;
-
-            // Sync user profile with login time and any provided data
-            if (sessionData.user) {
-                await syncUserProfile(sessionData.user, additionalData);
-            }
-
-            return { user: sessionData.user, error: null };
+            throw new Error('No auth code or tokens found in URL');
         }
 
         return { user: null, error: new Error('Authentication cancelled') };

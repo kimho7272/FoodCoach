@@ -11,12 +11,15 @@ import { supabase } from '../../src/lib/supabase';
 import { uploadMealImage, saveMealLog } from '../../src/lib/meal_service';
 import { useAlert } from '../../src/context/AlertContext';
 
+import { useHealth } from '../../src/context/HealthContext';
+
 const { width, height } = Dimensions.get('window');
 
 export default function AnalysisScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { showAlert } = useAlert();
+    const { healthData } = useHealth(); // Get Health Data
     const [permission, requestPermission] = useCameraPermissions();
 
     // Initialize photo from params if available to avoid flicker
@@ -43,10 +46,25 @@ export default function AnalysisScreen() {
         setAnalyzing(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            let userProfile = undefined;
+            let userProfile: any = undefined;
             if (user) {
                 const { data: profile } = await supabase.from('profiles').select('height, weight').eq('id', user.id).single();
-                if (profile) userProfile = { height: profile.height, weight: profile.weight };
+                if (profile) {
+                    userProfile = {
+                        height: profile.height,
+                        weight: profile.weight
+                    };
+                }
+            }
+
+            // Inject Health Context if available
+            if (healthData && healthData.isConnected && typeof healthData.readinessScore === 'number') {
+                if (!userProfile) userProfile = {};
+                userProfile.healthContext = {
+                    readinessScore: healthData.readinessScore,
+                    steps: healthData.steps,
+                    sleepMinutes: healthData.sleepMinutes
+                };
             }
 
             const data = await analyzeMealImage(base64, userProfile);
