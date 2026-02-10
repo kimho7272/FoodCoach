@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, Zap, PieChart, Shield, Award, Info, RefreshCcw, Utensils } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, G } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../src/lib/supabase';
 import { getWeeklyStats } from '../src/lib/meal_service';
 
@@ -108,6 +109,7 @@ export default function DiversityDetailsScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [weeklyData, setWeeklyData] = useState<any>(null);
+    const [idOrder, setIdOrder] = useState<string[]>([]);
 
     useEffect(() => {
         async function loadData() {
@@ -116,6 +118,14 @@ export default function DiversityDetailsScreen() {
                 if (user) {
                     const data = await getWeeklyStats(user.id);
                     setWeeklyData(data);
+
+                    // Fetch Today's Order
+                    const today = new Date().toDateString();
+                    const orderKey = `meal_order_${user.id}_${today}`;
+                    const savedOrder = await AsyncStorage.getItem(orderKey);
+                    if (savedOrder) {
+                        setIdOrder(JSON.parse(savedOrder));
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load diversity details:', error);
@@ -133,7 +143,35 @@ export default function DiversityDetailsScreen() {
         const uniqueItems: any[] = [];
         const seen = new Set();
 
-        const logs = [...weeklyData.raw].reverse();
+        let logs = [...weeklyData.raw];
+        const today = new Date().toDateString();
+
+        // Sort logs to respect Today's custom order
+        if (idOrder.length > 0) {
+            logs.sort((a, b) => {
+                const dateA = new Date(a.created_at).toDateString();
+                const dateB = new Date(b.created_at).toDateString();
+
+                if (dateA === today && dateB === today) {
+                    const idxA = idOrder.indexOf(a.id);
+                    const idxB = idOrder.indexOf(b.id);
+                    if (idxA === -1 && idxB === -1) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    if (idxA === -1) return -1; // New items first
+                    if (idxB === -1) return 1;
+                    return idxA - idxB;
+                }
+                // For other days, or mixed, standard reverse chronological (or user pref)
+                // Existing code reversed it later. Let's sort by Time Descending generally first?
+                // The original code did `[...weeklyData.raw].reverse()`. `raw` usually comes ASC or DESC from DB.
+                // Assuming `raw` is ASC (oldest first)? `reverse()` makes it Newest First.
+                // Let's assume we want Newest First (Top of list).
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
+        } else {
+            // Fallback to standard time sort desc
+            logs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        }
+
         logs.forEach((item: any) => {
             const group = classifyFoodGroup(item.food_name);
             groups[group]++;
@@ -149,7 +187,7 @@ export default function DiversityDetailsScreen() {
             .map(([key]) => key);
 
         return { groups, uniqueItems, missing };
-    }, [weeklyData]);
+    }, [weeklyData, idOrder]);
 
     if (loading || !analysis) {
         return (
