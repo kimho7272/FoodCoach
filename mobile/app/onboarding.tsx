@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView, PanResponder } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView, PanResponder, Alert } from 'react-native';
 import * as Localization from 'expo-localization';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -100,16 +100,20 @@ export default function EnhancedOnboarding() {
                 const finalHeight = heightUnit === 'ft' ? Math.round((feet * 12 + inches) * 2.54) : heightVal;
                 const finalWeight = weightUnit === 'lb' ? Math.round(weight * 0.453592) : weight;
 
-                await updateProfile(user.id, {
+                const result = await updateProfile(user.id, {
                     nickname,
                     height: finalHeight,
                     weight: finalWeight
                 });
+
+                if (!result.success) {
+                    throw new Error(result.error?.message || 'Failed to sync with server');
+                }
             }
             router.replace('/(tabs)');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save profile:', error);
-            router.replace('/(tabs)'); // Still navigate even if save fails, or show error
+            Alert.alert("Sync Error", "We couldn't save your profile due to a security policy (RLS). Please check your Supabase settings.");
         }
     };
 

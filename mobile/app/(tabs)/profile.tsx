@@ -158,23 +158,29 @@ export default function ProfileScreen() {
 
     const handleLogout = () => {
         showAlert({
-            title: t('signOutTitle' as any) || 'Sign Out',
-            message: t('signOutConfirm' as any) || 'Are you sure you want to sign out?',
+            title: t('signOutTitle'),
+            message: t('signOutMessage'),
             type: 'confirm',
-            confirmText: t('signOut' as any) || 'Sign Out',
+            confirmText: t('logout'),
             onConfirm: async () => {
-                await supabase.auth.signOut();
-                router.replace('/login');
+                try {
+                    await supabase.auth.signOut();
+                } catch (e) {
+                    console.error("Sign out error:", e);
+                } finally {
+                    // Redirect directly to login screen to ensure user is logged out
+                    router.replace('/login');
+                }
             }
         });
     };
 
     const handleDeleteAccount = async () => {
         showAlert({
-            title: t('deleteConfirmTitle' as any),
-            message: t('deleteAccountWarning' as any),
+            title: t('deleteConfirmTitle'),
+            message: t('deleteAccountWarning'),
             type: 'confirm',
-            confirmText: t('deleteConfirmBtn' as any),
+            confirmText: t('deleteConfirmBtn'),
             onConfirm: async () => {
                 try {
                     const { data: { user } } = await supabase.auth.getUser();
@@ -935,37 +941,37 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     safeArea: { flex: 1 },
-    scrollContent: { paddingHorizontal: 24, paddingTop: 20 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-    headerTitle: { fontSize: 28, fontWeight: '800', color: '#1e293b' },
+    scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    headerTitle: { fontSize: 24, fontWeight: '800', color: '#1e293b' },
     settingsBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: 12 },
-    profileHero: { borderRadius: 32, padding: 32, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', marginBottom: 32 },
-    avatarContainer: { marginBottom: 16 },
-    avatarInner: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#10b981', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 5, overflow: 'hidden' },
+    profileHero: { borderRadius: 32, padding: 20, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', marginBottom: 16 },
+    avatarContainer: { marginBottom: 14 },
+    avatarInner: { width: 76, height: 76, borderRadius: 38, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#10b981', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 5, overflow: 'hidden' },
     avatarImg: { width: '100%', height: '100%' },
-    avatarEmoji: { fontSize: 44 },
-    cameraBadge: { position: 'absolute', bottom: 5, right: 5, width: 28, height: 28, borderRadius: 14, backgroundColor: '#10b981', borderWidth: 3, borderColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 5 },
-    userName: { fontSize: 22, fontWeight: '800', color: '#10b981', marginBottom: 2 },
-    userNickname: { fontSize: 16, fontWeight: '700', color: '#1e293b', opacity: 0.8, marginBottom: 4 },
-    userEmail: { fontSize: 13, color: '#64748b', fontWeight: 'bold', marginBottom: 12 },
-    bmiBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 16 },
-    bmiText: { fontSize: 13, fontWeight: 'bold' },
-    statsRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 24, paddingVertical: 16, paddingHorizontal: 20 },
+    avatarEmoji: { fontSize: 36 },
+    cameraBadge: { position: 'absolute', bottom: 2, right: 2, width: 24, height: 24, borderRadius: 12, backgroundColor: '#10b981', borderWidth: 2, borderColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 5 },
+    userName: { fontSize: 20, fontWeight: '800', color: '#10b981', marginBottom: 2 },
+    userNickname: { fontSize: 15, fontWeight: '700', color: '#1e293b', opacity: 0.8, marginBottom: 2 },
+    userEmail: { fontSize: 13, color: '#64748b', fontWeight: 'bold', marginBottom: 8 },
+    bmiBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, marginBottom: 10 },
+    bmiText: { fontSize: 12, fontWeight: 'bold' },
+    statsRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 24, paddingVertical: 12, paddingHorizontal: 16 },
     statItem: { flex: 1, alignItems: 'center' },
-    statValue: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-    statLabel: { fontSize: 10, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', marginTop: 2 },
+    statValue: { fontSize: 16, fontWeight: '800', color: '#1e293b' },
+    statLabel: { fontSize: 9, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', marginTop: 2 },
     divider: { width: 1, height: '60%', backgroundColor: 'rgba(0,0,0,0.05)', alignSelf: 'center' },
-    sectionLabel: { fontSize: 12, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginLeft: 16, marginBottom: 12 },
-    menuContainer: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', marginBottom: 24 },
-    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 20, backgroundColor: 'rgba(255,255,255,0.2)', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
-    menuIconContainer: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+    sectionLabel: { fontSize: 12, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginLeft: 16, marginBottom: 8 },
+    menuContainer: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', marginBottom: 12 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: 'rgba(255,255,255,0.2)', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+    menuIconContainer: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 },
     menuTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#1e293b' },
     badge: { backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 8 },
     badgeInactive: { backgroundColor: 'rgba(148,163,184,0.1)' },
     badgeText: { color: '#10b981', fontSize: 10, fontWeight: '900' },
     badgeTextInactive: { color: '#94a3b8' },
-    logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 20, marginTop: 12 },
-    logoutText: { fontSize: 16, fontWeight: '800', color: '#ef4444' },
+    logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 8, marginTop: 8 },
+    logoutText: { fontSize: 15, fontWeight: '800', color: '#ef4444' },
     footerInfo: { alignItems: 'center', marginTop: 24, opacity: 0.5 },
     versionText: { fontSize: 12, color: '#64748b', fontWeight: 'bold' },
     poweredBy: { fontSize: 10, color: '#94a3b8', marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 },

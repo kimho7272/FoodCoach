@@ -109,14 +109,29 @@ export const updateProfile = async (
     userId: string,
     data: { nickname?: string; height?: number; weight?: number }
 ) => {
-    const { error } = await supabase
-        .from('profiles')
-        .update(data)
-        .eq('id', userId);
+    try {
+        const updates = {
+            id: userId,
+            ...data,
+            last_login: new Date().toISOString(),
+        };
 
-    if (error) {
-        console.error('Update Profile Error:', error.message);
-        return { success: false, error };
+        // Use atomic upsert to avoid "duplicate key" race conditions
+        const { error } = await supabase
+            .from('profiles')
+            .upsert(updates, { onConflict: 'id' });
+
+        if (error) {
+            console.error('Update Profile Error:', error.message);
+            if (error.message.includes('row-level security')) {
+                console.error('RLS Violation: Ensure "profiles" has both INSERT and UPDATE policies for auth.uid() = id.');
+            }
+            return { success: false, error };
+        }
+
+        return { success: true, error: null };
+    } catch (err: any) {
+        console.error('Update Profile Exception:', err.message);
+        return { success: false, error: err };
     }
-    return { success: true, error: null };
 };

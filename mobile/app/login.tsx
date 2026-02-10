@@ -9,8 +9,9 @@ import Animated, {
     withRepeat,
     withTiming,
     Easing,
+    FadeInDown,
+    FadeInUp
 } from 'react-native-reanimated';
-import { Apple, Fingerprint } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { signInWithSocial } from '../src/lib/auth_service';
 import { ActivityIndicator } from 'react-native';
@@ -19,7 +20,6 @@ import { useAlert } from '../src/context/AlertContext';
 const { width, height } = Dimensions.get('window');
 const fruitCharacter = require('../assets/applei.png');
 const googleLogo = require('../assets/google_logo.png');
-const kakaoLogo = require('../assets/kakao_logo.png');
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -29,8 +29,8 @@ export default function LoginScreen() {
 
     useEffect(() => {
         bobValue.value = withRepeat(
-            withTiming(15, {
-                duration: 2200,
+            withTiming(10, {
+                duration: 2000,
                 easing: Easing.inOut(Easing.sin)
             }),
             -1,
@@ -44,108 +44,97 @@ export default function LoginScreen() {
 
     const handleSocialLogin = async (provider: 'apple' | 'google' | 'kakao') => {
         setIsLoading(true);
-        const { user, error } = await signInWithSocial(provider);
-        if (error) {
+        try {
+            const { user, error } = await signInWithSocial(provider);
+            if (error) {
+                setIsLoading(false);
+                showAlert({ title: 'Login Failed', message: error.message, type: 'error' });
+            } else if (user) {
+                // Keep loading TRUE until replace happens to prevent flickering
+                router.replace('/onboarding');
+            } else {
+                setIsLoading(false);
+            }
+        } catch (e) {
             setIsLoading(false);
-            showAlert({ title: 'Login Failed', message: error.message, type: 'error' });
-        } else if (user) {
-            // Once user is authenticated, index.tsx will also handle routing
-            // but we call replace here for immediate feedback if index hasn't caught up
-            router.replace('/onboarding');
+            console.error(e);
         }
     };
 
     return (
         <View style={styles.root}>
-            {/* Background Mesh Gradient */}
+            {/* Premium Flowing Background */}
             <View style={StyleSheet.absoluteFill}>
                 <LinearGradient
-                    colors={['#B2F2BB', '#D0BFFF']}
+                    colors={['#0F172A', '#1E1B4B', '#312E81', '#1E3A8A']} // Deep Navy & Midnight Flow
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={StyleSheet.absoluteFill}
                 />
-                <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.4)', 'transparent', 'rgba(255, 255, 255, 0.2)']}
-                    start={{ x: 1, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                />
+                <Animated.View style={[StyleSheet.absoluteFill, { opacity: 0.6 }]}>
+                    <LinearGradient
+                        colors={['#10B981', 'transparent', '#6366F1']} // Emerald & Indigo highlights
+                        start={{ x: 1, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                        style={StyleSheet.absoluteFill}
+                    />
+                </Animated.View>
             </View>
-
-            {/* Vignette Overlay */}
-            <View style={[StyleSheet.absoluteFill, styles.vignetteOverlay]} pointerEvents="none" />
 
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.centeredContainer}>
+                    <View style={styles.contentWrapper}>
+                        {/* Header with Logo/Character */}
+                        <Animated.View style={[styles.characterSection, animatedCharacterStyle]}>
+                            <View style={styles.glowContainer} />
+                            <Image source={fruitCharacter} style={styles.characterImage} resizeMode="contain" />
+                        </Animated.View>
 
-                    {/* Glass Card */}
-                    <View style={styles.glassCardWrapper}>
-                        <BlurView intensity={60} tint="light" style={styles.blurView}>
-                            <View style={styles.contentContainer}>
-
-                                {/* 1. Character Section */}
-                                <View style={styles.characterSection}>
-                                    {/* Floating Label */}
-                                    <View style={styles.floatingLabelContainer}>
-                                        <BlurView intensity={80} tint="light" style={styles.labelBlur}>
-                                            <Text style={styles.labelText}>애플이</Text>
-                                        </BlurView>
-                                        <View style={styles.labelTriangle} />
-                                    </View>
-
-                                    <Animated.View style={animatedCharacterStyle}>
-                                        <Image source={fruitCharacter} style={styles.characterImage} resizeMode="contain" />
-                                    </Animated.View>
-                                </View>
-
-                                {/* 2. Text Content */}
-                                <Text style={styles.greetingText}>
-                                    반가워요! 오늘도{"\n"}건강한 한 끼 해볼까요?
-                                </Text>
-
-                                {/* 3. Social Icons Hub */}
-                                <View style={styles.iconsRow}>
-                                    <TouchableOpacity onPress={() => handleSocialLogin('apple')} style={styles.iconBubble}>
-                                        <BlurView intensity={30} tint="light" style={styles.bubbleInner}>
-                                            <Apple color="#1f2937" size={30} />
-                                        </BlurView>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity onPress={() => handleSocialLogin('google')} style={styles.iconBubble}>
-                                        <BlurView intensity={30} tint="light" style={styles.bubbleInner}>
-                                            <Image source={googleLogo} style={styles.socialIconGoogle} />
-                                        </BlurView>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity onPress={() => handleSocialLogin('kakao')} style={styles.iconBubble}>
-                                        <BlurView intensity={30} tint="light" style={styles.bubbleInner}>
-                                            <Image source={kakaoLogo} style={styles.socialIconKakao} />
-                                        </BlurView>
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Footnote */}
-                                <Text style={styles.footerText}>
-                                    POWERED BY FOODCOACH AI
-                                </Text>
-
+                        {/* Title & Subtitle */}
+                        <Animated.View entering={FadeInDown.delay(400).duration(800)} style={styles.textSection}>
+                            <View style={styles.brandContainer}>
+                                <Text style={styles.brandText}>FoodCoach</Text>
+                                <Text style={styles.brandSubText}>AI Based Nutritionist</Text>
                             </View>
-                        </BlurView>
-                    </View>
 
+                            <Text style={styles.greetingText}>
+                                건강한 식습관,{"\n"}오늘부터 시작해보세요.
+                            </Text>
+                        </Animated.View>
+
+                        {/* Action Buttons */}
+                        <Animated.View
+                            entering={FadeInDown.delay(600).duration(800)}
+                            style={styles.actionContainer}
+                        >
+                            <TouchableOpacity
+                                onPress={() => handleSocialLogin('google')}
+                                activeOpacity={0.8}
+                                style={styles.googleButton}
+                            >
+                                <Image source={googleLogo} style={styles.googleButtonIcon} />
+                                <Text style={styles.googleButtonText}>Google로 시작하기</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+
+                        {/* Disclaimer */}
+                        <View style={styles.footerContainer}>
+                            <Text style={styles.footerText}>
+                                로그인 시 이용약관 및 개인정보처리방침에 동의하게 됩니다.
+                            </Text>
+                        </View>
+                    </View>
                 </View>
             </SafeAreaView>
 
             {/* Loading Overlay */}
             {isLoading && (
                 <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
-                    <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill}>
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#10b981" />
-                            <Text style={styles.loadingText}>Connecting to Applei...</Text>
-                        </View>
-                    </BlurView>
+                    <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
+                    <View style={styles.loadingContent}>
+                        <ActivityIndicator size="large" color="#10B981" />
+                        <Text style={{ marginTop: 15, fontWeight: 'bold', color: '#10B981' }}>연결 중...</Text>
+                    </View>
                 </View>
             )}
         </View>
@@ -155,14 +144,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: '#fff',
-    },
-    vignetteOverlay: {
-        backgroundColor: 'rgba(0,0,0,0.03)', // Subtle darkening
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.2,
-        shadowRadius: 150,
     },
     safeArea: {
         flex: 1,
@@ -173,133 +154,119 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
     },
-    glassCardWrapper: {
-        width: width * 0.88,
-        height: height * 0.75,
-        borderRadius: 60,
-        overflow: 'hidden',
-        borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.6)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 20 },
-        shadowOpacity: 0.1,
-        shadowRadius: 30,
-        elevation: 10,
-    },
-    blurView: {
-        flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-    },
-    contentContainer: {
-        flex: 1,
-        justifyContent: 'center',
+    contentWrapper: {
+        width: width * 0.9,
+        maxWidth: 400,
+        height: height * 0.72,
         alignItems: 'center',
-        padding: 30,
+        justifyContent: 'space-between',
+        paddingVertical: 50,
     },
     characterSection: {
         alignItems: 'center',
-        marginBottom: 50,
-        position: 'relative',
+        justifyContent: 'center',
+    },
+    glowContainer: {
+        position: 'absolute',
+        width: 180,
+        height: 180,
+        borderRadius: 90,
+        backgroundColor: 'rgba(16, 185, 129, 0.3)',
+        shadowColor: '#10B981',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 40,
     },
     characterImage: {
         width: 180,
         height: 180,
-    },
-    floatingLabelContainer: {
-        position: 'absolute',
-        top: -20,
-        left: -50,
         zIndex: 10,
     },
-    labelBlur: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.8)',
+    textSection: {
+        alignItems: 'center',
     },
-    labelText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#334155',
+    brandContainer: {
+        alignItems: 'center',
+        marginBottom: 16,
     },
-    labelTriangle: {
-        width: 0,
-        height: 0,
-        backgroundColor: 'transparent',
-        borderStyle: 'solid',
-        borderLeftWidth: 8,
-        borderRightWidth: 8,
-        borderTopWidth: 12,
-        borderLeftColor: 'transparent',
-        borderRightColor: 'transparent',
-        borderTopColor: 'rgba(255,255,255,0.6)',
-        alignSelf: 'flex-start',
-        marginLeft: 15,
-        marginTop: -2,
-    },
-    greetingText: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#fff',
-        textAlign: 'center',
-        lineHeight: 32,
-        letterSpacing: -0.5,
-        marginBottom: 60,
-        textShadowColor: 'rgba(0,0,0,0.1)',
-        textShadowOffset: { width: 0, height: 1 },
+    brandText: {
+        fontSize: 16,
+        fontWeight: '900',
+        color: '#10B981',
+        letterSpacing: 2.5,
+        textTransform: 'uppercase',
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 0, height: 2 },
         textShadowRadius: 4,
     },
-    iconsRow: {
+    brandSubText: {
+        fontSize: 12,
+        color: '#94A3B8',
+        marginTop: 4,
+        letterSpacing: 1,
+        fontWeight: 'bold',
+    },
+    greetingText: {
+        fontSize: 28,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        textAlign: 'center',
+        lineHeight: 42,
+        letterSpacing: -0.5,
+        textShadowColor: 'rgba(0, 0, 0, 0.2)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 8,
+    },
+    actionContainer: {
+        width: '100%',
+        paddingHorizontal: 10,
+    },
+    googleButton: {
         flexDirection: 'row',
-        gap: 25,
-        justifyContent: 'center',
         alignItems: 'center',
-    },
-    iconBubble: {
-        width: 68,
-        height: 68,
-        borderRadius: 34,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-        backgroundColor: 'rgba(255,255,255,0.15)',
-    },
-    bubbleInner: {
-        flex: 1,
         justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        paddingVertical: 18,
+        borderRadius: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 15,
+        elevation: 8,
+        gap: 12,
     },
-    socialIconGoogle: {
-        width: 34,
-        height: 34,
+    googleButtonIcon: {
+        width: 24,
+        height: 24,
     },
-    socialIconKakao: {
-        width: 48,
-        height: 48,
+    googleButtonText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1F2937',
+    },
+    footerContainer: {
+        marginTop: 20,
     },
     footerText: {
-        position: 'absolute',
-        bottom: 40,
-        fontSize: 10,
-        fontWeight: '900',
-        color: 'rgba(255,255,255,0.4)',
-        letterSpacing: 2,
+        fontSize: 12,
+        color: 'rgba(255, 255, 255, 0.5)',
         textAlign: 'center',
+        fontWeight: '600',
     },
     loadingOverlay: {
-        zIndex: 100,
-    },
-    loadingContainer: {
-        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 999,
     },
-    loadingText: {
-        marginTop: 15,
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#10b981',
+    loadingContent: {
+        padding: 30,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,1)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 10,
     }
 });

@@ -43,6 +43,8 @@ export const translations = {
         fuelingStrategy: "Fueling Strategy",
         logout: "Logout",
         languageModalTitle: "Language / 언어",
+        signOutTitle: "Sign Out",
+        signOutMessage: "Are you sure you want to sign out?",
 
         // Notifications
         lunchReminder: "Lunch Reminder",
@@ -290,6 +292,8 @@ export const translations = {
         fuelingStrategy: "영양 전략",
         logout: "로그아웃",
         languageModalTitle: "언어 설정 / Language",
+        signOutTitle: "로그아웃",
+        signOutMessage: "정말로 로그아웃 하시겠습니까?",
 
         // Notifications
         lunchReminder: "점심 알림",
