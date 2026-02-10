@@ -116,7 +116,7 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                     </View>
 
                     {/* Active Calories (Burned vs Intake handled in main ring, this is just burn) */}
-                    <View style={[styles.statItem, { flex: 0.8 }]}>
+                    <View style={styles.statItem}>
                         <View style={[styles.iconBox, { backgroundColor: 'rgba(249, 115, 22, 0.1)' }]}>
                             <Flame size={20} color="#f97316" />
                         </View>
@@ -210,25 +210,29 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        justifyContent: 'space-around', // Changed to space-around for even distribution
+        alignItems: 'flex-start', // Align tops if heights differ, or center
+        paddingVertical: 10,
     },
     statItem: {
         flex: 1,
-        flexDirection: 'row', // Changed to row for compact look
+        flexDirection: 'column', // Stack vertically to save horizontal space
         alignItems: 'center',
         gap: 8,
     },
     ringContainer: {
-        width: 50,
-        height: 50,
+        width: 60, // Match SVG width
+        height: 60,
         justifyContent: 'center',
         alignItems: 'center',
     },
     iconCenter: {
         position: 'absolute',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     textContainer: {
+        alignItems: 'center', // Center text
         justifyContent: 'center',
     },
     label: {
@@ -237,18 +241,21 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textTransform: 'uppercase',
         marginBottom: 2,
+        textAlign: 'center',
     },
     value: {
         fontSize: 14,
         fontWeight: '800',
         color: '#1e293b',
+        textAlign: 'center',
     },
     iconBox: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 50, // Match ring visual size roughly
+        height: 50,
+        borderRadius: 25,
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 5, // Visual alignment with rings
     },
     connectContainer: {
         marginBottom: 20,

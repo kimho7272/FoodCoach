@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Calendar, Trash2, ArrowUp, ArrowDown, ChevronRight, Flame, Zap, BarChart2, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { ChevronLeft, Calendar, Trash2, ArrowUp, ArrowDown, ChevronRight, Flame, Zap, BarChart2, ChevronUp, ChevronDown, MapPin } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName } from '../src/lib/meal_service';
@@ -108,6 +108,7 @@ export default function MealHistoryScreen() {
             const parts = (date as string).split('-');
             if (parts.length === 3) {
                 const newDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                // Only update if it's actually different to avoid redundant updates
                 if (newDate.toDateString() !== selectedDate.toDateString()) {
                     setSelectedDate(newDate);
                     itemPositions.current.clear(); // Only clear when the ACTUAL date changes
@@ -116,7 +117,7 @@ export default function MealHistoryScreen() {
         }
         hasScrolledRef.current = null;
         scrollAttempts.current = 0;
-    }, [highlightId, date, selectedDate]);
+    }, [date]);
 
     const performScroll = useCallback((force = false) => {
         if (!highlightId || !mainScrollRef.current || loading) return;
@@ -337,6 +338,34 @@ export default function MealHistoryScreen() {
                     </View>
                 </View>
 
+                {(item.place_name || item.address) && (
+                    <TouchableOpacity
+                        style={styles.locationRow}
+                        onPress={() => {
+                            const label = encodeURIComponent(item.place_name || item.address);
+                            let url = '';
+                            if (item.location_lat && item.location_lng) {
+                                const latLng = `${item.location_lat},${item.location_lng}`;
+                                if (Platform.OS === 'ios') {
+                                    url = `http://maps.apple.com/?ll=${latLng}&q=${label}`;
+                                } else {
+                                    url = `geo:0,0?q=${latLng}(${label})`;
+                                }
+                            } else {
+                                if (Platform.OS === 'ios') {
+                                    url = `http://maps.apple.com/?q=${label}`;
+                                } else {
+                                    url = `geo:0,0?q=${label}`;
+                                }
+                            }
+                            Linking.openURL(url);
+                        }}
+                    >
+                        <MapPin size={12} color="#64748b" />
+                        <Text style={styles.locationText} numberOfLines={1}>{item.place_name || item.address}</Text>
+                    </TouchableOpacity>
+                )}
+
                 <View style={styles.descriptionBox}>
                     <Text style={styles.descriptionText}>{item.description || 'No description provided.'}</Text>
                 </View>
@@ -500,6 +529,9 @@ const styles = StyleSheet.create({
     macroBox: { flex: 1, backgroundColor: '#f8fafc', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
     macroValueText: { fontSize: 14, fontWeight: '800', color: '#1e293b', marginTop: 4 },
     macroLabelText: { fontSize: 9, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase' },
+
+    locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginTop: -8, paddingHorizontal: 4 },
+    locationText: { fontSize: 11, color: '#64748b', fontWeight: 'bold', marginLeft: 6 },
 
     descriptionBox: { paddingTop: 15, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
     descriptionText: { fontSize: 13, color: '#64748b', lineHeight: 18, fontStyle: 'italic' },

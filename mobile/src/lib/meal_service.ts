@@ -14,6 +14,10 @@ export type MealLog = {
     image_url?: string;
     health_score?: number;
     description?: string;
+    location_lat?: number;
+    location_lng?: number;
+    place_name?: string | null;
+    address?: string | null;
 };
 
 export const uploadMealImage = async (userId: string, base64Data: string) => {

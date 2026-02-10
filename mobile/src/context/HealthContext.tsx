@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { healthService, HealthData } from '../services/health_service';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface HealthContextType {
     healthData: HealthData | null;
@@ -17,20 +18,34 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Initial load - Check if previously connected
     useEffect(() => {
-        // ideally we check persisted state here, for now we can check healthService status
-        // or just init empty
-        const currentStatus = healthService.getStatus();
-        if (currentStatus.isConnected) {
-            refreshData();
-        }
+        const restoreConnection = async () => {
+            try {
+                const savedProvider = await AsyncStorage.getItem('health_provider');
+                if (savedProvider) {
+                    // Automatically reconnect
+                    console.log("Restoring health connection to:", savedProvider);
+                    await connect(savedProvider as any);
+                }
+            } catch (e) {
+                console.error("Failed to restore health connection", e);
+            }
+        };
+        restoreConnection();
     }, []);
 
     const refreshData = async () => {
         setIsLoading(true);
         try {
-            // Assuming Samsung as default for now based on previous context
-            // In real app, store provider in state
-            const data = await healthService.fetchData('samsung');
+            // Retrieve provider from storage to know which one to fetch from, 
+            // or just rely on service state if it was restored.
+            // For now, let's assume if we are connected, the service knows, 
+            // but the service `fetchData` requires a provider argument in the interface?
+            // Actually `healthService.fetchData` takes a provider arg. 
+            // We should ideally store the current provider in state too.
+            const savedProvider = await AsyncStorage.getItem('health_provider');
+            const providerToUse = savedProvider as 'samsung' | 'google' | 'apple' || 'samsung'; // Default fallback
+
+            const data = await healthService.fetchData(providerToUse);
             setHealthData(data);
         } catch (e) {
             console.error("Context: Failed to refresh health data", e);
@@ -44,6 +59,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
             const success = await healthService.connect(provider);
             if (success) {
+                await AsyncStorage.setItem('health_provider', provider);
                 await refreshData();
                 return true;
             }
@@ -60,6 +76,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsLoading(true);
         try {
             await healthService.disconnect();
+            await AsyncStorage.removeItem('health_provider');
             setHealthData(null);
         } catch (e) {
             console.error("Context: Failed to disconnect", e);

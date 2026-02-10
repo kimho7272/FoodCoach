@@ -9,7 +9,8 @@ export interface Friend {
     nickname: string | null;
     avatar_url: string | null;
     phone: string | null;
-    status: 'pending' | 'accepted' | 'sent'; // 'sent' means user sent request
+    status: 'pending' | 'accepted' | 'sent' | 'none'; // 'none' for unconnected/inviteable
+    is_registered: boolean;
 }
 
 export const socialService = {
@@ -19,6 +20,7 @@ export const socialService = {
         if (status === 'granted') {
             const { data } = await Contacts.getContactsAsync({
                 fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Image],
+                sort: Contacts.SortTypes.FirstName, // Sort locally by default
             });
             return data;
         }
@@ -34,65 +36,129 @@ export const socialService = {
     // 3. Find Friends on FoodCoach (Matches contacts with Profiles)
     // NOTE: In production, use a secure RPC. Here we client-side filter for MVP if acceptable,
     // or better, send list to DB. simpler: Query profiles where phone in list.
-    async findFriendsInContacts(): Promise<Friend[]> {
+    // 3. Get Device Contacts (Fast, Local Only)
+    async getPhoneContacts(): Promise<Friend[]> {
         const contacts = await this.getContacts();
         if (!contacts || contacts.length === 0) return [];
 
-        // Extract phone numbers
-        const phoneNumbers = contacts
-            .flatMap(c => c.phoneNumbers?.map(p => this.normalizePhone(p.number || '')) || [])
-            .filter(p => p.length > 5); // Filter invalid
+        const results: Friend[] = [];
+        const seenNumbers = new Set<string>();
 
-        if (phoneNumbers.length === 0) return [];
+        contacts.forEach(c => {
+            if (c.phoneNumbers && c.phoneNumbers.length > 0) {
+                // Use the first valid mobile-like number
+                const rawPhone = c.phoneNumbers[0].number;
+                if (rawPhone) {
+                    const normalized = this.normalizePhone(rawPhone);
+                    if (normalized.length > 5 && !seenNumbers.has(normalized)) {
+                        seenNumbers.add(normalized);
+                        results.push({
+                            id: normalized, // temporary ID
+                            full_name: c.name,
+                            nickname: null,
+                            avatar_url: c.image?.uri || null,
+                            phone: normalized,
+                            status: 'none',
+                            is_registered: false
+                        });
+                    }
+                }
+            }
+        });
+
+        // Basic sort
+        results.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        return results;
+    },
+
+    // 3.5 Sync Contacts with App (Slower, Network)
+    async syncContactsWithApp(localFriends: Friend[]): Promise<Friend[]> {
+        if (localFriends.length === 0) return [];
+
+        const phoneNumbers = localFriends.map(f => f.phone).filter(p => p !== null) as string[];
+        if (phoneNumbers.length === 0) return localFriends;
 
         // Query Supabase for these phones
-        // Note: This exposes who is on the app to the client, which is the point, but privacy-wise
-        // usually done via hashed match or RPC.
         const { data: profiles, error } = await supabase
             .from('profiles')
             .select('id, full_name, nickname, avatar_url, phone')
-            .in('phone', phoneNumbers); // Requires 'phone' column in profiles
+            .in('phone', phoneNumbers);
 
         if (error) {
             console.error('Error finding friends:', error);
-            return [];
+            return localFriends;
         }
 
-        // Check if I am already friends with them
+        // Get my basic info for friendship check
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return [];
 
-        const { data: friendships } = await supabase
-            .from('friendships')
-            .select('*')
-            .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+        let friendships: any[] = [];
+        if (user) {
+            const { data: fs } = await supabase
+                .from('friendships')
+                .select('*')
+                .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
+            friendships = fs || [];
+        }
 
-        // Map profiles to Friend objects including status
-        return profiles
-            .filter(p => p.id !== user.id) // Exclude self
-            .map(p => {
-                const friendship = friendships?.find(f =>
-                    (f.user_id_1 === user.id && f.user_id_2 === p.id) ||
-                    (f.user_id_2 === user.id && f.user_id_1 === p.id)
-                );
+        const registeredMap = new Map<string, any>();
+        profiles?.forEach(p => {
+            if (p.phone) registeredMap.set(p.phone, p);
+        });
 
-                let status: Friend['status'] | undefined;
-                if (friendship) {
-                    if (friendship.status === 'accepted') status = 'accepted';
-                    else if (friendship.status === 'pending') {
-                        status = friendship.user_id_1 === user.id ? 'sent' : 'pending';
+        // Rebuild list with enriched data
+        const enriched = localFriends.map(local => {
+            if (!local.phone) return local;
+
+            const registered = registeredMap.get(local.phone);
+            if (registered) {
+                // It's a registered user
+                if (user && registered.id === user.id) return null; // Filter out self
+
+                // Determine status
+                let status: Friend['status'] = 'none';
+                if (user) {
+                    const f = friendships.find(f =>
+                        (f.user_id_1 === user.id && f.user_id_2 === registered.id) ||
+                        (f.user_id_2 === user.id && f.user_id_1 === registered.id)
+                    );
+                    if (f) {
+                        if (f.status === 'accepted') status = 'accepted';
+                        else if (f.status === 'pending') {
+                            status = f.user_id_1 === user.id ? 'sent' : 'pending';
+                        }
                     }
                 }
 
                 return {
-                    id: p.id,
-                    full_name: p.full_name,
-                    nickname: p.nickname,
-                    avatar_url: p.avatar_url,
-                    phone: p.phone,
-                    status: status as any // undefined means not connected
-                };
-            });
+                    ...local,
+                    id: registered.id, // Use Supabase ID
+                    full_name: registered.full_name || local.full_name,
+                    nickname: registered.nickname,
+                    avatar_url: registered.avatar_url || local.avatar_url,
+                    is_registered: true,
+                    status
+                } as Friend;
+            }
+            return local;
+        }).filter(f => f !== null) as Friend[];
+
+        // Sort: Registered First, then Status, then Name
+        enriched.sort((a, b) => {
+            if (a.is_registered && !b.is_registered) return -1;
+            if (!a.is_registered && b.is_registered) return 1;
+            if (a.status === 'accepted' && b.status !== 'accepted') return -1;
+            if (a.status !== 'accepted' && b.status === 'accepted') return 1;
+            return (a.full_name || '').localeCompare(b.full_name || '');
+        });
+
+        return enriched;
+    },
+
+    // Legacy method wrapper (optional, but keeping it for safety if used elsewhere)
+    async findFriendsInContacts(): Promise<Friend[]> {
+        const local = await this.getPhoneContacts();
+        return this.syncContactsWithApp(local);
     },
 
     // 4. Send Friend Request
@@ -211,7 +277,8 @@ export const socialService = {
                     nickname: friendProfile.nickname,
                     avatar_url: friendProfile.avatar_url,
                     phone: null,
-                    status: 'accepted'
+                    status: 'accepted',
+                    is_registered: true
                 });
             }
         });

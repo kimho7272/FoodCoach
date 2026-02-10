@@ -93,7 +93,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         exiting={ZoomOut}
                         style={styles.modalContainer}
                     >
-                        <BlurView intensity={90} tint="light" style={styles.blurContent}>
+                        <View style={styles.innerContent}>
                             <View style={[styles.iconWrapper, { backgroundColor: colors.bg }]}>
                                 {getIcon()}
                             </View>
@@ -119,7 +119,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                                     </Text>
                                 </TouchableOpacity>
                             </View>
-                        </BlurView>
+                        </View>
                     </Animated.View>
                 </View>
             </Modal>
@@ -137,16 +137,17 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         width: width * 0.85,
+        backgroundColor: 'white',
         borderRadius: 32,
         overflow: 'hidden',
         elevation: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.25,
         shadowRadius: 20,
     },
-    blurContent: {
-        padding: 30,
+    innerContent: {
+        padding: 32,
         alignItems: 'center',
     },
     iconWrapper: {

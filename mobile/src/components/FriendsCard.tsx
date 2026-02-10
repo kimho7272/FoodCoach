@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Alert, TextInput, FlatList } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTranslation } from '../lib/i18n';
 import { Plus, UserPlus, Send, Check, X } from 'lucide-react-native';
 import { socialService, Friend } from '../services/social_service';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+
 
 interface FriendsCardProps {
     refreshTrigger?: number;
@@ -35,12 +35,17 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
         setShowAddModal(true);
         setSearching(true);
         try {
-            const potentialFriends = await socialService.findFriendsInContacts();
-            setContacts(potentialFriends);
+            // Stage 1: Fast Local Load
+            const localContacts = await socialService.getPhoneContacts();
+            setContacts(localContacts);
+            setSearching(false); // Show list immediately
+
+            // Stage 2: Background Sync
+            const enrichedContacts = await socialService.syncContactsWithApp(localContacts);
+            setContacts(enrichedContacts);
         } catch (e) {
             console.error(e);
             Alert.alert(t('error'), t('contactsError'));
-        } finally {
             setSearching(false);
         }
     };
@@ -60,6 +65,56 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
             Alert.alert(t('error'), t('requestFailed'));
         }
     };
+
+    const renderContactItem = ({ item }: { item: Friend }) => (
+        <View style={styles.contactItem}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {item.avatar_url ? (
+                    <Image source={{ uri: item.avatar_url }} style={styles.contactAvatar} />
+                ) : (
+                    <View style={[styles.contactAvatar, { backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text>👤</Text>
+                    </View>
+                )}
+                <View style={{ marginLeft: 12 }}>
+                    <Text style={styles.contactName}>{item.nickname || item.full_name}</Text>
+                    {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
+                    {!item.is_registered && (
+                        <Text style={{ fontSize: 10, color: '#94a3b8' }}>
+                            {language === 'Korean' ? '앱 미사용' : 'Not on App'}
+                        </Text>
+                    )}
+                </View>
+            </View>
+
+            {item.status === 'accepted' ? (
+                <View style={styles.friendBadge}>
+                    <Check size={14} color="#10b981" />
+                    <Text style={styles.friendText}>{t('friends')}</Text>
+                </View>
+            ) : item.status === 'sent' ? (
+                <View style={styles.sentBadge}>
+                    <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
+                </View>
+            ) : item.is_registered ? (
+                <TouchableOpacity
+                    style={styles.connectBtn}
+                    onPress={() => handleSendRequest(item.id)}
+                >
+                    <UserPlus size={16} color="#fff" />
+                    <Text style={styles.connectBtnText}>{t('connect') || 'Connect'}</Text>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity
+                    style={[styles.connectBtn, { backgroundColor: '#f1f5f9' }]}
+                    onPress={() => handleInvite(item.phone)}
+                >
+                    <Send size={16} color="#64748b" />
+                    <Text style={[styles.connectBtnText, { color: '#64748b' }]}>{t('invite') || 'Invite'}</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
 
     return (
         <View style={styles.container}>
@@ -134,54 +189,24 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
                     {searching ? (
                         <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#10b981" />
                     ) : (
-                        <ScrollView style={styles.contactsList}>
+                        <View style={styles.contactsList}>
                             {contacts.length === 0 ? (
                                 <View style={styles.emptyState}>
                                     <Text style={styles.emptyText}>
-                                        {language === 'Korean' ? 'FoodCoach를 사용하는 친구가 없네요.\n초대해보세요!' : 'No friends found on FoodCoach.\nInvite them!'}
+                                        {language === 'Korean' ? '연락처를 찾을 수 없습니다.' : 'No contacts found.'}
                                     </Text>
                                 </View>
                             ) : (
-                                contacts.map((contact) => (
-                                    <View key={contact.id} style={styles.contactItem}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                            {contact.avatar_url ? (
-                                                <Image source={{ uri: contact.avatar_url }} style={styles.contactAvatar} />
-                                            ) : (
-                                                <View style={[styles.contactAvatar, { backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' }]}>
-                                                    <Text>👤</Text>
-                                                </View>
-                                            )}
-                                            <View style={{ marginLeft: 12 }}>
-                                                <Text style={styles.contactName}>{contact.nickname || contact.full_name}</Text>
-                                                {contact.phone && <Text style={styles.contactPhone}>{contact.phone}</Text>}
-                                            </View>
-                                        </View>
-
-                                        {contact.status === 'accepted' ? (
-                                            <View style={styles.friendBadge}>
-                                                <Check size={14} color="#10b981" />
-                                                <Text style={styles.friendText}>{t('friends')}</Text>
-                                            </View>
-                                        ) : contact.status === 'sent' ? (
-                                            <View style={styles.sentBadge}>
-                                                <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
-                                            </View>
-                                        ) : (
-                                            <TouchableOpacity
-                                                style={styles.connectBtn}
-                                                onPress={() => handleSendRequest(contact.id)}
-                                            >
-                                                <UserPlus size={16} color="#fff" />
-                                                <Text style={styles.connectBtnText}>{t('connect') || 'Connect'}</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                ))
+                                <FlatList
+                                    data={contacts}
+                                    keyExtractor={(item) => item.id}
+                                    renderItem={renderContactItem}
+                                    initialNumToRender={10}
+                                    windowSize={5}
+                                    removeClippedSubviews={true}
+                                />
                             )}
-
-                            {/* Option to invite others manually could go here */}
-                        </ScrollView>
+                        </View>
                     )}
                 </View>
             </Modal>

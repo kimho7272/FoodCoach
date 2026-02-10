@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Flame, Plus, TrendingUp, Zap, Settings, Heart, BarChart2, Camera, Activity, Award, ShieldCheck } from 'lucide-react-native';
 import Svg, { Circle, Path, Defs, LinearGradient as SvgGradient, Stop, Polygon, G } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedProps, withSpring, withTiming, withRepeat, withSequence, interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../src/lib/supabase';
 import { useTranslation } from '../../src/lib/i18n';
 import { useTour } from '../../src/context/TourContext';
@@ -68,7 +69,37 @@ export default function HomeScreen() {
                     .select('*')
                     .eq('user_id', user.id)
                     .order('created_at', { ascending: false });
-                setLogs(mealLogs || []);
+
+                let sortedLogs = mealLogs || [];
+                const todayForOrder = new Date().toDateString();
+                const orderKey = `meal_order_${user.id}_${todayForOrder}`;
+                const savedOrder = await AsyncStorage.getItem(orderKey);
+
+                if (savedOrder && sortedLogs.length > 0) {
+                    const idOrder = JSON.parse(savedOrder);
+                    sortedLogs = [...sortedLogs].sort((a, b) => {
+                        const dateA = new Date(a.created_at).toDateString();
+                        const dateB = new Date(b.created_at).toDateString();
+
+                        // Only reorder today's logs
+                        if (dateA === todayForOrder && dateB === todayForOrder) {
+                            const idxA = idOrder.indexOf(a.id);
+                            const idxB = idOrder.indexOf(b.id);
+
+                            // New items first
+                            if (idxA === -1 && idxB === -1) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                            if (idxA === -1) return -1;
+                            if (idxB === -1) return 1;
+
+                            return idxA - idxB;
+                        }
+
+                        // Default date sort
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    });
+                }
+
+                setLogs(sortedLogs);
 
                 // Calculate Streak
                 if (mealLogs && mealLogs.length > 0) {

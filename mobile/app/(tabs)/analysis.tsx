@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Camera as CameraIcon, RotateCcw, Check, X, Flame, Zap, BarChart2 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { analyzeMealImage, AnalysisResult } from '../../src/api/vision_api';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +11,8 @@ import { uploadMealImage, saveMealLog } from '../../src/lib/meal_service';
 import { useAlert } from '../../src/context/AlertContext';
 
 import { useHealth } from '../../src/context/HealthContext';
+import { locationService } from '../../src/services/location_service';
+import { Camera as CameraIcon, RotateCcw, Check, X, Flame, Zap, BarChart2, MapPin } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,13 +35,24 @@ export default function AnalysisScreen() {
     const cameraRef = useRef<any>(null);
     const [selectedMealType, setSelectedMealType] = useState<AnalysisResult['category']>('Snack');
     const [logging, setLogging] = useState(false);
+    const [location, setLocation] = useState<{ name: string | null, address: string | null, lat: number, lng: number } | null>(null);
 
     useEffect(() => {
         // If we have params but analysis hasn't started
         if (params.imageUri && params.imageBase64 && !result && !analyzing) {
             analyzeDirectly(params.imageBase64 as string);
+            // Also fetch location for gallery uploads (assuming current location)
+            fetchLocation();
         }
     }, [params.imageUri, params.imageBase64]);
+
+    const fetchLocation = async () => {
+        const loc = await locationService.getCurrentLocation();
+        if (loc) {
+            const place = await locationService.getPlaceName(loc.latitude, loc.longitude);
+            setLocation({ ...place, lat: loc.latitude, lng: loc.longitude });
+        }
+    };
 
     const analyzeDirectly = async (base64: string) => {
         setAnalyzing(true);
@@ -109,6 +121,8 @@ export default function AnalysisScreen() {
             const options = { quality: 0.5, base64: true, shutterSound: false };
             const data = await cameraRef.current.takePictureAsync(options);
             setPhoto({ uri: data.uri, base64: data.base64 });
+            // Fetch location immediately after taking photo
+            fetchLocation();
         }
     };
 
@@ -138,7 +152,11 @@ export default function AnalysisScreen() {
                 meal_type: selectedMealType,
                 image_url: imageUrl || undefined,
                 health_score: result.health_score,
-                description: result.description
+                description: result.description,
+                location_lat: location?.lat,
+                location_lng: location?.lng,
+                place_name: location?.name,
+                address: location?.address
             });
 
             if (error) throw error;
@@ -165,6 +183,7 @@ export default function AnalysisScreen() {
     const reset = () => {
         setPhoto(null);
         setResult(null);
+        setLocation(null);
     };
 
     const mealTypes: AnalysisResult['category'][] = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
@@ -248,6 +267,14 @@ export default function AnalysisScreen() {
                                                 <Text style={styles.categoryBadgeText}>AI Suggested: {result.category}</Text>
                                             </View>
                                             <Text style={styles.foodName} numberOfLines={1}>{result.food_name}</Text>
+                                            {location && (location.name || location.address) && (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, opacity: 0.8 }}>
+                                                    <MapPin size={12} color="#94a3b8" />
+                                                    <Text style={{ color: '#94a3b8', fontSize: 12, marginLeft: 4 }} numberOfLines={1}>
+                                                        {location.name || location.address}
+                                                    </Text>
+                                                </View>
+                                            )}
                                             <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>{result.description}</Text>
                                         </View>
                                         <View style={[styles.scoreBadge, { backgroundColor: result.health_score >= 7 ? '#10b981' : (result.health_score >= 4 ? '#f59e0b' : '#ef4444') }]}>
