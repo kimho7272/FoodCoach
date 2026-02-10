@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FoodCoach",
+    "name": "FoodCoach powered by AI",
     "slug": "foodcoach-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,8 +14,7 @@
       "backgroundColor": "#0f172a"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.foodcoach.app",
+      "bundleIdentifier": "com.xgoldtiger.foodcoach",
       "infoPlist": {
         "NSHealthShareUsageDescription": "Read and understand health data to provide personalized coaching.",
         "NSHealthUpdateUsageDescription": "Share workout data with other apps to keep your health data consistent.",
@@ -25,11 +24,17 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0f172a"
+        "backgroundColor": "#10b981"
       },
-      "package": "com.foodcoach.app",
+      "package": "com.xgoldtiger.foodcoach",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -59,6 +64,12 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "24f55ee2-a6cf-47cc-8520-5fa137f600d5"
+      }
+    }
   }
 }
