@@ -1,7 +1,12 @@
 import requests
 import json
 
-api_key = "AIzaSyAnVQUd8BxoA6W4YnWtzVLAq7x9DJ8pMhY"
+import os
+
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    print("Please set GEMINI_API_KEY environment variable")
+    exit(1)
 model = "gemini-2.0-flash"
 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
