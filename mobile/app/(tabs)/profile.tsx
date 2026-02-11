@@ -887,7 +887,7 @@ export default function ProfileScreen() {
                                 <View style={styles.menuContainer}>
                                     <TouchableOpacity style={styles.menuItem} onPress={() => {
                                         triggerHaptic();
-                                        Linking.openURL('mailto:support@foodcoach.ai?subject=Support Request');
+                                        Linking.openURL('mailto:foodcoach.dev@gmail.com?subject=Support Request');
                                     }}>
                                         <Info size={20} color="#64748b" />
                                         <Text style={[styles.menuTitle, { marginLeft: 16 }]}>{t('helpCenter')}</Text>

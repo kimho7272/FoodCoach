@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,14 +16,16 @@ import { useRouter } from 'expo-router';
 import { signInWithSocial } from '../src/lib/auth_service';
 import { ActivityIndicator } from 'react-native';
 import { useAlert } from '../src/context/AlertContext';
+import { useTranslation } from '../src/lib/i18n';
 
 const { width, height } = Dimensions.get('window');
 const fruitCharacter = require('../assets/applei.png');
-const googleLogo = require('../assets/google_logo.png');
+const googleLogo = require('../assets/google_logo.jpg');
 
 export default function LoginScreen() {
     const router = useRouter();
     const { showAlert } = useAlert();
+    const { language } = useTranslation();
     const bobValue = useSharedValue(0);
     const [isLoading, setIsLoading] = React.useState(false);
 
@@ -127,16 +129,21 @@ export default function LoginScreen() {
                 </View>
             </SafeAreaView>
 
-            {/* Loading Overlay */}
-            {isLoading && (
+            {/* Premium Loading Overlay */}
+            <Modal transparent visible={isLoading} animationType="fade">
                 <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
-                    <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
-                    <View style={styles.loadingContent}>
+                    <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+                    <Animated.View
+                        entering={FadeInDown}
+                        style={styles.loadingContent}
+                    >
                         <ActivityIndicator size="large" color="#10B981" />
-                        <Text style={{ marginTop: 15, fontWeight: 'bold', color: '#10B981' }}>연결 중...</Text>
-                    </View>
+                        <Text style={{ marginTop: 15, fontWeight: 'bold', color: '#10B981', fontSize: 16 }}>
+                            {language === 'Korean' ? '계정 연결 중...' : 'Connecting...'}
+                        </Text>
+                    </Animated.View>
                 </View>
-            )}
+            </Modal>
         </View>
     );
 }

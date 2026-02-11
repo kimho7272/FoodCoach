@@ -317,7 +317,7 @@ export default function EnhancedOnboarding() {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1 },
+    root: { flex: 1, backgroundColor: '#F0FDFA' },
     safeArea: { flex: 1 },
     header: {
         flexDirection: 'row',
