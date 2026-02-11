@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Modal, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +19,7 @@ export default function FriendsScreen() {
     // Add Friend Modal State
     const [contacts, setContacts] = useState<Friend[]>([]);
     const [searching, setSearching] = useState(false);
+    const [searchText, setSearchText] = useState('');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -64,6 +65,7 @@ export default function FriendsScreen() {
     const handleOpenAddModal = async () => {
         setShowAddModal(true);
         setSearching(true);
+        setSearchText(''); // Reset search on open
         try {
             const potentialFriends = await socialService.findFriendsInContacts();
             setContacts(potentialFriends);
@@ -236,54 +238,75 @@ export default function FriendsScreen() {
                     {searching ? (
                         <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#10b981" />
                     ) : (
-                        <FlatList
-                            data={contacts}
-                            keyExtractor={item => item.id || item.phone || Math.random().toString()}
-                            contentContainerStyle={{ padding: 16 }}
-                            ListEmptyComponent={
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyText}>
-                                        {language === 'Korean' ? 'FoodCoach를 사용하는 친구가 없네요.\n초대해보세요!' : 'No friends found on FoodCoach.\nInvite them!'}
-                                    </Text>
-                                </View>
-                            }
-                            renderItem={({ item }) => (
-                                <View style={styles.contactItem}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                        {item.avatar_url ? (
-                                            <Image source={{ uri: item.avatar_url }} style={styles.contactAvatar} />
-                                        ) : (
-                                            <View style={[styles.contactAvatar, { backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' }]}>
-                                                <Text>👤</Text>
-                                            </View>
-                                        )}
-                                        <View style={{ marginLeft: 12 }}>
-                                            <Text style={styles.contactName}>{item.nickname || item.full_name || 'User'}</Text>
-                                            {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
-                                        </View>
+                        <>
+                            <View style={styles.modalSearchContainer}>
+                                <Search size={20} color="#94a3b8" />
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder={language === 'Korean' ? '이름 또는 전화번호 검색' : 'Search name or phone'}
+                                    value={searchText}
+                                    onChangeText={setSearchText}
+                                    placeholderTextColor="#94a3b8"
+                                />
+                                {searchText.length > 0 && (
+                                    <TouchableOpacity onPress={() => setSearchText('')}>
+                                        <X size={16} color="#94a3b8" />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            <FlatList
+                                data={contacts.filter(c =>
+                                    (c.full_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                                    (c.nickname || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                                    (c.phone || '').includes(searchText)
+                                )}
+                                keyExtractor={item => item.id || item.phone || Math.random().toString()}
+                                contentContainerStyle={{ padding: 16 }}
+                                ListEmptyComponent={
+                                    <View style={styles.emptyState}>
+                                        <Text style={styles.emptyText}>
+                                            {language === 'Korean' ? 'FoodCoach를 사용하는 친구가 없네요.\n초대해보세요!' : 'No friends found on FoodCoach.\nInvite them!'}
+                                        </Text>
                                     </View>
+                                }
+                                renderItem={({ item }) => (
+                                    <View style={styles.contactItem}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                            {item.avatar_url ? (
+                                                <Image source={{ uri: item.avatar_url }} style={styles.contactAvatar} />
+                                            ) : (
+                                                <View style={[styles.contactAvatar, { backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' }]}>
+                                                    <Text>👤</Text>
+                                                </View>
+                                            )}
+                                            <View style={{ marginLeft: 12 }}>
+                                                <Text style={styles.contactName}>{item.nickname || item.full_name || 'User'}</Text>
+                                                {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
+                                            </View>
+                                        </View>
 
-                                    {item.status === 'accepted' ? (
-                                        <View style={styles.friendBadge}>
-                                            <Check size={14} color="#10b981" />
-                                            <Text style={styles.friendBadgeText}>{t('friends')}</Text>
-                                        </View>
-                                    ) : item.status === 'sent' ? (
-                                        <View style={styles.sentBadge}>
-                                            <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
-                                        </View>
-                                    ) : (
-                                        <TouchableOpacity
-                                            style={styles.connectBtn}
-                                            onPress={() => handleSendRequest(item.id)}
-                                        >
-                                            <UserPlus size={16} color="#fff" />
-                                            <Text style={styles.connectBtnText}>{t('connect') || 'Connect'}</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            )}
-                        />
+                                        {item.status === 'accepted' ? (
+                                            <View style={styles.friendBadge}>
+                                                <Check size={14} color="#10b981" />
+                                                <Text style={styles.friendBadgeText}>{t('friends')}</Text>
+                                            </View>
+                                        ) : item.status === 'sent' ? (
+                                            <View style={styles.sentBadge}>
+                                                <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
+                                            </View>
+                                        ) : (
+                                            <TouchableOpacity
+                                                style={styles.connectBtn}
+                                                onPress={() => handleSendRequest(item.id)}
+                                            >
+                                                <UserPlus size={16} color="#fff" />
+                                                <Text style={styles.connectBtnText}>{t('connect') || 'Connect'}</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                )}
+                            />
+                        </>
                     )}
                 </View>
             </Modal>
@@ -345,4 +368,6 @@ const styles = StyleSheet.create({
     friendBadgeText: { color: '#10b981', fontWeight: 'bold', fontSize: 12 },
     sentBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
     sentText: { color: '#64748b', fontWeight: 'bold', fontSize: 12 },
+    modalSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', margin: 16, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+    modalInput: { flex: 1, marginLeft: 10, fontSize: 16, color: '#1e293b' },
 });

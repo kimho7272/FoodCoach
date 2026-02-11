@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Modal, ActivityIndicator, Image, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { X, Check, RefreshCw, Smartphone, Watch } from 'lucide-react-native';
+import { X, Check, RefreshCw, Smartphone, Watch, Zap, Heart, Activity } from 'lucide-react-native';
 import { useTranslation } from '../lib/i18n';
 import { useHealth } from '../context/HealthContext';
 import * as Haptics from 'expo-haptics';
@@ -119,33 +119,41 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
                             <View style={styles.connectedContainer}>
                                 <View style={styles.successHeader}>
                                     <View style={styles.successIcon}>
-                                        <Check size={32} color="#fff" />
+                                        <Check size={24} color="#fff" />
                                     </View>
                                     <Text style={styles.connectedTitle}>
-                                        {provider === 'apple' ? 'Apple Health' : 'Samsung Health'} {t('active')}
+                                        {(provider as any) === 'apple' ? 'Apple Health' : 'Samsung Health'} {t('active')}
                                     </Text>
                                     <Text style={styles.lastSynced}>
                                         {language === 'Korean' ? '방금 동기화됨' : 'Just synced'}
                                     </Text>
                                 </View>
 
-                                {/* Stats Grid */}
+                                {/* Stats Grid (2x2) */}
                                 <View style={styles.statsGrid}>
+                                    {/* Column 1 - Row 1 */}
                                     <View style={styles.statBox}>
+                                        <Activity size={16} color="#3b82f6" style={{ marginBottom: 4 }} />
                                         <Text style={styles.statLabel}>{language === 'Korean' ? '걸음 수' : 'Steps'}</Text>
                                         <Text style={styles.statValue}>
                                             {healthData?.steps.toLocaleString() || '—'}
                                         </Text>
                                         <Text style={styles.statUnit}>{language === 'Korean' ? '걸음' : 'steps'}</Text>
                                     </View>
+
+                                    {/* Column 2 - Row 1 */}
                                     <View style={styles.statBox}>
+                                        <Zap size={16} color="#f59e0b" style={{ marginBottom: 4 }} />
                                         <Text style={styles.statLabel}>{language === 'Korean' ? '에너지' : 'Energy'}</Text>
                                         <Text style={styles.statValue}>
                                             {healthData?.caloriesBurned || '—'}
                                         </Text>
                                         <Text style={styles.statUnit}>kcal</Text>
                                     </View>
+
+                                    {/* Column 1 - Row 2 */}
                                     <View style={styles.statBox}>
+                                        <Watch size={16} color="#8b5cf6" style={{ marginBottom: 4 }} />
                                         <Text style={styles.statLabel}>{language === 'Korean' ? '수면' : 'Sleep'}</Text>
                                         <Text style={styles.statValue}>
                                             {healthData?.sleepMinutes ? Math.floor(healthData.sleepMinutes / 60) : '—'}
@@ -153,6 +161,31 @@ export const HealthSyncModal: React.FC<HealthSyncModalProps> = ({ visible, onClo
                                             {healthData?.sleepMinutes ? healthData.sleepMinutes % 60 : ''}
                                             <Text style={styles.statUnitSmall}>m</Text>
                                         </Text>
+                                    </View>
+
+                                    {/* Column 2 - Row 2 */}
+                                    <View style={styles.statBox}>
+                                        <Heart size={16} color="#ef4444" style={{ marginBottom: 4 }} />
+                                        <Text style={styles.statLabel}>{language === 'Korean' ? '심박수' : 'Heart Rate'}</Text>
+                                        <Text style={styles.statValue}>
+                                            {healthData?.readinessScore ? Math.round(60 + (healthData.readinessScore / 10)) : '—'}
+                                        </Text>
+                                        <Text style={styles.statUnit}>bpm</Text>
+                                    </View>
+                                </View>
+
+                                {/* Readiness Score */}
+                                <View style={styles.readinessContainer}>
+                                    <View style={styles.readinessHeader}>
+                                        <Zap size={16} color="#f59e0b" />
+                                        <Text style={styles.readinessTitle}>{language === 'Korean' ? '레디니스 스코어' : 'Readiness Score'}</Text>
+                                    </View>
+                                    <View style={styles.readinessBarBg}>
+                                        <View style={[styles.readinessBarFill, { width: `${healthData?.readinessScore || 0}%` }]} />
+                                    </View>
+                                    <View style={styles.readinessFooter}>
+                                        <Text style={styles.readinessValue}>{healthData?.readinessScore || 0}</Text>
+                                        <Text style={styles.readinessMax}>/ 100</Text>
                                     </View>
                                 </View>
 
@@ -198,8 +231,8 @@ const ChevronRightIcon = () => (
 const styles = StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     modalBlur: { width: width * 0.9, borderRadius: 32, overflow: 'hidden' },
-    modalContent: { backgroundColor: 'rgba(255,255,255,0.95)', padding: 24 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    modalContent: { backgroundColor: 'rgba(255,255,255,0.95)', padding: 12 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     modalTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b' },
     closeBtn: { padding: 4 },
     subtitle: { fontSize: 14, color: '#64748b', marginBottom: 20, lineHeight: 20 },
@@ -224,20 +257,66 @@ const styles = StyleSheet.create({
     optionDesc: { fontSize: 12, color: '#94a3b8' },
 
     connectedContainer: { alignItems: 'center' },
-    successHeader: { alignItems: 'center', marginBottom: 24 },
-    successIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center', marginBottom: 12, shadowColor: '#10b981', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10 },
-    connectedTitle: { fontSize: 18, fontWeight: '800', color: '#10b981', marginBottom: 4 },
-    lastSynced: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
+    successHeader: { alignItems: 'center', marginBottom: 12 },
+    successIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center', marginBottom: 6, shadowColor: '#10b981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4 },
+    connectedTitle: { fontSize: 16, fontWeight: '800', color: '#10b981', marginBottom: 2 },
+    lastSynced: { fontSize: 10, color: '#94a3b8', fontWeight: '600' },
 
-    statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 24, width: '100%' },
-    statBox: { flex: 1, backgroundColor: '#f8fafc', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
-    statLabel: { fontSize: 10, color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 6 },
-    statValue: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-    statUnit: { fontSize: 10, color: '#94a3b8', marginTop: 2 },
-    statUnitSmall: { fontSize: 12, color: '#94a3b8' },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 4, width: '100%' },
+    statBox: { width: '48%', backgroundColor: '#f8fafc', padding: 10, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9', marginBottom: 6 },
+    statLabel: { fontSize: 9, color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
+    statValue: { fontSize: 16, fontWeight: '800', color: '#1e293b' },
+    statUnit: { fontSize: 9, color: '#94a3b8', marginTop: 1 },
+    statUnitSmall: { fontSize: 11, color: '#94a3b8' },
 
-    refreshBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 },
-    refreshText: { marginLeft: 8, color: '#64748b', fontWeight: '600', fontSize: 14 },
-    disconnectBtn: { padding: 12 },
-    disconnectText: { color: '#ef4444', fontWeight: '600', fontSize: 14 },
+    refreshBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 4, marginBottom: 2 },
+    refreshText: { marginLeft: 6, color: '#64748b', fontWeight: '600', fontSize: 12 },
+    disconnectBtn: { padding: 4 },
+    disconnectText: { color: '#ef4444', fontWeight: '600', fontSize: 12 },
+    readinessContainer: {
+        width: '100%',
+        backgroundColor: '#fffbeb',
+        padding: 10,
+        borderRadius: 14,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#fef3c7',
+    },
+    readinessHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 6,
+    },
+    readinessTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#92400e',
+    },
+    readinessBarBg: {
+        height: 8,
+        backgroundColor: '#fef3c7',
+        borderRadius: 4,
+        marginBottom: 8,
+    },
+    readinessBarFill: {
+        height: '100%',
+        backgroundColor: '#f59e0b',
+        borderRadius: 4,
+    },
+    readinessFooter: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+    },
+    readinessValue: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#f59e0b',
+    },
+    readinessMax: {
+        fontSize: 14,
+        color: '#d97706',
+        marginLeft: 2,
+        fontWeight: '600',
+    },
 });

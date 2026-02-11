@@ -27,6 +27,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const [weightUnit, setWeightUnit] = useState<'kg' | 'lb'>('kg');
     const [feet, setFeet] = useState(5);
     const [inches, setInches] = useState(7);
+    const [kcalVal, setKcalVal] = useState(2000);
+    const [isManualKcal, setIsManualKcal] = useState(false);
     const [saving, setSaving] = useState(false);
     const [hapticsEnabled, setHapticsEnabled] = useState(true);
 
@@ -55,10 +57,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 setEditNickname(profile.nickname || '');
                 const h = profile.height || 170;
                 const w = profile.weight || 70;
+                const kc = profile.target_calories || 2000;
                 setHeightVal(h);
                 setWeightVal(w);
+                setKcalVal(kc);
+                // If it's the exact recommendation, we might not set isManual? 
+                // But let's assume if it came from DB, we just show it.
+                setIsManualKcal(true);
             }
         }
+    };
+
+    const recommendKcal = () => {
+        const h = heightUnit === 'ft' ? Math.round((feet * 12 + inches) * 2.54) : heightVal;
+        const w = weightUnit === 'lb' ? Math.round(weightVal * 0.453592) : weightVal;
+        const recommended = Math.round(w * 30 / 50) * 50;
+        setKcalVal(recommended);
+        setIsManualKcal(false);
     };
 
     useEffect(() => {
@@ -81,7 +96,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             const { success } = await updateProfile(user.id, {
                 nickname: editNickname,
                 height: finalHeight,
-                weight: finalWeight
+                weight: finalWeight,
+                target_calories: kcalVal
             });
 
             if (success) {
@@ -227,6 +243,35 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                         <TouchableOpacity
                                             key={val}
                                             onPress={() => setWeightVal(w => w + val)}
+                                            style={styles.stepBtn}
+                                        >
+                                            <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <View style={styles.labelRow}>
+                                    <Text style={styles.inputLabel}>{t('dailyCalorieGoal')}</Text>
+                                    <TouchableOpacity
+                                        onPress={recommendKcal}
+                                        style={[styles.unitBtnSmall, !isManualKcal && styles.unitBtnActive]}
+                                    >
+                                        <Text style={[styles.unitBtnTextSmall, !isManualKcal && styles.unitBtnTextActive]}>✨ {t('recommended')}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.weightCenterRow}>
+                                    <Text style={styles.adjustValue}>{kcalVal} kcal</Text>
+                                </View>
+                                <View style={styles.weightBtnRow}>
+                                    {[-100, -50, 50, 100].map(val => (
+                                        <TouchableOpacity
+                                            key={val}
+                                            onPress={() => {
+                                                setKcalVal(k => k + val);
+                                                setIsManualKcal(true);
+                                            }}
                                             style={styles.stepBtn}
                                         >
                                             <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>

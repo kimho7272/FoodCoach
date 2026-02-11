@@ -50,7 +50,14 @@ export default function LoginScreen() {
             const { user, error } = await signInWithSocial(provider);
             if (error) {
                 setIsLoading(false);
-                showAlert({ title: 'Login Failed', message: error.message, type: 'error' });
+                console.error("Login Error Object:", JSON.stringify(error, null, 2));
+                const errorMsg = error.message || 'Unknown error occurred';
+                const errorDetails = (error as any).details || (error as any).hint || '';
+                showAlert({
+                    title: 'Login Failed',
+                    message: `${errorMsg}\n\nTechnical Details: ${errorDetails}`,
+                    type: 'error'
+                });
             } else if (user) {
                 // Keep loading TRUE until replace happens to prevent flickering
                 router.replace('/onboarding');

@@ -21,7 +21,7 @@ import { FriendsCard } from '../../src/components/FriendsCard';
 const { width, height } = Dimensions.get('window');
 
 const GlassCard = ({ children, style }: { children: React.ReactNode, style?: any }) => (
-    <BlurView intensity={60} tint="light" style={[styles.glassCard, style]}>
+    <BlurView intensity={40} tint="light" style={[styles.glassCard, style]}>
         <View style={styles.glassCardInner}>
             {children}
         </View>
@@ -80,42 +80,30 @@ export default function HomeScreen() {
                     sortedLogs = [...sortedLogs].sort((a, b) => {
                         const dateA = new Date(a.created_at).toDateString();
                         const dateB = new Date(b.created_at).toDateString();
-
-                        // Only reorder today's logs
                         if (dateA === todayForOrder && dateB === todayForOrder) {
                             const idxA = idOrder.indexOf(a.id);
                             const idxB = idOrder.indexOf(b.id);
-
-                            // New items first
                             if (idxA === -1 && idxB === -1) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                             if (idxA === -1) return -1;
                             if (idxB === -1) return 1;
-
                             return idxA - idxB;
                         }
-
-                        // Default date sort
                         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                     });
                 }
-
                 setLogs(sortedLogs);
 
                 // Calculate Streak
                 if (mealLogs && mealLogs.length > 0) {
-                    const uniqueDates = Array.from(new Set(mealLogs.map(log =>
+                    const uniqueDates = Array.from(new Set(mealLogs.map((log: any) =>
                         new Date(log.created_at).toLocaleDateString('en-CA')
                     )));
-
                     let currentStreak = 0;
                     const today = new Date();
                     const todayStr = today.toLocaleDateString('en-CA');
-
                     const yesterday = new Date();
                     yesterday.setDate(yesterday.getDate() - 1);
                     const yesterdayStr = yesterday.toLocaleDateString('en-CA');
-
-                    // If not logged today AND not logged yesterday, streak is broken
                     if (!uniqueDates.includes(todayStr) && !uniqueDates.includes(yesterdayStr)) {
                         setStreak(0);
                     } else {
@@ -134,7 +122,7 @@ export default function HomeScreen() {
                 const today = new Date().toDateString();
                 const todayLogs = (mealLogs || []).filter(log => new Date(log.created_at).toDateString() === today);
 
-                const stats = todayLogs.reduce((acc, log) => {
+                const stats = todayLogs.reduce((acc: any, log: any) => {
                     acc.calories += log.calories || 0;
                     acc.protein += parseInt(log.protein) || 0;
                     acc.carbs += parseInt(log.carbs) || 0;
@@ -150,8 +138,8 @@ export default function HomeScreen() {
                     healthScore: todayLogs.length > 0 ? todayLogs.reduce((a, b) => a + (b.health_score || 0), 0) / todayLogs.length : 0
                 });
 
-                // Update Animations
-                const targetKcal = userProfile?.target_calories || 2000;
+                // Update Animations using profile's target_calories
+                const targetKcal = profile?.target_calories || 2000;
                 readinessProgress.value = withSpring(Math.min(stats.calories / targetKcal, 1.2), { damping: 15 });
 
                 const avgHealth = todayLogs.length > 0 ? todayLogs.reduce((a, b) => a + (b.health_score || 0), 0) / todayLogs.length : 0;
@@ -165,7 +153,7 @@ export default function HomeScreen() {
                 triangleRotation.value = withSpring(balanceTilt * 30);
 
                 // Calculate hourly distribution (6am - 12am)
-                const distribution = Array(6).fill(0); // 4-hour slots: 6-10, 10-14, 14-18, 18-22, 22-02
+                const distribution = Array(6).fill(0);
                 todayLogs.forEach(log => {
                     const hour = new Date(log.created_at).getHours();
                     const slot = Math.floor((hour - 6) / 4);
@@ -191,7 +179,7 @@ export default function HomeScreen() {
         } finally {
             setLoading(false);
         }
-    }, [userProfile?.target_calories, readinessProgress, qualityProgress, triangleScale, triangleRotation, healthData]);
+    }, [readinessProgress, qualityProgress, triangleScale, triangleRotation, healthData]);
 
     const handlePickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -475,8 +463,8 @@ export default function HomeScreen() {
                         </View>
                     </TouchableOpacity>
 
-                    {/* Main Extreme Hero Card */}
-                    <GlassCard style={[styles.summaryCard, { paddingVertical: 10 }]}>
+                    {/* Main Intelligence Report Card */}
+                    <View style={styles.summaryCard}>
                         {/* ... existing hero card content ... */}
                         <TouchableOpacity
                             activeOpacity={0.9}
@@ -510,7 +498,7 @@ export default function HomeScreen() {
                                             <Svg width="100" height="30" viewBox="0 0 100 30">
                                                 <Path
                                                     d={`M 0 30 Q 25 ${30 - (hourlyDistribution[0] / 20 || 5)}, 50 ${30 - (hourlyDistribution[2] / 20 || 15)} T 100 ${30 - (hourlyDistribution[5] / 20 || 10)} L 100 30 L 0 30`}
-                                                    fill="rgba(16, 185, 129, 0.1)"
+                                                    fill="rgba(16, 185, 129, 0.05)"
                                                 />
                                                 <Path
                                                     d={`M 0 30 Q 25 ${30 - (hourlyDistribution[0] / 20 || 5)}, 50 ${30 - (hourlyDistribution[2] / 20 || 15)} T 100 ${30 - (hourlyDistribution[5] / 20 || 10)}`}
@@ -596,7 +584,7 @@ export default function HomeScreen() {
                                 </View>
                             </Animated.View>
                         </TouchableOpacity>
-                    </GlassCard>
+                    </View>
 
                     {/* NEW: Health Stats Card (Samsung Health Integration) */}
                     <HealthStatsCard refreshTrigger={logs.length} />
@@ -819,13 +807,20 @@ const styles = StyleSheet.create({
     sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     seeAllText: { fontSize: 13, fontWeight: '700', color: '#10b981' },
-    summaryCard: { marginBottom: 16, shadowColor: '#10b981', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 10 },
-    glassCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)' },
-    glassCardInner: { padding: 24 },
+    summaryCard: {
+        backgroundColor: 'rgba(255,255,255,0.5)',
+        borderRadius: 24,
+        padding: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.6)',
+    },
+    glassCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
+    glassCardInner: { padding: 20 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     chartMock: { height: 80, width: 60, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
     bar: { width: 10, borderRadius: 5 },
-    ringContainer: { alignItems: 'center', justifyContent: 'center', shadowColor: '#10b981', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 20 },
+    ringContainer: { alignItems: 'center', justifyContent: 'center' },
     ringCenterText: { position: 'absolute', alignItems: 'center' },
     kcalValue: { fontSize: 24, fontWeight: '800', color: '#10b981' },
     kcalTarget: { fontSize: 10, color: '#94a3b8', fontWeight: 'bold' },

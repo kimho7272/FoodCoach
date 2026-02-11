@@ -373,8 +373,8 @@ export default function ProfileScreen() {
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>S</Text>
-                                <Text style={styles.statLabel}>{t('target')}</Text>
+                                <Text style={styles.statValue}>{userProfile?.target_calories || 2000}</Text>
+                                <Text style={styles.statLabel}>kcal</Text>
                             </View>
                         </View>
                     </BlurView>
@@ -400,7 +400,6 @@ export default function ProfileScreen() {
                         <GlassItem
                             icon={<Smartphone size={20} color="#10b981" />}
                             title={t('linkHealthApp')}
-                            badge={t('beta')}
                             onPress={() => setIsHealthModalVisible(true)}
                         />
                         <GlassItem

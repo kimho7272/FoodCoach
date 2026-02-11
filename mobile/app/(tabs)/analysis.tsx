@@ -60,11 +60,12 @@ export default function AnalysisScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             let userProfile: any = undefined;
             if (user) {
-                const { data: profile } = await supabase.from('profiles').select('height, weight').eq('id', user.id).single();
+                const { data: profile } = await supabase.from('profiles').select('height, weight, target_calories').eq('id', user.id).single();
                 if (profile) {
                     userProfile = {
                         height: profile.height,
-                        weight: profile.weight
+                        weight: profile.weight,
+                        target_calories: profile.target_calories
                     };
                 }
             }

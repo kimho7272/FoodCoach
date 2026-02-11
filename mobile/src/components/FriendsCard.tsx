@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Alert, TextInput, FlatList } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTranslation } from '../lib/i18n';
-import { Plus, UserPlus, Send, Check, X } from 'lucide-react-native';
+import { Plus, UserPlus, Send, Check, X, Search } from 'lucide-react-native';
 import { socialService, Friend } from '../services/social_service';
 import { useRouter } from 'expo-router';
 
@@ -19,6 +19,7 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [contacts, setContacts] = useState<Friend[]>([]); // Potential friends from contacts
     const [searching, setSearching] = useState(false);
+    const [searchText, setSearchText] = useState('');
 
     useEffect(() => {
         loadFriends();
@@ -34,6 +35,7 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
     const handleOpenAddModal = async () => {
         setShowAddModal(true);
         setSearching(true);
+        setSearchText('');
         try {
             // Stage 1: Fast Local Load
             const localContacts = await socialService.getPhoneContacts();
@@ -186,6 +188,22 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
                         </Text>
                     </View>
 
+                    <View style={styles.modalSearchContainer}>
+                        <Search size={20} color="#94a3b8" />
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder={language === 'Korean' ? '이름 또는 전화번호 검색' : 'Search name or phone'}
+                            value={searchText}
+                            onChangeText={setSearchText}
+                            placeholderTextColor="#94a3b8"
+                        />
+                        {searchText.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchText('')}>
+                                <X size={16} color="#94a3b8" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
                     {searching ? (
                         <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#10b981" />
                     ) : (
@@ -198,7 +216,11 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
                                 </View>
                             ) : (
                                 <FlatList
-                                    data={contacts}
+                                    data={contacts.filter(c =>
+                                        (c.full_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                                        (c.nickname || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                                        (c.phone || '').includes(searchText)
+                                    )}
                                     keyExtractor={(item) => item.id}
                                     renderItem={renderContactItem}
                                     initialNumToRender={10}
@@ -249,4 +271,6 @@ const styles = StyleSheet.create({
     sentText: { color: '#64748b', fontWeight: 'bold', fontSize: 12 },
     emptyState: { alignItems: 'center', marginTop: 60, padding: 20 },
     emptyText: { textAlign: 'center', color: '#94a3b8', fontSize: 16, lineHeight: 24 },
+    modalSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', margin: 16, marginTop: 0, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+    modalInput: { flex: 1, marginLeft: 10, fontSize: 16, color: '#1e293b' },
 });

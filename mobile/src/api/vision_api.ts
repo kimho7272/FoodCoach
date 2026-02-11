@@ -24,6 +24,7 @@ export type AnalysisResult = {
 export type UserProfile = {
     height?: number;
     weight?: number;
+    target_calories?: number;
     healthContext?: {
         readinessScore: number;
         steps: number;
@@ -33,21 +34,19 @@ export type UserProfile = {
 
 export const analyzeMealImage = async (base64Image: string, userProfile?: UserProfile): Promise<AnalysisResult> => {
     try {
-        console.log('Invoking Supabase Edge Function: analyze-meal');
+        console.log(`Invoking Supabase Edge Function: analyze-meal (Payload: ${Math.round(base64Image.length / 1024)}KB)`);
         const { data, error } = await supabase.functions.invoke('analyze-meal', {
             body: { base64Image, userProfile }
         });
 
         if (error) {
-            console.error('Supabase Function Error:', error);
-            // Check for specific error messages if possible
-            try {
-                // Sometimes error is a string or object.
-                const msg = error instanceof Error ? error.message : JSON.stringify(error);
-                throw new Error(`Server Analysis Failed: ${msg}`);
-            } catch (e) {
-                throw new Error('Server Analysis Failed');
-            }
+            console.error('Supabase Function Invocation Error Object:', error);
+            let errMsg = 'Server Analysis Failed';
+            if (error instanceof Error) errMsg = error.message;
+            else if (typeof error === 'string') errMsg = error;
+            else if (typeof error === 'object' && error !== null) errMsg = (error as any).message || JSON.stringify(error);
+
+            throw new Error(`Server Analysis Failed: ${errMsg}`);
         }
 
         if (!data) {

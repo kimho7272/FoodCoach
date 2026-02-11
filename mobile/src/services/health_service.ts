@@ -164,26 +164,29 @@ class HealthService {
         }
 
         // Android Fetch (Health Connect)
-        if (this.isRealConnection && Platform.OS === 'android') {
-            // ... existing Android fetch logic ...
+        if (this.isRealConnection && Platform.OS === 'android' && healthConnect) {
             try {
                 const { readRecords } = healthConnect;
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const tomorrow = new Date(today);
                 tomorrow.setDate(tomorrow.getDate() + 1);
+
                 const timeRangeFilter = {
                     operator: 'between',
                     startTime: today.toISOString(),
                     endTime: tomorrow.toISOString(),
                 };
 
+                // 1. Steps
                 const stepsRecords = await readRecords('Steps', { timeRangeFilter });
                 const totalSteps = stepsRecords.reduce((sum: number, record: any) => sum + record.count, 0);
 
+                // 2. Calories
                 const caloriesRecords = await readRecords('ActiveCaloriesBurned', { timeRangeFilter });
                 const totalCalories = caloriesRecords.reduce((sum: number, record: any) => sum + record.energy.inKilocalories, 0);
 
+                // 3. Sleep
                 const sleepRecords = await readRecords('SleepSession', { timeRangeFilter });
                 let totalSleepMinutes = 0;
                 let sleepStages = { awake: 0, light: 0, deep: 0, rem: 0 };
@@ -202,33 +205,34 @@ class HealthService {
                     }
                 });
 
-                const weightRecords = await readRecords('Weight', {
-                    timeRangeFilter: { operator: 'before', endTime: new Date().toISOString() },
-                    limit: 1
-                });
-                const weight = weightRecords.length > 0 ? weightRecords[0].weight.inKilograms : undefined;
-
-                const exerciseRecords = await readRecords('ExerciseSession', { timeRangeFilter });
-                const exerciseSessions = exerciseRecords.map((record: any) => ({
-                    type: record.exerciseType || 'Unknown',
-                    duration: (new Date(record.endTime).getTime() - new Date(record.startTime).getTime()) / (1000 * 60),
-                    calories: 0,
-                    date: new Date(record.startTime)
-                }));
+                // 4. Heart Rate (Attempt)
+                let avgHeartRate = 0;
+                try {
+                    const hrRecords = await readRecords('HeartRate', { timeRangeFilter });
+                    if (hrRecords.length > 0) {
+                        const totalHr = hrRecords.reduce((sum: number, record: any) => {
+                            // HeartRate usually contains samples
+                            const samples = record.samples || [];
+                            const avgVal = samples.reduce((s: number, c: any) => s + c.beatsPerMinute, 0) / (samples.length || 1);
+                            return sum + avgVal;
+                        }, 0);
+                        avgHeartRate = Math.round(totalHr / hrRecords.length);
+                    }
+                } catch (hrErr) {
+                    console.log("HeartRate not supported or no data");
+                }
 
                 this.mockData.steps = Math.floor(totalSteps);
                 this.mockData.caloriesBurned = Math.floor(totalCalories);
                 this.mockData.sleepMinutes = Math.floor(totalSleepMinutes);
                 this.mockData.sleepStages = sleepStages;
-                this.mockData.weight = weight;
-                this.mockData.exerciseSessions = exerciseSessions;
-                this.mockData.exerciseSessions = exerciseSessions;
                 this.mockData.lastSynced = new Date();
-                this.mockData.readinessScore = this.calculateReadiness(this.mockData.sleepMinutes, this.mockData.steps);
+                this.mockData.readinessScore = this.calculateReadiness(this.mockData.sleepMinutes, this.mockData.steps, avgHeartRate);
                 return { ...this.mockData };
 
             } catch (e) {
                 console.error("Failed to read Health Connect data:", e);
+                // Fallback to mock if real fetch fails but we are supposedly connected
             }
         }
 
@@ -241,26 +245,20 @@ class HealthService {
                     includeManuallyAdded: true,
                 };
 
-                // 1. Steps
+                // Sequential fetch for iOS
                 AppleHealthKit.getStepCount(options, (err: string, results: any) => {
                     if (!err && results) this.mockData.steps = Math.round(results.value);
 
-                    // 2. Active Energy
                     AppleHealthKit.getActiveEnergyBurned(options, (err: string, results: any) => {
-                        if (!err && results && results.length > 0) {
-                            // Correctly sum up samples if specific type returned, but library usually returns total or samples
-                            // getActiveEnergyBurned usually returns array of samples for the day
-                            const total = results.reduce((acc: number, curr: any) => acc + curr.value, 0);
+                        if (!err && results) {
+                            const total = Array.isArray(results) ? results.reduce((acc: number, curr: any) => acc + curr.value, 0) : results.value;
                             this.mockData.caloriesBurned = Math.round(total);
                         }
 
-                        // 3. Sleep
                         AppleHealthKit.getSleepSamples(options, (err: string, results: any[]) => {
                             if (!err && results) {
-                                // Simple duration logic for now
                                 let totalMins = 0;
                                 results.forEach(sample => {
-                                    // Calculate overlapping or total duration
                                     const start = new Date(sample.startDate).getTime();
                                     const end = new Date(sample.endDate).getTime();
                                     totalMins += (end - start) / (1000 * 60);
@@ -268,57 +266,82 @@ class HealthService {
                                 this.mockData.sleepMinutes = Math.round(totalMins);
                             }
 
-                            this.mockData.lastSynced = new Date();
-                            this.mockData.readinessScore = this.calculateReadiness(this.mockData.sleepMinutes, this.mockData.steps);
-                            resolve({ ...this.mockData });
+                            // Heart Rate
+                            AppleHealthKit.getHeartRateSamples(options, (err: string, results: any[]) => {
+                                let avgHr = 0;
+                                if (!err && results && results.length > 0) {
+                                    avgHr = Math.round(results.reduce((s, c) => s + c.value, 0) / results.length);
+                                }
+
+                                this.mockData.lastSynced = new Date();
+                                this.mockData.readinessScore = this.calculateReadiness(this.mockData.sleepMinutes, this.mockData.steps, avgHr);
+                                resolve({ ...this.mockData });
+                            });
                         });
                     });
                 });
             });
         }
 
-        // Mock Data Generation
+        // Mock Data Generation (Detailed)
         return new Promise((resolve) => {
             setTimeout(() => {
-                this.mockData.steps = Math.floor(Math.random() * (12000 - 5000) + 5000);
-                this.mockData.caloriesBurned = Math.floor(Math.random() * (800 - 300) + 300);
-                this.mockData.sleepMinutes = Math.floor(Math.random() * (480 - 360) + 360);
-                this.mockData.sleepStages = {
-                    awake: 30,
-                    light: 240,
-                    deep: 90,
-                    rem: 120
+                const randomSteps = Math.floor(Math.random() * (12000 - 5000) + 5000);
+                const randomSleep = Math.floor(Math.random() * (540 - 360) + 360);
+                const randomHR = Math.floor(Math.random() * (75 - 60) + 60);
+
+                this.mockData = {
+                    ...this.mockData,
+                    steps: randomSteps,
+                    caloriesBurned: Math.floor(randomSteps * 0.04) + 200, // Heuristic
+                    sleepMinutes: randomSleep,
+                    sleepStages: {
+                        awake: Math.floor(randomSleep * 0.05),
+                        light: Math.floor(randomSleep * 0.5),
+                        deep: Math.floor(randomSleep * 0.2),
+                        rem: Math.floor(randomSleep * 0.25)
+                    },
+                    lastSynced: new Date(),
+                    readinessScore: this.calculateReadiness(randomSleep, randomSteps, randomHR)
                 };
-                this.mockData.weight = 72.5;
-                this.mockData.exerciseSessions = [
-                    { type: 'Running', duration: 30, calories: 350, date: new Date() }
-                ];
-                this.mockData.lastSynced = new Date();
-                this.mockData.readinessScore = this.calculateReadiness(this.mockData.sleepMinutes, this.mockData.steps);
                 resolve({ ...this.mockData });
             }, 1000);
         });
     }
 
-    private calculateReadiness(sleepMinutes: number, steps: number): number {
-        // Simple Algorithm:
-        // Sleep (60%): Goal 7-9 hours (420-540 mins). < 6 hours penalizes heavily.
-        // Activity (40%): Steps > 5000 is baseline.
+    private calculateReadiness(sleepMinutes: number, steps: number, avgHr: number = 70): number {
+        // Advanced Readiness Algorithm (Mental/Physical State)
 
+        // 1. Sleep Component (50%) - Target 8 hours (480 mins)
         let sleepScore = 0;
-        if (sleepMinutes >= 420) sleepScore = 100;
-        else if (sleepMinutes >= 360) sleepScore = 80;
-        else if (sleepMinutes >= 300) sleepScore = 60;
-        else sleepScore = 40;
+        if (sleepMinutes >= 450) sleepScore = 100;
+        else if (sleepMinutes >= 390) sleepScore = 85;
+        else if (sleepMinutes >= 330) sleepScore = 65;
+        else if (sleepMinutes >= 270) sleepScore = 40;
+        else sleepScore = 20;
 
-        let stepScore = 0;
-        if (steps >= 10000) stepScore = 100;
-        else if (steps >= 7000) stepScore = 80;
-        else if (steps >= 5000) stepScore = 60;
-        else stepScore = 40;
+        // 2. Activity Component (30%) - Target 10k steps
+        let activityScore = 0;
+        if (steps >= 10000) activityScore = 100;
+        else if (steps >= 8000) activityScore = 90;
+        else if (steps >= 6000) activityScore = 75;
+        else if (steps >= 4000) activityScore = 50;
+        else activityScore = 30;
 
-        // Weighted Average: 60% Sleep, 40% Steps
-        return Math.round((sleepScore * 0.6) + (stepScore * 0.4));
+        // 3. Autonomic/Recovery Component (20%) - Based on Avg HR (Inverse)
+        // Normal Resting HR is 60-100. Over 100 or Under 50 might indicate stress/fatigue (simplified)
+        let recoveryScore = 0;
+        if (avgHr > 0) {
+            if (avgHr >= 55 && avgHr <= 75) recoveryScore = 100;
+            else if (avgHr >= 50 && avgHr <= 85) recoveryScore = 80;
+            else if (avgHr < 50 || avgHr > 95) recoveryScore = 40;
+            else recoveryScore = 60;
+        } else {
+            recoveryScore = 70; // Fallback
+        }
+
+        const weightedAvg = (sleepScore * 0.5) + (activityScore * 0.3) + (recoveryScore * 0.2);
+        return Math.min(100, Math.max(0, Math.round(weightedAvg)));
     }
 
     getStatus(): HealthData {

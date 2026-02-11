@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, Zap, Flame, ShieldCheck, Award, TrendingUp, Info, ChevronLeft, BarChart2, Activity } from 'lucide-react-native';
 import Svg, { Circle, Polygon, Path, G, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
@@ -79,9 +78,9 @@ export default function MetabolicReport() {
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     {/* Hero Section */}
                     <View style={styles.heroSection}>
-                        <BlurView intensity={40} style={styles.heroIconBox}>
+                        <View style={styles.heroIconBox}>
                             {getIcon()}
-                        </BlurView>
+                        </View>
                         <Text style={styles.heroHeadline}>{language === 'Korean' ? (headline === 'Steady Energy' ? '안정적 에너지' : headline === 'Metabolic Peak' ? '대사 피크' : headline) : headline}</Text>
                         <View style={[styles.gradeBadge, { backgroundColor: grade === 'S' ? '#fef3c7' : '#dcfce7' }]}>
                             <Text style={styles.gradeText}>{t('currentGrade')}: {grade}</Text>
@@ -94,7 +93,7 @@ export default function MetabolicReport() {
                             <Info size={18} color="#10b981" />
                             <Text style={styles.sectionTitle}>{t('statusBreakdown')}</Text>
                         </View>
-                        <BlurView intensity={60} tint="light" style={styles.insightCard}>
+                        <View style={styles.insightCard}>
                             <Text style={styles.insightTitle}>🔥 What is {headline}?</Text>
                             <Text style={styles.insightDescription}>
                                 {headline === 'Steady Energy' ? (
@@ -114,7 +113,7 @@ export default function MetabolicReport() {
                                         (language === 'Korean' ? "단백질 대 탄수화물 비율을 꾸준히 유지하세요." : "Stay consistent with your protein-to-carb ratio.")}
                                 </Text>
                             </View>
-                        </BlurView>
+                        </View>
                     </View>
 
                     {/* Readiness & Fuel Section - Stacked Vertically */}
@@ -125,7 +124,7 @@ export default function MetabolicReport() {
                         </View>
 
                         {/* Readiness Item */}
-                        <BlurView intensity={60} tint="light" style={styles.insightCard}>
+                        <View style={styles.insightCard}>
                             <View style={styles.metricHeader}>
                                 <Text style={styles.insightTitle}>🎯 {t('readiness')}: {healthScore * 10}</Text>
                                 <View style={styles.improveTag}><Text style={styles.improveTagText}>{t('success')}</Text></View>
@@ -137,10 +136,10 @@ export default function MetabolicReport() {
                                 <Text style={styles.improveTitle}>🚀 {t('howToImproveReadiness')}</Text>
                                 <Text style={styles.improveText}>{language === 'Korean' ? "가공된 간식 대신 생땅콩이나 베리류를 선택하여 미세 영양소 밀도를 즉시 높여보세요." : "Switch processed snacks for raw nuts or dark berries to increase micronutrient density instantly."}</Text>
                             </View>
-                        </BlurView>
+                        </View>
 
                         {/* Fuel Item */}
-                        <BlurView intensity={60} tint="light" style={[styles.insightCard, { marginTop: 16 }]}>
+                        <View style={[styles.insightCard, { marginTop: 16 }]}>
                             <View style={styles.metricHeader}>
                                 <Text style={styles.insightTitle}>⛽ {t('fuel')}: {Math.round(readiness * 100)}%</Text>
                                 <View style={styles.improveTag}><Text style={styles.improveTagText}>{t('success')}</Text></View>
@@ -158,7 +157,7 @@ export default function MetabolicReport() {
                                             (language === 'Korean' ? "완벽한 섭취량입니다. 이대로 유지하세요!" : "Perfectly fueled. Stay the course!")}
                                 </Text>
                             </View>
-                        </BlurView>
+                        </View>
                     </View>
 
                     {/* Metabolic Pulse Deep-dive */}
@@ -167,7 +166,7 @@ export default function MetabolicReport() {
                             <Activity size={18} color="#ef4444" />
                             <Text style={styles.sectionTitle}>{t('metabolicPulseAnalysis')}</Text>
                         </View>
-                        <BlurView intensity={60} tint="light" style={styles.insightCard}>
+                        <View style={styles.insightCard}>
                             <Text style={styles.insightTitle}>📈 {t('volatilityCurve')}</Text>
                             <Text style={styles.insightDescription}>
                                 {t('volatilityDesc')}
@@ -176,7 +175,7 @@ export default function MetabolicReport() {
                                 <Text style={styles.improveTitle}>🚀 {t('howToFlattenCurve')}</Text>
                                 <Text style={styles.improveText}>{language === 'Korean' ? "탄수화물보다 식이섬유(채소)를 먼저 섭취하여 포도당 흡수를 늦추고 스파이크를 방지하세요." : "Start meals with fiber (greens) before carbs to slow down glucose absorption and prevent spikes."}</Text>
                             </View>
-                        </BlurView>
+                        </View>
                     </View>
 
                     {/* Chart Anatomy Section */}
@@ -222,7 +221,7 @@ export default function MetabolicReport() {
                             </View>
                         </View>
 
-                        <BlurView intensity={60} tint="light" style={styles.insightCard}>
+                        <View style={styles.insightCard}>
                             <Text style={styles.insightTitle}>📐 {t('macroTriangleBalance')}</Text>
                             <Text style={styles.insightDescription}>
                                 {language === 'Korean' ?
@@ -237,7 +236,7 @@ export default function MetabolicReport() {
                                         (language === 'Korean' ? "정말 잘하고 계십니다! 이상적인 대사 건강을 위해 이 밸런스를 유지하세요." : "You're doing great! Maintain this balance for sustained metabolic health.")}
                                 </Text>
                             </View>
-                        </BlurView>
+                        </View>
                     </View>
 
                     {/* How to reach Grade S */}
@@ -276,14 +275,14 @@ const styles = StyleSheet.create({
     scrollContent: { padding: 24, paddingBottom: 60 },
     row: { flexDirection: 'row', alignItems: 'stretch' },
     heroSection: { alignItems: 'center', marginVertical: 20 },
-    heroIconBox: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: '#fff' },
+    heroIconBox: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: '#fff' },
     heroHeadline: { fontSize: 32, fontWeight: '900', color: '#0f172a', marginTop: 16 },
     gradeBadge: { marginTop: 10, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
     gradeText: { fontSize: 14, fontWeight: '800', color: '#10b981' },
     reportSection: { marginTop: 32 },
     sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     sectionTitle: { fontSize: 16, fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
-    insightCard: { padding: 20, borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: '#fff' },
+    insightCard: { padding: 16, borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
     insightTitle: { fontSize: 16, fontWeight: '800', color: '#1e293b', marginBottom: 8 },
     insightDescription: { fontSize: 14, color: '#64748b', lineHeight: 20 },
     metricHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },

@@ -6,7 +6,7 @@ export const translations = {
         cancel: "Cancel",
         active: "Active",
         inactive: "Inactive",
-        beta: "Beta",
+        beta: "",
         success: "Success",
         failed: "Failed",
         comingSoon: "Coming Soon",
@@ -15,6 +15,10 @@ export const translations = {
         healthy: "Healthy",
         overweight: "Overweight",
         obese: "Obese",
+        recommended: "Recommended",
+        recommendedValue: "Recommended Value",
+        basedOnHeightWeight: "Based on height/weight",
+        dailyCalorieGoal: "Daily Calorie Goal",
 
         // Tabs
         home: "Home",
@@ -157,6 +161,15 @@ export const translations = {
         dataEncryptionDetail: "E2E Encryption Active",
         deleteConfirmTitle: "Are you absolutely sure?",
         deleteConfirmBtn: "Delete My Data",
+        permissionsRequired: "Permissions Required",
+        permissionsDesc: "Enable access to get the most out of FoodCoach.",
+        cameraAccessDesc: "To scan and analyze your meals.",
+        notificationAccessDesc: "For meal reminders and AI insights.",
+        galleryAccess: "Gallery Access",
+        galleryAccessDesc: "To upload photos of your meals.",
+        locationAccess: "Location Access",
+        locationAccessDesc: "To tag your meals with restaurant and place names.",
+        grantAllPermissions: "Grant All Permissions",
 
         // Fueling Strategy
         fuelingStrategyTitle: "Fueling Strategy",
@@ -397,6 +410,15 @@ export const translations = {
         dataEncryptionDetail: "종단간 암호화 활성화됨",
         deleteConfirmTitle: "정말로 탈퇴하시겠습니까?",
         deleteConfirmBtn: "모든 데이터 삭제",
+        permissionsRequired: "필수 권한 설정",
+        permissionsDesc: "푸드코치를 제대로 활용하기 위해 권한이 필요합니다.",
+        cameraAccessDesc: "식단 스캔 및 분석을 위해 사용합니다.",
+        notificationAccessDesc: "식단 알림 및 AI 인사이트 제공을 위해 사용합니다.",
+        galleryAccess: "갤러리 접근 권한",
+        galleryAccessDesc: "저장된 식단 사진을 업로드하기 위해 사용합니다.",
+        locationAccess: "위치 권한",
+        locationAccessDesc: "식사 장소와 음식점 정보를 자동으로 기록합니다.",
+        grantAllPermissions: "모든 권한 허용하기",
 
         // Fueling Strategy
         fuelingStrategyTitle: "영양 전략 설정",
@@ -481,6 +503,10 @@ export const translations = {
         searchFriends: "친구 검색...",
         noFriendsTitle: "아직 친구가 없어요",
         noFriendsDesc: "연락처에서 친구를 초대하고\n함께 건강해지세요!",
+        recommended: "권장",
+        recommendedValue: "권장값",
+        basedOnHeightWeight: "키/몸무게 기준",
+        dailyCalorieGoal: "일일 칼로리 목표",
 
     }
 };

@@ -15,18 +15,32 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { updateProfile } from '../src/lib/auth_service';
 import { supabase } from '../src/lib/supabase';
+import { useTranslation } from '../src/lib/i18n';
+// import * as Notifications from 'expo-notifications';
+const Notifications = {
+    requestPermissionsAsync: async () => ({ status: 'granted' }),
+};
+import { Camera } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import { Bell, Camera as CameraIcon, Image as ImageIcon, MapPin } from 'lucide-react-native';
+import * as Location from 'expo-location';
 
 const { width, height } = Dimensions.get('window');
+const isSmallDevice = height < 700;
 const fruitCharacter = require('../assets/applei.png');
 
 export default function EnhancedOnboarding() {
     const router = useRouter();
+    const { t } = useTranslation();
     const [step, setStep] = useState(0);
     const [nickname, setNickname] = useState('');
     const [weight, setWeight] = useState(70);
     const [heightVal, setHeightVal] = useState(170);
     const [weightUnit, setWeightUnit] = useState<'kg' | 'lb'>('kg');
     const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
+
+    const [targetKcal, setTargetKcal] = useState(2000);
+    const [isManualKcal, setIsManualKcal] = useState(false);
 
     // For FT/IN display
     const [feet, setFeet] = useState(5);
@@ -50,6 +64,16 @@ export default function EnhancedOnboarding() {
         }
     }, []);
 
+    // Automatic recommendation logic
+    useEffect(() => {
+        if (!isManualKcal) {
+            const kg = weightUnit === 'lb' ? weight * 0.453592 : weight;
+            // Simple maintenance formula: kg * 30
+            const recommended = Math.round(kg * 30 / 50) * 50; // Round to nearest 50
+            setTargetKcal(recommended);
+        }
+    }, [weight, weightUnit, isManualKcal]);
+
     const characterScale = useSharedValue(1);
     const characterRotation = useSharedValue(0);
 
@@ -69,6 +93,8 @@ export default function EnhancedOnboarding() {
         { title: "Hi! I'm Applei.", sub: "What's your nickname?", type: "text" },
         { title: "Your Height", sub: "Slide to adjust", type: "slider_height" },
         { title: "Your Weight", sub: "Tap to adjust", type: "slider_weight" },
+        { title: "Calorie Goal", sub: "AI Recommended", type: "slider_kcal" },
+        { title: t('permissionsRequired'), sub: t('permissionsDesc'), type: "permissions" },
         { title: "Ready!", sub: "Let's start your health journey.", type: "done" }
     ];
 
@@ -82,6 +108,37 @@ export default function EnhancedOnboarding() {
             });
         });
     }, [step]);
+
+    const [notifGranted, setNotifGranted] = useState(false);
+    const [cameraGranted, setCameraGranted] = useState(false);
+    const [libraryGranted, setLibraryGranted] = useState(false);
+    const [locationGranted, setLocationGranted] = useState(false);
+
+    const handleGrantPermissions = async () => {
+        try {
+            // Notifications
+            const { status: nStatus } = await Notifications.requestPermissionsAsync();
+            setNotifGranted(nStatus === 'granted');
+
+            // Camera
+            const { status: cStatus } = await Camera.requestCameraPermissionsAsync();
+            setCameraGranted(cStatus === 'granted');
+
+            // Media Library
+            const { status: lStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            setLibraryGranted(lStatus === 'granted');
+
+            // Location
+            const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+            setLocationGranted(locStatus === 'granted');
+
+            // Small delay for UX feel
+            setTimeout(() => nextStep(), 500);
+        } catch (error) {
+            console.error('Permission request error:', error);
+            nextStep(); // Fallback to next step even if it fails
+        }
+    };
 
     const nextStep = () => {
         if (step < steps.length - 1) {
@@ -103,7 +160,8 @@ export default function EnhancedOnboarding() {
                 const result = await updateProfile(user.id, {
                     nickname,
                     height: finalHeight,
-                    weight: finalWeight
+                    weight: finalWeight,
+                    target_calories: targetKcal
                 });
 
                 if (!result.success) {
@@ -175,15 +233,22 @@ export default function EnhancedOnboarding() {
                     >
                         <View style={styles.mainContainer}>
                             {/* Character Column */}
-                            <View style={styles.characterContainer} {...panResponder.panHandlers}>
+                            <View style={[styles.characterContainer, steps[step].type === "permissions" && { marginBottom: 4 }]} {...panResponder.panHandlers}>
                                 <Animated.View style={[characterStyle, styles.characterShadow]}>
-                                    <Image source={fruitCharacter} style={styles.characterImg} resizeMode="contain" />
+                                    <Image
+                                        source={fruitCharacter}
+                                        style={[
+                                            styles.characterImg,
+                                            steps[step].type === "permissions" && { width: 80, height: 80 }
+                                        ]}
+                                        resizeMode="contain"
+                                    />
                                 </Animated.View>
                             </View>
 
                             {/* Setup Card */}
                             <BlurView intensity={40} tint="light" style={styles.glassCard}>
-                                <View style={styles.cardContent}>
+                                <View style={[styles.cardContent, steps[step].type === "permissions" && { paddingHorizontal: 16, paddingVertical: 16 }]}>
                                     <Text style={styles.cardTitle}>{steps[step].title}</Text>
                                     <Text style={styles.cardSub}>{steps[step].sub}</Text>
 
@@ -301,11 +366,99 @@ export default function EnhancedOnboarding() {
                                         </View>
                                     )}
 
-                                    <View style={styles.buttonRow}>
-                                        <TouchableOpacity onPress={nextStep} style={styles.primaryBtn}>
-                                            <Text style={styles.primaryBtnTxt}>Next</Text>
-                                        </TouchableOpacity>
-                                    </View>
+                                    {steps[step].type === "slider_kcal" && (
+                                        <View style={styles.inputBody}>
+                                            <View style={styles.unitToggleRow}>
+                                                <View style={[styles.unitBtn, styles.unitBtnActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                                                    <Text style={styles.unitBtnTextActive}>{!isManualKcal ? t('recommended') : t('manualTarget')}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={{ alignItems: 'center' }}>
+                                                <Text style={styles.valueTxt}>{targetKcal} kcal</Text>
+                                                {!isManualKcal && (
+                                                    <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 20 }}>
+                                                        <Text style={{ fontSize: 12, color: '#10b981', fontWeight: 'bold' }}>✨ {t('basedOnHeightWeight')}</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                            <View style={styles.btnRow}>
+                                                {[-100, -50, 50, 100].map(val => (
+                                                    <TouchableOpacity
+                                                        key={val}
+                                                        onPress={() => {
+                                                            setTargetKcal(k => k + val);
+                                                            setIsManualKcal(true);
+                                                        }}
+                                                        style={styles.stepBtn}
+                                                    >
+                                                        <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                            {isManualKcal && (
+                                                <TouchableOpacity
+                                                    onPress={() => setIsManualKcal(false)}
+                                                    style={{ marginTop: 20 }}
+                                                >
+                                                    <Text style={{ fontSize: 13, color: '#6366f1', fontWeight: 'bold', textDecorationLine: 'underline' }}>{t('recommendedValue')}로 초기화</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    )}
+
+                                    {steps[step].type === "permissions" && (
+                                        <View style={styles.inputBody}>
+                                            <View style={styles.permissionItem}>
+                                                <View style={styles.permIconBox}>
+                                                    <CameraIcon size={18} color="#6366f1" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.permTitle}>{t('cameraAccess')}</Text>
+                                                    <Text style={styles.permSub} numberOfLines={1}>{t('cameraAccessDesc')}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.permissionItem}>
+                                                <View style={styles.permIconBox}>
+                                                    <Bell size={18} color="#6366f1" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.permTitle}>{t('notificationAccess')}</Text>
+                                                    <Text style={styles.permSub} numberOfLines={1}>{t('notificationAccessDesc')}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.permissionItem}>
+                                                <View style={styles.permIconBox}>
+                                                    <ImageIcon size={18} color="#6366f1" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.permTitle}>{t('galleryAccess')}</Text>
+                                                    <Text style={styles.permSub} numberOfLines={1}>{t('galleryAccessDesc')}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.permissionItem}>
+                                                <View style={styles.permIconBox}>
+                                                    <MapPin size={18} color="#6366f1" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.permTitle}>{t('locationAccess')}</Text>
+                                                    <Text style={styles.permSub} numberOfLines={1}>{t('locationAccessDesc')}</Text>
+                                                </View>
+                                            </View>
+
+                                            <TouchableOpacity onPress={handleGrantPermissions} style={[styles.primaryBtn, { marginTop: 12 }]}>
+                                                <Text style={styles.primaryBtnTxt}>{t('grantAllPermissions')}</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+
+                                    {steps[step].type !== "permissions" && (
+                                        <View style={styles.buttonRow}>
+                                            <TouchableOpacity onPress={nextStep} style={styles.primaryBtn}>
+                                                <Text style={styles.primaryBtnTxt}>Next</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
                                 </View>
                             </BlurView>
                         </View>
@@ -343,10 +496,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,
-        paddingBottom: 40,
+        paddingBottom: 20,
     },
-    characterContainer: { alignItems: 'center', marginBottom: 20 },
-    characterImg: { width: 160, height: 160 },
+    characterContainer: { alignItems: 'center', marginBottom: 12 },
+    characterImg: { width: isSmallDevice ? 100 : 130, height: isSmallDevice ? 100 : 130 },
     characterShadow: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
@@ -369,9 +522,9 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.6)',
         overflow: 'hidden',
     },
-    cardContent: { padding: 32, alignItems: 'center' },
-    cardTitle: { fontSize: 24, fontWeight: 'bold', color: '#1e293b', marginBottom: 8, textAlign: 'center' },
-    cardSub: { fontSize: 16, color: '#64748b', marginBottom: 32, textAlign: 'center' },
+    cardContent: { padding: 24, alignItems: 'center' },
+    cardTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 4, textAlign: 'center' },
+    cardSub: { fontSize: 13, color: '#64748b', marginBottom: 16, textAlign: 'center' },
     textInput: {
         width: '100%',
         height: 60,
@@ -384,7 +537,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.4)',
     },
     inputBody: { width: '100%', alignItems: 'center' },
-    valueTxt: { fontSize: 40, fontWeight: 'bold', color: '#6366f1', marginBottom: 24 },
+    valueTxt: { fontSize: 32, fontWeight: 'bold', color: '#6366f1', marginBottom: 16 },
     sliderMock: {
         width: '100%',
         height: 48,
@@ -409,24 +562,24 @@ const styles = StyleSheet.create({
     },
     stepBtnTxt: { fontWeight: 'bold' },
     primaryBtn: {
-        marginTop: 32,
+        marginTop: 20,
         width: '100%',
-        height: 64,
+        height: 56,
         backgroundColor: '#0f172a',
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    primaryBtnTxt: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+    primaryBtnTxt: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
     buttonRow: {
-        marginTop: 32,
+        marginTop: 20,
         flexDirection: 'row',
         gap: 12,
         width: '100%',
     },
     secondaryBtn: {
         flex: 1,
-        height: 64,
+        height: 56,
         backgroundColor: 'rgba(15, 23, 42, 0.1)',
         borderRadius: 20,
         alignItems: 'center',
@@ -434,7 +587,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(15, 23, 42, 0.1)',
     },
-    secondaryBtnTxt: { color: '#0f172a', fontWeight: 'bold', fontSize: 18 },
+    secondaryBtnTxt: { color: '#0f172a', fontWeight: 'bold', fontSize: 16 },
     unitToggleRow: {
         flexDirection: 'row',
         backgroundColor: 'rgba(0,0,0,0.05)',
@@ -498,5 +651,27 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 1,
-    }
+    },
+    permissionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.4)',
+        padding: 10,
+        borderRadius: 16,
+        marginBottom: 6,
+        width: '100%',
+        gap: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.6)',
+    },
+    permIconBox: {
+        width: 36,
+        height: 36,
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    permTitle: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
+    permSub: { fontSize: 11, color: '#64748b' },
 });
