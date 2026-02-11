@@ -16,6 +16,10 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "../foodcoach-486503-a709460f39d7.json"
+      }
+    }
   }
 }

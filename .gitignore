@@ -49,3 +49,7 @@ foodcoach.db
 
 # temp directories
 .tmp/
+
+# credentials
+*.json
+foodcoach-486503-a709460f39d7.json
