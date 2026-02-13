@@ -46,6 +46,14 @@ export default function EnhancedOnboarding() {
     const [feet, setFeet] = useState(5);
     const [inches, setInches] = useState(7);
 
+    // For Phone Verification
+    const [phone, setPhone] = useState('');
+    const [otp, setOtp] = useState('');
+    const [isOtpSent, setIsOtpSent] = useState(false);
+    const [isVerified, setIsVerified] = useState(false);
+    const [sendingOtp, setSendingOtp] = useState(false);
+    const [verifyingOtp, setVerifyingOtp] = useState(false);
+
     useEffect(() => {
         // Detect region for default units
         const region = Localization.getLocales()[0].regionCode;
@@ -91,6 +99,7 @@ export default function EnhancedOnboarding() {
 
     const steps = [
         { title: "Hi! I'm Applei.", sub: "What's your nickname?", type: "text" },
+        { title: t('phoneNumber'), sub: t('phoneVerificationDesc'), type: "phone" },
         { title: "Your Height", sub: "Slide to adjust", type: "slider_height" },
         { title: "Your Weight", sub: "Tap to adjust", type: "slider_weight" },
         { title: "Calorie Goal", sub: "AI Recommended", type: "slider_kcal" },
@@ -140,6 +149,47 @@ export default function EnhancedOnboarding() {
         }
     };
 
+    const handleSendOtp = async () => {
+        if (!phone || phone.length < 10) {
+            Alert.alert("Invalid Phone", "Please enter a valid phone number.");
+            return;
+        }
+        setSendingOtp(true);
+        try {
+            const { error } = await supabase.auth.updateUser({ phone: phone });
+            if (error) throw error;
+            setIsOtpSent(true);
+            Alert.alert(t('codeSent'), t('codeSentDesc'));
+        } catch (e: any) {
+            console.error(e);
+            Alert.alert("Error", e.message || "Failed to send code.");
+        } finally {
+            setSendingOtp(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!otp || otp.length < 6) return;
+        setVerifyingOtp(true);
+        try {
+            const { error } = await supabase.auth.verifyOtp({
+                phone,
+                token: otp,
+                type: 'phone_change'
+            });
+            if (error) throw error;
+
+            setIsVerified(true);
+            // Auto advance after short delay
+            setTimeout(() => nextStep(), 500);
+        } catch (e: any) {
+            console.error(e);
+            Alert.alert(t('verificationFailed'), e.message || "Invalid code.");
+        } finally {
+            setVerifyingOtp(false);
+        }
+    };
+
     const nextStep = () => {
         if (step < steps.length - 1) {
             setStep(step + 1);
@@ -157,11 +207,15 @@ export default function EnhancedOnboarding() {
                 const finalHeight = heightUnit === 'ft' ? Math.round((feet * 12 + inches) * 2.54) : heightVal;
                 const finalWeight = weightUnit === 'lb' ? Math.round(weight * 0.453592) : weight;
 
+                // Combine logic: use verified phone if available
+                const finalPhone = isVerified ? phone : null;
+
                 const result = await updateProfile(user.id, {
                     nickname,
                     height: finalHeight,
                     weight: finalWeight,
-                    target_calories: targetKcal
+                    target_calories: targetKcal,
+                    phone: finalPhone || undefined
                 });
 
                 if (!result.success) {
@@ -190,14 +244,12 @@ export default function EnhancedOnboarding() {
 
     // Swipe Handler for Character
     const panResponder = PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponder: () => steps[step].type !== "phone", // Disable swipe on phone step to avoid conflict with gesture
         onPanResponderRelease: (evt, gestureState) => {
             const { dx } = gestureState;
             if (dx > 50) {
-                // Swipe Right -> Previous Step
                 prevStep();
             } else if (dx < -50) {
-                // Swipe Left -> Next Step
                 nextStep();
             }
         },
@@ -260,6 +312,76 @@ export default function EnhancedOnboarding() {
                                             onChangeText={setNickname}
                                             autoFocus
                                         />
+                                    )}
+
+                                    {steps[step].type === "phone" && (
+                                        <View style={styles.inputBody}>
+                                            {!isOtpSent ? (
+                                                <>
+                                                    <TextInput
+                                                        style={styles.textInput}
+                                                        placeholder="01012345678"
+                                                        value={phone}
+                                                        onChangeText={setPhone}
+                                                        keyboardType="phone-pad"
+                                                        autoFocus
+                                                    />
+                                                    <TouchableOpacity
+                                                        style={[styles.primaryBtn, { opacity: sendingOtp ? 0.7 : 1 }]}
+                                                        onPress={handleSendOtp}
+                                                        disabled={sendingOtp}
+                                                    >
+                                                        <Text style={styles.primaryBtnTxt}>{sendingOtp ? "Sending..." : t('sendCode')}</Text>
+                                                    </TouchableOpacity>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <View style={{ marginBottom: 16 }}>
+                                                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#10b981', textAlign: 'center' }}>
+                                                            {phone}
+                                                        </Text>
+                                                    </View>
+                                                    <TextInput
+                                                        style={[styles.textInput, { textAlign: 'center', letterSpacing: 8, fontSize: 24, fontWeight: 'bold' }]}
+                                                        placeholder="000000"
+                                                        value={otp}
+                                                        onChangeText={setOtp}
+                                                        keyboardType="number-pad"
+                                                        maxLength={6}
+                                                        autoFocus
+                                                    />
+                                                    <TouchableOpacity
+                                                        style={[styles.primaryBtn, { opacity: verifyingOtp ? 0.7 : 1 }]}
+                                                        onPress={handleVerifyOtp}
+                                                        disabled={verifyingOtp}
+                                                    >
+                                                        <Text style={styles.primaryBtnTxt}>{verifyingOtp ? "Verifying..." : t('verifyCode')}</Text>
+                                                    </TouchableOpacity>
+
+                                                    <View style={{ flexDirection: 'row', gap: 16, marginTop: 16 }}>
+                                                        <TouchableOpacity onPress={() => setIsOtpSent(false)}>
+                                                            <Text style={{ color: '#64748b' }}>{t('resendCode')}</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </>
+                                            )}
+
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    Alert.alert(
+                                                        t('skipVerification'),
+                                                        "You can verify your phone number later in Settings.",
+                                                        [
+                                                            { text: "Cancel", style: "cancel" },
+                                                            { text: "Skip", onPress: nextStep }
+                                                        ]
+                                                    );
+                                                }}
+                                                style={{ marginTop: 20 }}
+                                            >
+                                                <Text style={{ color: '#94a3b8', fontSize: 13 }}>{t('skipVerification')}</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     )}
 
                                     {steps[step].type === "slider_height" && (
@@ -452,7 +574,7 @@ export default function EnhancedOnboarding() {
                                         </View>
                                     )}
 
-                                    {steps[step].type !== "permissions" && (
+                                    {steps[step].type !== "permissions" && steps[step].type !== "phone" && (
                                         <View style={styles.buttonRow}>
                                             <TouchableOpacity onPress={nextStep} style={styles.primaryBtn}>
                                                 <Text style={styles.primaryBtnTxt}>Next</Text>
@@ -466,6 +588,7 @@ export default function EnhancedOnboarding() {
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </Animated.View>
+
     );
 }
 

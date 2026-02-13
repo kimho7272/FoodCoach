@@ -21,6 +21,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const [userProfile, setUserProfile] = useState<any>(null);
     const [editName, setEditName] = useState('');
     const [editNickname, setEditNickname] = useState('');
+    const [editPhone, setEditPhone] = useState('');
     const [heightVal, setHeightVal] = useState(170);
     const [weightVal, setWeightVal] = useState(70);
     const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
@@ -55,6 +56,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 setUserProfile(profile);
                 setEditName(profile.full_name || '');
                 setEditNickname(profile.nickname || '');
+                setEditPhone(profile.phone || '');
                 const h = profile.height || 170;
                 const w = profile.weight || 70;
                 const kc = profile.target_calories || 2000;
@@ -93,8 +95,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             const finalHeight = heightUnit === 'ft' ? Math.round((feet * 12 + inches) * 2.54) : heightVal;
             const finalWeight = weightUnit === 'lb' ? Math.round(weightVal * 0.453592) : weightVal;
 
+            // Simple normalization for phone number (remove spaces/dashes)
+            const cleanPhone = editPhone.replace(/[\s\-\(\)]/g, '');
+
             const { success } = await updateProfile(user.id, {
                 nickname: editNickname,
+                phone: cleanPhone,
                 height: finalHeight,
                 weight: finalWeight,
                 target_calories: kcalVal
@@ -146,6 +152,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                     onChangeText={setEditNickname}
                                     placeholder={language === 'Korean' ? "닉네임을 입력하세요" : "Enter your nickname"}
                                     placeholderTextColor="#64748b"
+                                />
+                            </View>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>{t('phoneNumber')}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editPhone}
+                                    onChangeText={setEditPhone}
+                                    placeholder={language === 'Korean' ? "01012345678" : "Enter phone number"}
+                                    placeholderTextColor="#64748b"
+                                    keyboardType="phone-pad"
                                 />
                             </View>
 

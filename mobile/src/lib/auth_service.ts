@@ -148,7 +148,7 @@ const syncUserProfile = async (user: any, additionalData?: { nickname?: string; 
  */
 export const updateProfile = async (
     userId: string,
-    data: { nickname?: string; height?: number; weight?: number; target_calories?: number }
+    data: { nickname?: string; height?: number; weight?: number; target_calories?: number; phone?: string }
 ) => {
     try {
         const updates = {
