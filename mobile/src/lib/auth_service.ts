@@ -93,19 +93,19 @@ const syncUserProfile = async (user: any, additionalData?: { nickname?: string; 
         const { id, email, user_metadata } = user;
 
         // 1. Check if profile exists (Safest way to handle separate RLS policies for INSERT/UPDATE)
-        const { data: existing } = await supabase.from('profiles').select('id').eq('id', id).single();
+        const { data: existing } = await (supabase as any).from('profiles').select('id').eq('id', id).single();
 
         if (existing) {
             // 2. Existing User: Update only metadata (e.g. avatar, last_login)
             const updatePayload: any = {
-                last_login: new Date().toISOString(),
+                last_active_at: new Date().toISOString(),
                 // Update avatar/name if changed on Google side
                 avatar_url: user_metadata.avatar_url || user_metadata.picture,
                 full_name: user_metadata.full_name || user_metadata.name,
             };
 
             // Use 'update' explicitly
-            const { error: updateError } = await supabase
+            const { error: updateError } = await (supabase as any)
                 .from('profiles')
                 .update(updatePayload)
                 .eq('id', id);
@@ -125,10 +125,10 @@ const syncUserProfile = async (user: any, additionalData?: { nickname?: string; 
                 height: additionalData?.height || 170, // Default constants
                 weight: additionalData?.weight || 70,
                 target_calories: additionalData?.target_calories || 2000,
-                last_login: new Date().toISOString(),
+                last_active_at: new Date().toISOString(),
             };
 
-            const { error: insertError } = await supabase
+            const { error: insertError } = await (supabase as any)
                 .from('profiles')
                 .insert(insertPayload);
 
@@ -148,17 +148,17 @@ const syncUserProfile = async (user: any, additionalData?: { nickname?: string; 
  */
 export const updateProfile = async (
     userId: string,
-    data: { nickname?: string; height?: number; weight?: number; target_calories?: number; phone?: string }
+    data: { nickname?: string; height?: number; weight?: number; target_calories?: number; phone?: string; gender?: string | null }
 ) => {
     try {
         const updates = {
             id: userId,
             ...data,
-            last_login: new Date().toISOString(),
+            last_active_at: new Date().toISOString(),
         };
 
         // Use atomic upsert to avoid "duplicate key" race conditions
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('profiles')
             .upsert(updates, { onConflict: 'id' });
 

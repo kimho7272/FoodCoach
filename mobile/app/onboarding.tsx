@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView, PanResponder, Alert } from 'react-native';
 import * as Localization from 'expo-localization';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,13 +31,14 @@ const fruitCharacter = require('../assets/applei.png');
 
 export default function EnhancedOnboarding() {
     const router = useRouter();
-    const { t } = useTranslation();
+    const { t, language, setLanguage } = useTranslation();
     const [step, setStep] = useState(0);
     const [nickname, setNickname] = useState('');
     const [weight, setWeight] = useState(70);
     const [heightVal, setHeightVal] = useState(170);
     const [weightUnit, setWeightUnit] = useState<'kg' | 'lb'>('kg');
     const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
+    const [gender, setGender] = useState<'Male' | 'Female' | null>('Male');
 
     const [targetKcal, setTargetKcal] = useState(2000);
     const [isManualKcal, setIsManualKcal] = useState(false);
@@ -47,6 +48,7 @@ export default function EnhancedOnboarding() {
     const [inches, setInches] = useState(7);
 
     // For Phone Verification
+    const [countryCode, setCountryCode] = useState('+82'); // Default to Korea
     const [phone, setPhone] = useState('');
     const [otp, setOtp] = useState('');
     const [isOtpSent, setIsOtpSent] = useState(false);
@@ -56,7 +58,13 @@ export default function EnhancedOnboarding() {
 
     useEffect(() => {
         // Detect region for default units
-        const region = Localization.getLocales()[0].regionCode;
+        const region = Localization.getLocales()[0]?.regionCode;
+
+        // precise country code detection could be added here
+        if (region === 'US') setCountryCode('+1');
+        else if (region === 'KR') setCountryCode('+82');
+        // Add more as needed
+
         if (region === 'US' || region === 'LR' || region === 'MM') {
             setWeightUnit('lb');
             setHeightUnit('ft');
@@ -72,15 +80,42 @@ export default function EnhancedOnboarding() {
         }
     }, []);
 
+    // Enforce Korean defaults when language is set to Korean
+    useEffect(() => {
+        if (language === 'Korean') {
+            setHeightUnit('cm');
+            setWeightUnit('kg');
+            setCountryCode('+82');
+            // Ensure values are metric defaults if they look like imperial defaults (or just reset to safe defaults for onboarding)
+            // If we just switch units without converting, 154 lbs becomes 154 kg.
+            // Let's set standard defaults for Korean context.
+            setWeight(70);
+            setHeightVal(170);
+        } else if (language === 'English') {
+            // Optional: for English, we might want to ensure it's not 70 lbs (too light) if it was kg.
+            // But let's stick to the user's specific complaint about Korean 154kg.
+        }
+    }, [language]);
+
     // Automatic recommendation logic
+    // Automatic recommendation logic (Mifflin-St Jeor Equation)
     useEffect(() => {
         if (!isManualKcal) {
             const kg = weightUnit === 'lb' ? weight * 0.453592 : weight;
-            // Simple maintenance formula: kg * 30
-            const recommended = Math.round(kg * 30 / 50) * 50; // Round to nearest 50
-            setTargetKcal(recommended);
+            const cm = heightUnit === 'ft' ? (feet * 12 + inches) * 2.54 : heightVal;
+
+            // Assume age 30 and activity factor 1.2 (Sedentary) as baseline
+            let bmr;
+            if (gender === 'Male') {
+                bmr = 10 * kg + 6.25 * cm - 5 * 30 + 5;
+            } else {
+                bmr = 10 * kg + 6.25 * cm - 5 * 30 - 161;
+            }
+
+            const recommended = Math.round(bmr * 1.2 / 50) * 50; // Round to nearest 50
+            setTargetKcal(recommended > 1200 ? recommended : 1200); // Minimum safety floor
         }
-    }, [weight, weightUnit, isManualKcal]);
+    }, [weight, weightUnit, heightVal, heightUnit, feet, inches, gender, isManualKcal]);
 
     const characterScale = useSharedValue(1);
     const characterRotation = useSharedValue(0);
@@ -97,17 +132,21 @@ export default function EnhancedOnboarding() {
         backgroundColor: bgColor.value,
     }));
 
+    const scrollViewRef = useRef<ScrollView>(null);
+
     const steps = [
-        { title: "Hi! I'm Applei.", sub: "What's your nickname?", type: "text" },
         { title: t('phoneNumber'), sub: t('phoneVerificationDesc'), type: "phone" },
-        { title: "Your Height", sub: "Slide to adjust", type: "slider_height" },
-        { title: "Your Weight", sub: "Tap to adjust", type: "slider_weight" },
-        { title: "Calorie Goal", sub: "AI Recommended", type: "slider_kcal" },
+        { title: t('welcomeMessage'), sub: "", type: "text" },
+        { title: t('aboutYou'), sub: t('aboutYouDesc'), type: "biometrics" },
+        { title: t('dailyCalorieGoal'), sub: t('aiRecommended'), type: "slider_kcal" },
         { title: t('permissionsRequired'), sub: t('permissionsDesc'), type: "permissions" },
-        { title: "Ready!", sub: "Let's start your health journey.", type: "done" }
+        { title: t('readyTitle'), sub: t('readyDesc'), type: "done" }
     ];
 
     useEffect(() => {
+        // Reset scroll position on step change
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+
         characterScale.value = withTiming(1.2, { duration: 200 }, () => {
             characterScale.value = withTiming(1, { duration: 200 });
         });
@@ -149,14 +188,79 @@ export default function EnhancedOnboarding() {
         }
     };
 
+    const handlePhoneChange = (text: string) => {
+        const cleaned = text.replace(/[^\d]/g, '');
+
+        let formatted = cleaned;
+        if (countryCode === '+1') {
+            // US Format: (xxx) xxx-xxxx
+            if (cleaned.length > 10) return;
+            if (cleaned.length > 0) {
+                if (cleaned.length <= 3) {
+                    formatted = `(${cleaned}`;
+                } else if (cleaned.length <= 6) {
+                    formatted = `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+                } else {
+                    formatted = `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+                }
+            }
+        } else if (countryCode === '+82') {
+            // KR Format: 010-xxxx-xxxx
+            if (cleaned.length > 11) return;
+            if (cleaned.length > 3) {
+                if (cleaned.length <= 7) {
+                    formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+                } else {
+                    formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7)}`;
+                }
+            }
+        } else {
+            // Generic fallback
+            if (cleaned.length > 11) return;
+        }
+
+        setPhone(formatted);
+    };
+
+    const handleLanguageChange = async (lang: 'English' | 'Korean') => {
+        await setLanguage(lang);
+        if (lang === 'English') {
+            setHeightUnit('ft');
+            setWeightUnit('lb');
+            // Set defaults for English (US Standard)
+            const totalInches = 170 / 2.54;
+            setFeet(Math.floor(totalInches / 12));
+            setInches(Math.round(totalInches % 12));
+            setWeight(Math.round(70 * 2.20462));
+            setCountryCode('+1');
+        } else {
+            setHeightUnit('cm');
+            setWeightUnit('kg');
+            // Set defaults for Korean (Metric)
+            setHeightVal(170);
+            setWeight(70);
+            setCountryCode('+82');
+        }
+    };
+
     const handleSendOtp = async () => {
-        if (!phone || phone.length < 10) {
+        const cleanPhone = phone.replace(/[^\d]/g, '');
+        if (!cleanPhone || cleanPhone.length < 8) {
             Alert.alert("Invalid Phone", "Please enter a valid phone number.");
             return;
         }
+
         setSendingOtp(true);
         try {
-            const { error } = await supabase.auth.updateUser({ phone: phone });
+            // Remove leading zero if present when combining with country code
+            let finalBody = cleanPhone;
+            if (finalBody.startsWith('0')) finalBody = finalBody.substring(1);
+
+            const finalPhone = `${countryCode}${finalBody}`;
+
+            console.log("Sending OTP to:", finalPhone);
+
+            const { error } = await supabase.auth.updateUser({ phone: finalPhone });
             if (error) throw error;
             setIsOtpSent(true);
             Alert.alert(t('codeSent'), t('codeSentDesc'));
@@ -172,15 +276,21 @@ export default function EnhancedOnboarding() {
         if (!otp || otp.length < 6) return;
         setVerifyingOtp(true);
         try {
+            const cleanPhone = phone.replace(/[^\d]/g, '');
+            let finalBody = cleanPhone;
+            if (finalBody.startsWith('0')) finalBody = finalBody.substring(1);
+
+            const finalPhone = `${countryCode}${finalBody}`;
+
             const { error } = await supabase.auth.verifyOtp({
-                phone,
+                phone: finalPhone,
                 token: otp,
                 type: 'phone_change'
             });
             if (error) throw error;
 
             setIsVerified(true);
-            // Auto advance after short delay
+            // Auto advance
             setTimeout(() => nextStep(), 500);
         } catch (e: any) {
             console.error(e);
@@ -190,12 +300,22 @@ export default function EnhancedOnboarding() {
         }
     };
 
+    useEffect(() => {
+        if (otp.length === 6) {
+            handleVerifyOtp();
+        }
+    }, [otp]);
+
     const nextStep = () => {
-        if (step < steps.length - 1) {
-            setStep(step + 1);
-        } else {
-            // Save to database before finishing
+        if (steps[step].type === 'text' && nickname.trim().length === 0) return;
+        if (steps[step].type === 'phone' && !isVerified) return; // Block next until verified
+        if (steps[step].type === 'biometrics' && (!gender || !heightVal || !weight)) return;
+
+        if (steps[step].type === 'done') {
+            // Complete onboarding
             saveProfile();
+        } else {
+            setStep(s => s + 1);
         }
     };
 
@@ -208,13 +328,14 @@ export default function EnhancedOnboarding() {
                 const finalWeight = weightUnit === 'lb' ? Math.round(weight * 0.453592) : weight;
 
                 // Combine logic: use verified phone if available
-                const finalPhone = isVerified ? phone : null;
+                const finalPhone = isVerified ? phone.replace(/[^\d]/g, '') : null;
 
                 const result = await updateProfile(user.id, {
                     nickname,
                     height: finalHeight,
                     weight: finalWeight,
                     target_calories: targetKcal,
+                    gender, // Save gender
                     phone: finalPhone || undefined
                 });
 
@@ -230,7 +351,8 @@ export default function EnhancedOnboarding() {
     };
 
     const prevStep = () => {
-        if (step > 0) {
+        // Prevent going back to phone verification (step 0) from nickname (step 1)
+        if (step > 1) {
             setStep(step - 1);
         }
     };
@@ -260,7 +382,7 @@ export default function EnhancedOnboarding() {
             <SafeAreaView style={styles.safeArea}>
                 {/* Header Bar */}
                 <View style={styles.header}>
-                    {step > 0 ? (
+                    {step > 1 ? (
                         <TouchableOpacity onPress={prevStep} style={styles.backIconButton}>
                             <ArrowLeft color="#64748b" size={24} />
                         </TouchableOpacity>
@@ -279,6 +401,7 @@ export default function EnhancedOnboarding() {
                     style={{ flex: 1 }}
                 >
                     <ScrollView
+                        ref={scrollViewRef}
                         contentContainerStyle={styles.scrollContainer}
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
@@ -302,36 +425,75 @@ export default function EnhancedOnboarding() {
                             <BlurView intensity={40} tint="light" style={styles.glassCard}>
                                 <View style={[styles.cardContent, steps[step].type === "permissions" && { paddingHorizontal: 16, paddingVertical: 16 }]}>
                                     <Text style={styles.cardTitle}>{steps[step].title}</Text>
-                                    <Text style={styles.cardSub}>{steps[step].sub}</Text>
+                                    {steps[step].sub ? <Text style={styles.cardSub}>{steps[step].sub}</Text> : null}
 
                                     {steps[step].type === "text" && (
-                                        <TextInput
-                                            style={styles.textInput}
-                                            placeholder="Enter nickname"
-                                            value={nickname}
-                                            onChangeText={setNickname}
-                                            autoFocus
-                                        />
+                                        <View style={styles.inputBody}>
+                                            <View style={styles.inputGroup}>
+                                                <Text style={styles.inputLabel}>{t('language')}</Text>
+                                                <View style={styles.toggleContainer}>
+                                                    <TouchableOpacity
+                                                        onPress={() => handleLanguageChange('English')}
+                                                        style={[styles.toggleBtn, language === 'English' && styles.toggleBtnActive]}
+                                                    >
+                                                        <Text style={[styles.toggleBtnText, language === 'English' && styles.toggleBtnTextActive]}>English</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        onPress={() => handleLanguageChange('Korean')}
+                                                        style={[styles.toggleBtn, language === 'Korean' && styles.toggleBtnActive]}
+                                                    >
+                                                        <Text style={[styles.toggleBtnText, language === 'Korean' && styles.toggleBtnTextActive]}>한국어</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
+                                            <View style={styles.inputGroup}>
+                                                <Text style={styles.inputLabel}>{t('nickname')}</Text>
+                                                <TextInput
+                                                    style={styles.textInput}
+                                                    placeholder={t('enterNickname')}
+                                                    value={nickname}
+                                                    onChangeText={setNickname}
+                                                    autoFocus
+                                                    onFocus={() => {
+                                                        setTimeout(() => {
+                                                            // Scroll just enough to show button, around y=80 hides top character
+                                                            scrollViewRef.current?.scrollTo({ y: 80, animated: true });
+                                                        }, 500);
+                                                    }}
+                                                />
+                                            </View>
+                                        </View>
                                     )}
 
                                     {steps[step].type === "phone" && (
                                         <View style={styles.inputBody}>
                                             {!isOtpSent ? (
                                                 <>
-                                                    <TextInput
-                                                        style={styles.textInput}
-                                                        placeholder="01012345678"
-                                                        value={phone}
-                                                        onChangeText={setPhone}
-                                                        keyboardType="phone-pad"
-                                                        autoFocus
-                                                    />
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, width: '100%' }}>
+                                                        <TextInput
+                                                            style={[styles.textInput, { width: 75, textAlign: 'center', paddingHorizontal: 0 }]}
+                                                            value={countryCode}
+                                                            editable={false}
+                                                        />
+                                                        <TextInput
+                                                            style={[styles.textInput, { flex: 1, width: undefined, paddingHorizontal: 16 }]}
+                                                            placeholder={countryCode === '+1' ? "(201) 555-0123" : "010-0000-0000"}
+                                                            value={phone}
+                                                            onChangeText={handlePhoneChange}
+                                                            keyboardType="phone-pad"
+                                                            autoFocus
+                                                        />
+                                                    </View>
                                                     <TouchableOpacity
                                                         style={[styles.primaryBtn, { opacity: sendingOtp ? 0.7 : 1 }]}
                                                         onPress={handleSendOtp}
                                                         disabled={sendingOtp}
                                                     >
                                                         <Text style={styles.primaryBtnTxt}>{sendingOtp ? "Sending..." : t('sendCode')}</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity onPress={() => setStep(s => s + 1)} style={{ marginTop: 16 }}>
+                                                        <Text style={{ color: '#94a3b8', textDecorationLine: 'underline' }}>{t('skipVerification')}</Text>
                                                     </TouchableOpacity>
                                                 </>
                                             ) : (
@@ -349,141 +511,149 @@ export default function EnhancedOnboarding() {
                                                         keyboardType="number-pad"
                                                         maxLength={6}
                                                         autoFocus
+                                                        textContentType="oneTimeCode"
                                                     />
                                                     <TouchableOpacity
-                                                        style={[styles.primaryBtn, { opacity: verifyingOtp ? 0.7 : 1 }]}
+                                                        style={[styles.primaryBtn, { opacity: otp.length < 6 || verifyingOtp ? 0.7 : 1 }]}
                                                         onPress={handleVerifyOtp}
-                                                        disabled={verifyingOtp}
+                                                        disabled={otp.length < 6 || verifyingOtp}
                                                     >
                                                         <Text style={styles.primaryBtnTxt}>{verifyingOtp ? "Verifying..." : t('verifyCode')}</Text>
                                                     </TouchableOpacity>
 
-                                                    <View style={{ flexDirection: 'row', gap: 16, marginTop: 16 }}>
+                                                    <View style={{ flexDirection: 'row', gap: 16, marginTop: 16, alignItems: 'center' }}>
                                                         <TouchableOpacity onPress={() => setIsOtpSent(false)}>
                                                             <Text style={{ color: '#64748b' }}>{t('resendCode')}</Text>
                                                         </TouchableOpacity>
+                                                        <View style={{ width: 1, height: 12, backgroundColor: '#cbd5e1' }} />
+                                                        <TouchableOpacity onPress={() => setStep(s => s + 1)}>
+                                                            <Text style={{ color: '#94a3b8' }}>{t('skipVerification')}</Text>
+                                                        </TouchableOpacity>
                                                     </View>
                                                 </>
                                             )}
-
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    Alert.alert(
-                                                        t('skipVerification'),
-                                                        "You can verify your phone number later in Settings.",
-                                                        [
-                                                            { text: "Cancel", style: "cancel" },
-                                                            { text: "Skip", onPress: nextStep }
-                                                        ]
-                                                    );
-                                                }}
-                                                style={{ marginTop: 20 }}
-                                            >
-                                                <Text style={{ color: '#94a3b8', fontSize: 13 }}>{t('skipVerification')}</Text>
-                                            </TouchableOpacity>
                                         </View>
                                     )}
 
-                                    {steps[step].type === "slider_height" && (
-                                        <View style={styles.inputBody}>
-                                            <View style={styles.unitToggleRow}>
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        if (heightUnit === 'ft') {
-                                                            setHeightUnit('cm');
-                                                            const totalIn = feet * 12 + inches;
-                                                            setHeightVal(Math.round(totalIn * 2.54));
-                                                        }
-                                                    }}
-                                                    style={[styles.unitBtn, heightUnit === 'cm' && styles.unitBtnActive]}
-                                                >
-                                                    <Text style={[styles.unitBtnText, heightUnit === 'cm' && styles.unitBtnTextActive]}>cm</Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        if (heightUnit === 'cm') {
-                                                            setHeightUnit('ft');
-                                                            const totalIn = heightVal / 2.54;
-                                                            setFeet(Math.floor(totalIn / 12));
-                                                            setInches(Math.round(totalIn % 12));
-                                                        }
-                                                    }}
-                                                    style={[styles.unitBtn, heightUnit === 'ft' && styles.unitBtnActive]}
-                                                >
-                                                    <Text style={[styles.unitBtnText, heightUnit === 'ft' && styles.unitBtnTextActive]}>ft/in</Text>
-                                                </TouchableOpacity>
+                                    {steps[step].type === "biometrics" && (
+                                        <View style={{ width: '100%' }}>
+                                            {/* Gender Section */}
+                                            <View style={styles.inputGroup}>
+                                                <Text style={styles.inputLabel}>{t('gender')}</Text>
+                                                <View style={styles.toggleContainer}>
+                                                    <TouchableOpacity
+                                                        onPress={() => setGender('Male')}
+                                                        style={[styles.toggleBtn, gender === 'Male' && styles.toggleBtnActive]}
+                                                    >
+                                                        <Text style={[styles.toggleBtnText, gender === 'Male' && styles.toggleBtnTextActive]}>{t('male')}</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        onPress={() => setGender('Female')}
+                                                        style={[styles.toggleBtn, gender === 'Female' && styles.toggleBtnActive]}
+                                                    >
+                                                        <Text style={[styles.toggleBtnText, gender === 'Female' && styles.toggleBtnTextActive]}>{t('female')}</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
 
-                                            {heightUnit === 'cm' ? (
-                                                <>
-                                                    <Text style={styles.valueTxt}>{heightVal} cm</Text>
-                                                    <View style={styles.sliderMock}>
-                                                        <TouchableOpacity onPress={() => setHeightVal((h: number) => Math.max(1, h - 1))} style={styles.sliderBtn}>
-                                                            <Text>-</Text>
+                                            {/* Height Section */}
+                                            <View style={styles.inputGroup}>
+                                                <View style={styles.labelRow}>
+                                                    <Text style={styles.inputLabel}>{t('height')}</Text>
+                                                    <View style={styles.unitToggleRowInline}>
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                if (heightUnit === 'ft') {
+                                                                    setHeightUnit('cm');
+                                                                    const totalIn = feet * 12 + inches;
+                                                                    setHeightVal(Math.round(totalIn * 2.54));
+                                                                }
+                                                            }}
+                                                            style={[styles.unitBtnSmall, heightUnit === 'cm' && styles.unitBtnActive]}
+                                                        >
+                                                            <Text style={[styles.unitBtnTextSmall, heightUnit === 'cm' && styles.unitBtnTextActive]}>cm</Text>
                                                         </TouchableOpacity>
-                                                        <TouchableOpacity onPress={() => setHeightVal((h: number) => h + 1)} style={styles.sliderBtn}>
-                                                            <Text>+</Text>
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                if (heightUnit === 'cm') {
+                                                                    setHeightUnit('ft');
+                                                                    const totalIn = heightVal / 2.54;
+                                                                    setFeet(Math.floor(totalIn / 12));
+                                                                    setInches(Math.round(totalIn % 12));
+                                                                }
+                                                            }}
+                                                            style={[styles.unitBtnSmall, heightUnit === 'ft' && styles.unitBtnActive]}
+                                                        >
+                                                            <Text style={[styles.unitBtnTextSmall, heightUnit === 'ft' && styles.unitBtnTextActive]}>ft/in</Text>
                                                         </TouchableOpacity>
                                                     </View>
-                                                </>
-                                            ) : (
-                                                <View style={styles.ftInContainer}>
-                                                    <View style={styles.ftInBlock}>
-                                                        <Text style={styles.valueTxtSmall}>{feet} ft</Text>
-                                                        <View style={styles.miniBtnRow}>
+                                                </View>
+
+                                                {heightUnit === 'cm' ? (
+                                                    <View style={styles.adjustmentRow}>
+                                                        <TouchableOpacity onPress={() => setHeightVal((h: number) => Math.max(1, h - 1))} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>-</Text></TouchableOpacity>
+                                                        <Text style={styles.adjustValue}>{heightVal} cm</Text>
+                                                        <TouchableOpacity onPress={() => setHeightVal((h: number) => h + 1)} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>+</Text></TouchableOpacity>
+                                                    </View>
+                                                ) : (
+                                                    <View style={styles.ftInContainer}>
+                                                        <View style={styles.ftInBlock}>
                                                             <TouchableOpacity onPress={() => setFeet((f: number) => Math.max(1, f - 1))} style={styles.miniBtn}><Text>-</Text></TouchableOpacity>
+                                                            <Text style={styles.ftInValue}>{feet} ft</Text>
                                                             <TouchableOpacity onPress={() => setFeet((f: number) => f + 1)} style={styles.miniBtn}><Text>+</Text></TouchableOpacity>
                                                         </View>
-                                                    </View>
-                                                    <View style={styles.ftInBlock}>
-                                                        <Text style={styles.valueTxtSmall}>{inches} in</Text>
-                                                        <View style={styles.miniBtnRow}>
+                                                        <View style={styles.ftInBlock}>
                                                             <TouchableOpacity onPress={() => setInches((i: number) => Math.max(0, i - 1))} style={styles.miniBtn}><Text>-</Text></TouchableOpacity>
+                                                            <Text style={styles.ftInValue}>{inches} in</Text>
                                                             <TouchableOpacity onPress={() => setInches((i: number) => i >= 11 ? 0 : i + 1)} style={styles.miniBtn}><Text>+</Text></TouchableOpacity>
                                                         </View>
                                                     </View>
-                                                </View>
-                                            )}
-                                        </View>
-                                    )}
-
-                                    {steps[step].type === "slider_weight" && (
-                                        <View style={styles.inputBody}>
-                                            <View style={styles.unitToggleRow}>
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        if (weightUnit === 'lb') {
-                                                            setWeightUnit('kg');
-                                                            setWeight(Math.round(weight * 0.453592));
-                                                        }
-                                                    }}
-                                                    style={[styles.unitBtn, weightUnit === 'kg' && styles.unitBtnActive]}
-                                                >
-                                                    <Text style={[styles.unitBtnText, weightUnit === 'kg' && styles.unitBtnTextActive]}>kg</Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        if (weightUnit === 'kg') {
-                                                            setWeightUnit('lb');
-                                                            setWeight(Math.round(weight * 2.20462));
-                                                        }
-                                                    }}
-                                                    style={[styles.unitBtn, weightUnit === 'lb' && styles.unitBtnActive]}
-                                                >
-                                                    <Text style={[styles.unitBtnText, weightUnit === 'lb' && styles.unitBtnTextActive]}>lb</Text>
-                                                </TouchableOpacity>
+                                                )}
                                             </View>
-                                            <Text style={styles.valueTxt}>{weight} {weightUnit}</Text>
-                                            <View style={styles.btnRow}>
-                                                {[-5, -1, 1, 5].map(val => (
-                                                    <TouchableOpacity
-                                                        key={val}
-                                                        onPress={() => setWeight(w => w + val)}
-                                                        style={styles.stepBtn}
-                                                    >
-                                                        <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
+
+                                            {/* Weight Section */}
+                                            <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                                                <View style={styles.labelRow}>
+                                                    <Text style={styles.inputLabel}>{t('weight')}</Text>
+                                                    <View style={styles.unitToggleRowInline}>
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                if (weightUnit === 'lb') {
+                                                                    setWeightUnit('kg');
+                                                                    setWeight(Math.round(weight * 0.453592));
+                                                                }
+                                                            }}
+                                                            style={[styles.unitBtnSmall, weightUnit === 'kg' && styles.unitBtnActive]}
+                                                        >
+                                                            <Text style={[styles.unitBtnTextSmall, weightUnit === 'kg' && styles.unitBtnTextActive]}>kg</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                if (weightUnit === 'kg') {
+                                                                    setWeightUnit('lb');
+                                                                    setWeight(Math.round(weight * 2.20462));
+                                                                }
+                                                            }}
+                                                            style={[styles.unitBtnSmall, weightUnit === 'lb' && styles.unitBtnActive]}
+                                                        >
+                                                            <Text style={[styles.unitBtnTextSmall, weightUnit === 'lb' && styles.unitBtnTextActive]}>lb</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                                <View style={styles.weightCenterRow}>
+                                                    <Text style={styles.adjustValue}>{weight} {weightUnit}</Text>
+                                                </View>
+                                                <View style={styles.weightBtnRow}>
+                                                    {[-5, -1, 1, 5].map(val => (
+                                                        <TouchableOpacity
+                                                            key={val}
+                                                            onPress={() => setWeight((w: number) => w + val)}
+                                                            style={styles.stepBtn}
+                                                        >
+                                                            <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
                                             </View>
                                         </View>
                                     )}
@@ -499,12 +669,12 @@ export default function EnhancedOnboarding() {
                                                 <Text style={styles.valueTxt}>{targetKcal} kcal</Text>
                                                 {!isManualKcal && (
                                                     <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 20 }}>
-                                                        <Text style={{ fontSize: 12, color: '#10b981', fontWeight: 'bold' }}>✨ {t('basedOnHeightWeight')}</Text>
+                                                        <Text style={{ fontSize: 12, color: '#10b981', fontWeight: 'bold' }}>✨ {t('basedOnGenderHeightWeight') || "Based on Gender, Height & Weight"}</Text>
                                                     </View>
                                                 )}
                                             </View>
 
-                                            <View style={styles.btnRow}>
+                                            <View style={styles.weightBtnRow}>
                                                 {[-100, -50, 50, 100].map(val => (
                                                     <TouchableOpacity
                                                         key={val}
@@ -577,13 +747,15 @@ export default function EnhancedOnboarding() {
                                     {steps[step].type !== "permissions" && steps[step].type !== "phone" && (
                                         <View style={styles.buttonRow}>
                                             <TouchableOpacity onPress={nextStep} style={styles.primaryBtn}>
-                                                <Text style={styles.primaryBtnTxt}>Next</Text>
+                                                <Text style={styles.primaryBtnTxt}>{t('next')}</Text>
                                             </TouchableOpacity>
                                         </View>
                                     )}
                                 </View>
                             </BlurView>
                         </View>
+                        {/* Spacer for keyboard handling */}
+                        <View style={{ height: 100 }} />
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
@@ -612,16 +784,17 @@ const styles = StyleSheet.create({
     progressDot: { height: 6, width: 24, borderRadius: 3 },
     scrollContainer: {
         flexGrow: 1,
-        justifyContent: 'center',
+        // justifyContent: 'center', // Removed to allow top alignment
     },
     mainContainer: {
         flex: 1,
-        justifyContent: 'center',
+        // justifyContent: 'center', // Removed
         alignItems: 'center',
-        paddingHorizontal: 32,
+        paddingHorizontal: 20,
+        paddingTop: 0, // Removed top padding
         paddingBottom: 20,
     },
-    characterContainer: { alignItems: 'center', marginBottom: 12 },
+    characterContainer: { alignItems: 'center', marginBottom: 0 }, // Removed bottom margin
     characterImg: { width: isSmallDevice ? 100 : 130, height: isSmallDevice ? 100 : 130 },
     characterShadow: {
         shadowColor: '#000',
@@ -645,49 +818,27 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.6)',
         overflow: 'hidden',
     },
-    cardContent: { padding: 24, alignItems: 'center' },
+    cardContent: { padding: 20, alignItems: 'center' },
     cardTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 4, textAlign: 'center' },
-    cardSub: { fontSize: 13, color: '#64748b', marginBottom: 16, textAlign: 'center' },
+    cardSub: { fontSize: 13, color: '#64748b', marginBottom: 12, textAlign: 'center' },
     textInput: {
         width: '100%',
-        height: 60,
+        paddingVertical: 2, // Reduced to minimal
         backgroundColor: 'rgba(255,255,255,0.5)',
         borderRadius: 16,
         paddingHorizontal: 24,
-        fontSize: 18,
+        fontSize: 16, // Reduced from 18 to decrease intrinsic height
         color: '#1e293b',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.4)',
     },
     inputBody: { width: '100%', alignItems: 'center' },
     valueTxt: { fontSize: 32, fontWeight: 'bold', color: '#6366f1', marginBottom: 16 },
-    sliderMock: {
-        width: '100%',
-        height: 48,
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        borderRadius: 24,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-    },
-    sliderBtn: { width: 32, height: 32, backgroundColor: '#fff', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    btnRow: { flexDirection: 'row', gap: 12 },
-    stepBtn: {
-        width: 52,
-        height: 52,
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.4)',
-    },
-    stepBtnTxt: { fontWeight: 'bold' },
+
     primaryBtn: {
-        marginTop: 20,
+        marginTop: 16,
         width: '100%',
-        height: 56,
+        height: 42,
         backgroundColor: '#0f172a',
         borderRadius: 20,
         alignItems: 'center',
@@ -695,11 +846,124 @@ const styles = StyleSheet.create({
     },
     primaryBtnTxt: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
     buttonRow: {
-        marginTop: 20,
+        marginTop: 12,
         flexDirection: 'row',
         gap: 12,
         width: '100%',
     },
+    // Styles for Biometrics matching Edit Profile geometry
+    inputGroup: { marginBottom: 12, width: '100%' },
+    inputLabel: { fontSize: 11, fontWeight: '700', color: '#64748b', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' },
+
+    // Gender Toggle Styles
+    toggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#f1f5f9', // Updated to match input background
+        borderRadius: 16,
+        padding: 4,
+        width: '100%',
+        height: 44, // Standardized height
+    },
+    toggleBtn: {
+        flex: 1,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    toggleBtnActive: {
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    toggleBtnText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+    toggleBtnTextActive: { color: '#6366f1', fontWeight: 'bold' }, // Keep Indigo for Gender as it's not in Edit Profile
+
+    // Height/Weight Geometry adapted from Edit Profile
+    unitToggleRowInline: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 2 },
+    unitBtnSmall: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    unitBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+    unitBtnTextSmall: { fontSize: 10, fontWeight: 'bold', color: '#64748b' },
+    unitBtnTextActive: { color: '#0f172a' },
+
+    labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, width: '100%' },
+
+    // Adjustment Row - Pill shaped buttons - Matched Colors to Edit Profile
+    adjustmentRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#f8fafc',
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        width: '100%',
+        height: 44, // Fixed Standardized Height
+    },
+    adjustBtn: {
+        height: 32, // Fixed height to match miniBtn
+        paddingVertical: 0,
+        paddingHorizontal: 12,
+        backgroundColor: '#fff',
+        elevation: 1,
+        minWidth: 44,
+    },
+    adjustBtnText: { fontSize: 20, fontWeight: 'bold', color: '#10b981' }, // Changed to Green to match Edit Profile
+    adjustValue: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+
+    ftInContainer: { flexDirection: 'row', gap: 12, width: '100%' },
+    ftInBlock: {
+        flex: 1,
+        flexDirection: 'row', // Changed to row to match adjustmentRow
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#f8fafc',
+        paddingHorizontal: 8,
+        // paddingVertical: 4, // Removed
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        height: 44, // Fixed Standardized Height
+    },
+    ftInValue: { fontSize: 16, fontWeight: '700', color: '#1e293b' }, // Removed margin bottom
+    miniBtnRow: { display: 'none' }, // No longer needed
+    miniBtn: {
+        width: 32, // Increased from 28 to match adjustmentRow buttons roughly
+        height: 32,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+
+    weightCenterRow: { alignItems: 'center', marginBottom: 8 },
+    weightBtnRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 8 },
+    stepBtn: {
+        flex: 1,
+        paddingVertical: 4, // Matches Edit Profile
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.4)', // Using translucent border for consistency
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+        marginHorizontal: 0
+    },
+    stepBtnTxt: { fontSize: 12, fontWeight: '700', color: '#1e293b' }, // Matches Edit Profile fontSize
+
     secondaryBtn: {
         flex: 1,
         height: 56,
@@ -723,57 +987,10 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 8,
     },
-    unitBtnActive: {
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
     unitBtnText: {
         fontSize: 12,
         fontWeight: 'bold',
         color: '#64748b',
-    },
-    unitBtnTextActive: {
-        color: '#0f172a',
-    },
-    ftInContainer: {
-        flexDirection: 'row',
-        gap: 20,
-        marginBottom: 10,
-    },
-    ftInBlock: {
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.4)',
-        padding: 15,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
-    },
-    valueTxtSmall: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#6366f1',
-        marginBottom: 10,
-    },
-    miniBtnRow: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    miniBtn: {
-        width: 36,
-        height: 36,
-        backgroundColor: '#fff',
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
     },
     permissionItem: {
         flexDirection: 'row',
@@ -795,6 +1012,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    permTitle: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
-    permSub: { fontSize: 11, color: '#64748b' },
+    permTitle: { fontWeight: 'bold', fontSize: 16, color: '#1e293b' },
+    permSub: { fontSize: 13, color: '#64748b' },
+    // Unused Styles Cleanup (previously genderBtn etc)
+    genderBtn: { display: 'none' },
+    genderBtnActive: { display: 'none' },
+    genderBtnText: { display: 'none' },
+    genderBtnTextActive: { display: 'none' },
 });

@@ -14,7 +14,7 @@ import { useTour } from '../../src/context/TourContext';
 import { TourTarget } from '../../src/components/TourTarget';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera as CameraIcon, Image as ImageIcon, X as CloseIcon } from 'lucide-react-native';
-import { EditProfileModal } from '../../src/components/EditProfileModal';
+
 import { HealthStatsCard } from '../../src/components/HealthStatsCard';
 import { FriendsCard } from '../../src/components/FriendsCard';
 
@@ -48,7 +48,6 @@ export default function HomeScreen() {
     const [loading, setLoading] = useState(true);
     const [selectedMacro, setSelectedMacro] = useState<string | null>(null);
     const [showLogOptions, setShowLogOptions] = useState(false);
-    const [isEditProfileModalVisible, setIsEditProfileModalVisible] = useState(false);
     const [streak, setStreak] = useState(0);
 
     // Reanimated Shared Values
@@ -306,7 +305,7 @@ export default function HomeScreen() {
                             </TouchableOpacity>
                             <View style={styles.userTextContainer}>
                                 <TouchableOpacity
-                                    onPress={() => setIsEditProfileModalVisible(true)}
+                                    onPress={() => router.push('/edit_profile')}
                                     activeOpacity={0.7}
                                 >
                                     <Text style={styles.greetingText}>
@@ -752,11 +751,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
             </Modal>
 
-            <EditProfileModal
-                visible={isEditProfileModalVisible}
-                onClose={() => setIsEditProfileModalVisible(false)}
-                onProfileUpdated={fetchData}
-            />
+
         </View>
     );
 }

@@ -15,8 +15,10 @@ import * as Haptics from 'expo-haptics';
 import { useTour } from '../../src/context/TourContext';
 import { useAlert } from '../../src/context/AlertContext';
 import { TourTarget } from '../../src/components/TourTarget';
-import { EditProfileModal } from '../../src/components/EditProfileModal';
+
 import { HealthSyncModal } from '../../src/components/HealthSyncModal';
+
+import { useFocusEffect } from 'expo-router';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
@@ -59,12 +61,10 @@ export default function ProfileScreen() {
     const params = useLocalSearchParams();
     const { showAlert } = useAlert();
     const [userProfile, setUserProfile] = useState<any>(null);
-    const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
     const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
     const [isPrivacyModalVisible, setIsPrivacyModalVisible] = useState(false);
-    const [isFuelingModalVisible, setIsFuelingModalVisible] = useState(false);
     const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
     const [isHealthModalVisible, setIsHealthModalVisible] = useState(false);
     const [strategy, setStrategy] = useState<FuelingStrategy>(DEFAULT_STRATEGY);
@@ -92,11 +92,14 @@ export default function ProfileScreen() {
         loadLanguage();
         loadStrategy();
         loadSettings();
+    }, []);
 
-        if (params.edit === 'true') {
-            setIsEditModalVisible(true);
-        }
-    }, [params.edit]);
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchProfile();
+            loadStrategy();
+        }, [])
+    );
 
     const loadSettings = async () => {
         try {
@@ -168,8 +171,14 @@ export default function ProfileScreen() {
                 } catch (e) {
                     console.error("Sign out error:", e);
                 } finally {
-                    // Redirect directly to login screen to ensure user is logged out
-                    router.replace('/login');
+                    // Ensure the alert modal closes smoothly before navigating
+                    // Using router.dismissAll() to clear stack history if possible
+                    setTimeout(() => {
+                        if (router.canGoBack()) {
+                            router.dismissAll();
+                        }
+                        router.replace('/login');
+                    }, 500);
                 }
             }
         });
@@ -284,7 +293,7 @@ export default function ProfileScreen() {
     };
 
     const handleUpdateProfile = () => {
-        setIsEditModalVisible(true);
+        router.push('/edit_profile');
     };
 
     const calculateBMI = () => {
@@ -385,7 +394,7 @@ export default function ProfileScreen() {
                         <GlassItem
                             icon={<User size={20} color="#10b981" />}
                             title={t('editProfile')}
-                            onPress={() => setIsEditModalVisible(true)}
+                            onPress={() => router.push('/edit_profile')}
                         />
                         <GlassItem
                             icon={<ShieldCheck size={20} color="#6366f1" />}
@@ -412,7 +421,7 @@ export default function ProfileScreen() {
                                 icon={<Zap size={20} color="#f59e0b" />}
                                 title={t('fuelingStrategy')}
                                 isLast
-                                onPress={() => setIsFuelingModalVisible(true)}
+                                onPress={() => router.push('/fueling_strategy')}
                             />
                         </TourTarget>
                     </View>
@@ -427,12 +436,7 @@ export default function ProfileScreen() {
                 </ScrollView>
             </SafeAreaView>
 
-            {/* Edit Profile Modal */}
-            <EditProfileModal
-                visible={isEditModalVisible}
-                onClose={() => setIsEditModalVisible(false)}
-                onProfileUpdated={fetchProfile}
-            />
+
 
             <HealthSyncModal
                 visible={isHealthModalVisible}
@@ -693,133 +697,7 @@ export default function ProfileScreen() {
                 </View>
             </Modal>
 
-            {/* Fueling Strategy Modal */}
-            <Modal
-                visible={isFuelingModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setIsFuelingModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <BlurView intensity={90} tint="dark" style={styles.modalBlur}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>{t('fuelingStrategyTitle')}</Text>
-                                <TouchableOpacity onPress={() => setIsFuelingModalVisible(false)}>
-                                    <X size={24} color="#94a3b8" />
-                                </TouchableOpacity>
-                            </View>
 
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                {/* Metabolic Goal */}
-                                <Text style={styles.inputLabel}>{t('metabolicGoal')}</Text>
-                                <View style={styles.langList}>
-                                    {[
-                                        { id: 'steady', title: t('goalSteadyEnergy'), desc: t('goalSteadyEnergyDesc'), emoji: '💎' },
-                                        { id: 'peak', title: t('goalMetabolicPeak'), desc: t('goalMetabolicPeakDesc'), emoji: '🔥' },
-                                        { id: 'weight', title: t('goalWeightLoss'), desc: t('goalWeightLossDesc'), emoji: '🥗' },
-                                        { id: 'muscle', title: t('goalMuscleBuild'), desc: t('goalMuscleBuildDesc'), emoji: '💪' },
-                                    ].map((item) => (
-                                        <TouchableOpacity
-                                            key={item.id}
-                                            style={[styles.langItem, strategy.goal === item.id && styles.langItemActive]}
-                                            onPress={() => handleSaveStrategy({ ...strategy, goal: item.id as any })}
-                                        >
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={[styles.langLabel, strategy.goal === item.id && styles.langLabelActive, { fontSize: 16 }]}>{item.emoji} {item.title}</Text>
-                                                <Text style={styles.langSub}>{item.desc}</Text>
-                                            </View>
-                                            {strategy.goal === item.id && <Zap size={18} color="#10b981" />}
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                                <View style={{ height: 24 }} />
-
-                                {/* Calorie Target */}
-                                <Text style={styles.inputLabel}>{t('calorieTarget')}</Text>
-                                <View style={styles.unitToggleRowInline}>
-                                    <TouchableOpacity
-                                        onPress={() => handleSaveStrategy({ ...strategy, calorieTargetType: 'smart' })}
-                                        style={[styles.unitBtnSmall, { flex: 1 }, strategy.calorieTargetType === 'smart' && styles.unitBtnActive]}
-                                    >
-                                        <Text style={[styles.unitBtnTextSmall, strategy.calorieTargetType === 'smart' && styles.unitBtnTextActive]}>{t('smartTarget')}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={() => handleSaveStrategy({ ...strategy, calorieTargetType: 'manual' })}
-                                        style={[styles.unitBtnSmall, { flex: 1 }, strategy.calorieTargetType === 'manual' && styles.unitBtnActive]}
-                                    >
-                                        <Text style={[styles.unitBtnTextSmall, strategy.calorieTargetType === 'manual' && styles.unitBtnTextActive]}>{t('manualTarget')}</Text>
-                                    </TouchableOpacity>
-                                </View>
-
-                                {strategy.calorieTargetType === 'manual' && (
-                                    <View style={[styles.adjustmentRow, { marginTop: 12 }]}>
-                                        <TouchableOpacity onPress={() => handleSaveStrategy({ ...strategy, manualCalorieTarget: Math.max(1200, strategy.manualCalorieTarget - 50) })} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>-</Text></TouchableOpacity>
-                                        <Text style={styles.adjustValue}>{strategy.manualCalorieTarget} kcal</Text>
-                                        <TouchableOpacity onPress={() => handleSaveStrategy({ ...strategy, manualCalorieTarget: strategy.manualCalorieTarget + 50 })} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>+</Text></TouchableOpacity>
-                                    </View>
-                                )}
-
-                                <View style={{ height: 24 }} />
-
-                                {/* Macro Profile */}
-                                <Text style={styles.inputLabel}>{t('macroProfile')}</Text>
-                                <View style={styles.langList}>
-                                    {[
-                                        { id: 'balanced', title: t('balancedMacros') },
-                                        { id: 'performance', title: t('performanceMacros') },
-                                        { id: 'keto', title: t('ketoMacros') },
-                                        { id: 'protein', title: t('highProteinMacros') },
-                                    ].map((item) => (
-                                        <TouchableOpacity
-                                            key={item.id}
-                                            style={[styles.langItem, { padding: 16 }, strategy.macroProfile === item.id && styles.langItemActive]}
-                                            onPress={() => handleSaveStrategy({ ...strategy, macroProfile: item.id as any })}
-                                        >
-                                            <Text style={[styles.langLabel, strategy.macroProfile === item.id && styles.langLabelActive, { fontSize: 14 }]}>{item.title}</Text>
-                                            {strategy.macroProfile === item.id && <Zap size={16} color="#10b981" />}
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                                <View style={{ height: 24 }} />
-
-                                {/* Activity Level */}
-                                <Text style={styles.inputLabel}>{t('activityLevel')}</Text>
-                                <View style={styles.unitToggleRowInline}>
-                                    {[
-                                        { id: 'sedentary', title: t('sedentary') },
-                                        { id: 'moderate', title: t('moderate') },
-                                        { id: 'elite', title: t('eliteAthlete') },
-                                    ].map((item) => (
-                                        <TouchableOpacity
-                                            key={item.id}
-                                            onPress={() => handleSaveStrategy({ ...strategy, activityLevel: item.id as any })}
-                                            style={[styles.unitBtnSmall, { flex: 1 }, strategy.activityLevel === item.id && styles.unitBtnActive]}
-                                        >
-                                            <Text style={[styles.unitBtnTextSmall, { fontSize: 9 }, strategy.activityLevel === item.id && styles.unitBtnTextActive]}>{item.title}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                                <View style={{ height: 40 }} />
-                                <TouchableOpacity
-                                    style={styles.saveBtn}
-                                    onPress={() => {
-                                        setIsFuelingModalVisible(false);
-                                        showAlert({ title: t('success'), message: t('strategySaved'), type: 'success' });
-                                    }}
-                                >
-                                    <Save size={20} color="#fff" />
-                                    <Text style={styles.saveBtnText}>{t('complete')}</Text>
-                                </TouchableOpacity>
-                                <View style={{ height: 40 }} />
-                            </ScrollView>
-                        </View>
-                    </BlurView>
-                </View>
-            </Modal>
 
             {/* Settings Modal */}
             <Modal

@@ -22,6 +22,7 @@ export interface Database {
                     weight: number | null
                     target_calories: number | null
                     phone: string | null
+                    gender: string | null
                     last_active_at: string | null
                 }
                 Insert: {
@@ -36,6 +37,7 @@ export interface Database {
                     weight?: number | null
                     target_calories?: number | null
                     phone?: string | null
+                    gender?: string | null
                     last_active_at?: string | null
                 }
                 Update: {
@@ -50,6 +52,7 @@ export interface Database {
                     weight?: number | null
                     target_calories?: number | null
                     phone?: string | null
+                    gender?: string | null
                     last_active_at?: string | null
                 }
             }
