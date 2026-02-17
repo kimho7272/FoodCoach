@@ -468,6 +468,23 @@ export default function EnhancedOnboarding() {
 
                                     {steps[step].type === "phone" && (
                                         <View style={styles.inputBody}>
+                                            <View style={[styles.inputGroup, { marginBottom: 20 }]}>
+                                                <View style={styles.toggleContainer}>
+                                                    <TouchableOpacity
+                                                        onPress={() => handleLanguageChange('English')}
+                                                        style={[styles.toggleBtn, language === 'English' && styles.toggleBtnActive]}
+                                                    >
+                                                        <Text style={[styles.toggleBtnText, language === 'English' && styles.toggleBtnTextActive]}>English (+1)</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        onPress={() => handleLanguageChange('Korean')}
+                                                        style={[styles.toggleBtn, language === 'Korean' && styles.toggleBtnActive]}
+                                                    >
+                                                        <Text style={[styles.toggleBtnText, language === 'Korean' && styles.toggleBtnTextActive]}>한국어 (+82)</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
                                             {!isOtpSent ? (
                                                 <>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, width: '100%' }}>
