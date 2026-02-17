@@ -256,7 +256,14 @@ export default function EnhancedOnboarding() {
             let finalBody = cleanPhone;
             if (finalBody.startsWith('0')) finalBody = finalBody.substring(1);
 
-            const finalPhone = `${countryCode}${finalBody}`;
+            let finalPhone = `${countryCode}${finalBody}`;
+
+            // Special handling for Supabase test phone number: 555-555-5555
+            // Supabase requires "15555555555" (no +) for test numbers, but app sends "+15555555555"
+            // So we strip the + if the number matches the test number
+            if (finalBody === '5555555555') {
+                finalPhone = finalPhone.replace('+', '');
+            }
 
             console.log("Sending OTP to:", finalPhone);
 
@@ -280,7 +287,12 @@ export default function EnhancedOnboarding() {
             let finalBody = cleanPhone;
             if (finalBody.startsWith('0')) finalBody = finalBody.substring(1);
 
-            const finalPhone = `${countryCode}${finalBody}`;
+            let finalPhone = `${countryCode}${finalBody}`;
+
+            // Special handling for Supabase test phone number: 555-555-5555
+            if (finalBody === '5555555555') {
+                finalPhone = finalPhone.replace('+', '');
+            }
 
             const { error } = await supabase.auth.verifyOtp({
                 phone: finalPhone,
