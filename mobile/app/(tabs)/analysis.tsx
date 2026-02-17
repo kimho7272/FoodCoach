@@ -36,6 +36,7 @@ export default function AnalysisScreen() {
     const [selectedMealType, setSelectedMealType] = useState<AnalysisResult['category']>('Snack');
     const [logging, setLogging] = useState(false);
     const [location, setLocation] = useState<{ name: string | null, address: string | null, lat: number, lng: number } | null>(null);
+    const [viewMode, setViewMode] = useState<'total' | 'recommended'>('recommended');
 
     useEffect(() => {
         // If we have params but analysis hasn't started
@@ -60,12 +61,14 @@ export default function AnalysisScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             let userProfile: any = undefined;
             if (user) {
-                const { data: profile } = await supabase.from('profiles').select('height, weight, target_calories').eq('id', user.id).single();
+                const { data: profile } = await supabase.from('profiles').select('gender, height, weight, target_calories').eq('id', user.id).single();
                 if (profile) {
+                    const p = profile as any;
                     userProfile = {
-                        height: profile.height,
-                        weight: profile.weight,
-                        target_calories: profile.target_calories
+                        gender: p.gender,
+                        height: p.height,
+                        weight: p.weight,
+                        target_calories: p.target_calories
                     };
                 }
             }
@@ -143,13 +146,14 @@ export default function AnalysisScreen() {
             const imageUrl = await uploadMealImage(user.id, photo.base64);
 
             // 2. Save log
+            const selectedNutrition = result[viewMode];
             const { error } = await saveMealLog({
                 user_id: user.id,
                 food_name: result.food_name,
-                calories: result.calories,
-                protein: result.macros.protein,
-                fat: result.macros.fat,
-                carbs: result.macros.carbs,
+                calories: selectedNutrition.calories,
+                protein: selectedNutrition.macros.protein,
+                fat: selectedNutrition.macros.fat,
+                carbs: selectedNutrition.macros.carbs,
                 meal_type: selectedMealType,
                 image_url: imageUrl || undefined,
                 health_score: result.health_score,
@@ -302,20 +306,54 @@ export default function AnalysisScreen() {
                                         ))}
                                     </View>
 
+                                    {/* Portion Toggle */}
+                                    <View style={{ flexDirection: 'row', backgroundColor: '#334155', borderRadius: 12, padding: 4, marginBottom: 20 }}>
+                                        <TouchableOpacity
+                                            onPress={() => setViewMode('total')}
+                                            style={{
+                                                flex: 1,
+                                                paddingVertical: 8,
+                                                backgroundColor: viewMode === 'total' ? '#0f172a' : 'transparent',
+                                                borderRadius: 8,
+                                                alignItems: 'center'
+                                            }}
+                                        >
+                                            <Text style={{ color: viewMode === 'total' ? '#fff' : '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>Total (Full)</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => setViewMode('recommended')}
+                                            style={{
+                                                flex: 1,
+                                                paddingVertical: 8,
+                                                backgroundColor: viewMode === 'recommended' ? '#0f172a' : 'transparent',
+                                                borderRadius: 8,
+                                                alignItems: 'center'
+                                            }}
+                                        >
+                                            <Text style={{ color: viewMode === 'recommended' ? '#fff' : '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>Recommended</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {viewMode === 'recommended' && result.recommended?.reason && (
+                                        <View style={{ marginBottom: 16, backgroundColor: 'rgba(16,185,129,0.1)', padding: 12, borderRadius: 12 }}>
+                                            <Text style={{ color: '#10b981', fontSize: 12 }}>💡 {result.recommended.reason}</Text>
+                                        </View>
+                                    )}
+
                                     <View style={styles.macroRow}>
                                         <View style={styles.macroItem}>
                                             <Flame size={16} color="#f59e0b" />
-                                            <Text style={styles.macroValueText}>{result.calories}</Text>
+                                            <Text style={styles.macroValueText}>{result[viewMode].calories}</Text>
                                             <Text style={styles.macroUnit}>kcal</Text>
                                         </View>
                                         <View style={styles.macroItem}>
                                             <Zap size={16} color="#10b981" />
-                                            <Text style={styles.macroValueText}>{result.macros.protein}</Text>
+                                            <Text style={styles.macroValueText}>{result[viewMode].macros.protein}</Text>
                                             <Text style={styles.macroUnit}>Prot</Text>
                                         </View>
                                         <View style={styles.macroItem}>
                                             <BarChart2 size={16} color="#6366f1" />
-                                            <Text style={styles.macroValueText}>{result.macros.carbs}</Text>
+                                            <Text style={styles.macroValueText}>{result[viewMode].macros.carbs}</Text>
                                             <Text style={styles.macroUnit}>Carb</Text>
                                         </View>
                                     </View>

@@ -4,8 +4,7 @@ import { supabase } from '../lib/supabase';
 // Ensure you have deployed the function: `supabase functions deploy analyze-meal`
 // And set the secret: `supabase secrets set GEMINI_API_KEY=...`
 
-export type AnalysisResult = {
-    food_name: string;
+export type NutritionData = {
     calories: number;
     macros: {
         protein: string;
@@ -14,6 +13,16 @@ export type AnalysisResult = {
         sugar?: string;
         fiber?: string;
     };
+    reason?: string;
+};
+
+export type AnalysisResult = {
+    food_name: string;
+
+    // Dual Analysis Data
+    total: NutritionData;
+    recommended: NutritionData;
+
     score: number;
     category: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
     is_food: boolean;
@@ -22,6 +31,7 @@ export type AnalysisResult = {
 };
 
 export type UserProfile = {
+    gender?: string; // 'Male' | 'Female'
     height?: number;
     weight?: number;
     target_calories?: number;
@@ -60,18 +70,28 @@ export const analyzeMealImage = async (base64Image: string, userProfile?: UserPr
         else if (hour >= 11 && hour < 16) category = 'Lunch';
         else if (hour >= 16 && hour < 22) category = 'Dinner';
 
-        // Merge server response with local category
+        // Helper to safe parse nutrition
+        const safeNutrition = (src: any): NutritionData => ({
+            calories: typeof src?.calories === 'number' ? src.calories : 0,
+            macros: {
+                protein: src?.macros?.protein || "0g",
+                fat: src?.macros?.fat || "0g",
+                carbs: src?.macros?.carbs || "0g",
+                sugar: src?.macros?.sugar || "0g",
+                fiber: src?.macros?.fiber || "0g"
+            },
+            reason: src?.reason
+        });
+
+        // Handle both old and new format if needed, but primarily new
+        const total = data.total ? safeNutrition(data.total) : safeNutrition(data); // Fallback to root if total missing
+        const recommended = data.recommended ? safeNutrition(data.recommended) : total; // Fallback to total if recommended missing
+
         return {
             is_food: !!data.is_food,
             food_name: data.food_name || "Unknown",
-            calories: typeof data.calories === 'number' ? data.calories : 0,
-            macros: {
-                protein: data.macros?.protein || "0g",
-                fat: data.macros?.fat || "0g",
-                carbs: data.macros?.carbs || "0g",
-                sugar: data.macros?.sugar || "0g",
-                fiber: data.macros?.fiber || "0g"
-            },
+            total,
+            recommended,
             score: data.score || 0,
             health_score: data.health_score || 0,
             description: data.description || "No description provided.",

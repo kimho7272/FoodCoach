@@ -92,6 +92,14 @@ export default function FriendsScreen() {
         await socialService.inviteViaSMS(phone);
     };
 
+    const isRequestExpired = (dateString?: string) => {
+        if (!dateString) return false;
+        const sentTime = new Date(dateString).getTime();
+        const now = new Date().getTime();
+        const hoursDiff = (now - sentTime) / (1000 * 60 * 60);
+        return hoursDiff > 24;
+    };
+
     const renderPendingRequest = ({ item }: { item: any }) => (
         <View style={styles.requestItem}>
             <View style={styles.requestInfo}>
@@ -290,10 +298,17 @@ export default function FriendsScreen() {
                                                 <Check size={14} color="#10b981" />
                                                 <Text style={styles.friendBadgeText}>{t('friends')}</Text>
                                             </View>
-                                        ) : item.status === 'sent' ? (
+                                        ) : item.status === 'sent' && !isRequestExpired(item.request_sent_at) ? (
                                             <View style={styles.sentBadge}>
                                                 <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
                                             </View>
+                                        ) : !item.is_registered ? (
+                                            <TouchableOpacity
+                                                style={[styles.connectBtn, { backgroundColor: '#10b981' }]} // Invite color
+                                                onPress={() => handleInvite(item.phone)}
+                                            >
+                                                <Text style={styles.connectBtnText}>{t('invite') || 'Invite'}</Text>
+                                            </TouchableOpacity>
                                         ) : (
                                             <TouchableOpacity
                                                 style={styles.connectBtn}

@@ -11,6 +11,7 @@ export interface Friend {
     phone: string | null;
     status: 'pending' | 'accepted' | 'sent' | 'none'; // 'none' for unconnected/inviteable
     is_registered: boolean;
+    request_sent_at?: string;
 }
 
 export const socialService = {
@@ -117,8 +118,10 @@ export const socialService = {
 
                 // Determine status
                 let status: Friend['status'] = 'none';
+                let requestSentAt: string | undefined = undefined;
+
                 if (user) {
-                    const f = friendships.find(f =>
+                    const f = friendships.find((f: any) =>
                         (f.user_id_1 === user.id && f.user_id_2 === registered.id) ||
                         (f.user_id_2 === user.id && f.user_id_1 === registered.id)
                     );
@@ -126,6 +129,9 @@ export const socialService = {
                         if (f.status === 'accepted') status = 'accepted';
                         else if (f.status === 'pending') {
                             status = f.user_id_1 === user.id ? 'sent' : 'pending';
+                            if (status === 'sent') {
+                                requestSentAt = f.created_at;
+                            }
                         }
                     }
                 }
@@ -137,7 +143,8 @@ export const socialService = {
                     nickname: registered.nickname,
                     avatar_url: registered.avatar_url || local.avatar_url,
                     is_registered: true,
-                    status
+                    status,
+                    request_sent_at: requestSentAt
                 } as Friend;
             }
             return local;

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Localization from 'expo-localization';
 import { translations, TranslationKeys } from './translations';
 
 type Language = 'English' | 'Korean';
@@ -20,6 +21,15 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
             const stored = await AsyncStorage.getItem('user_language');
             if (stored === 'Korean' || stored === 'English') {
                 setLanguageState(stored as Language);
+            } else {
+                // Determine via device locale
+                const deviceLang = Localization.getLocales()[0]?.languageCode;
+                console.log('Detected Device Language Code:', deviceLang);
+                if (deviceLang === 'ko') {
+                    setLanguageState('Korean');
+                } else {
+                    setLanguageState('English');
+                }
             }
         };
         loadLanguage();
