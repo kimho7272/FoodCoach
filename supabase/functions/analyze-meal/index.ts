@@ -42,11 +42,13 @@ serve(async (req) => {
 
         // --- Prompt Construction ---
         let userInfoPrompt = `User Profile: Adult.`;
-        if (userProfile?.height && userProfile?.weight) {
-            userInfoPrompt = `User Profile: Height ${userProfile.height}cm, Weight ${userProfile.weight}kg.`;
-        }
-        if (userProfile?.target_calories) {
-            userInfoPrompt += ` Daily Calorie Goal: ${userProfile.target_calories}kcal.`;
+        if (userProfile) {
+            const parts = [];
+            if (userProfile.gender) parts.push(`Gender: ${userProfile.gender}`);
+            if (userProfile.height) parts.push(`Height: ${userProfile.height}cm`);
+            if (userProfile.weight) parts.push(`Weight: ${userProfile.weight}kg`);
+            if (userProfile.target_calories) parts.push(`Target Daily Calories: ${userProfile.target_calories}kcal`);
+            userInfoPrompt = `User Profile: ${parts.join(', ')}.`;
         }
 
         if (userProfile?.healthContext) {
@@ -57,15 +59,29 @@ serve(async (req) => {
         const promptText = `Analyze this image. ${userInfoPrompt}
     1. Determine if this image contains primarily edible food or drinks.
     2. If NOT food, set "is_food": false.
-    3. If IS food:
-       - "food_name": short name.
-       - "calories": estimated total.
-       - "macros": {protein, fat, carbs, sugar, fiber in grams, e.g., "15g"}.
-       - "score": confidence (0-100).
-       - "health_score": 0 (unhealthy) to 10 (superfood).
-       - "description": 1-sentence health insight.
-       - "is_food": true.
-    Format the output as raw JSON only: {"is_food": boolean, "food_name": "...", "calories": 0, "macros": {"protein": "...", "fat": "...", "carbs": "...", "sugar": "...", "fiber": "..."}, "score": 0, "health_score": 5, "description": "..."}`;
+    3. If IS food, provide TWO sets of nutritional data:
+       A. "total": The estimated nutrition for the Entire visible portion in the image (assuming user eats everything).
+       B. "recommended": The estimated nutrition for an "Ideal/Average Portion" suitable for a person with the provided Gender/Height/Weight profile. (e.g., if the image shows a huge pizza, recommended might be 2 slices).
+    
+    Required JSON Structure:
+    {
+      "is_food": boolean,
+      "food_name": "short name",
+      "total": {
+        "calories": number,
+        "macros": { "protein": "10g", "fat": "5g", "carbs": "20g", "sugar": "2g", "fiber": "1g" }
+      },
+      "recommended": {
+        "calories": number,
+        "macros": { "protein": "...", ... },
+        "reason": "Brief explanation of why this portion is recommended (e.g. 'Standard serving size for your profile')"
+      },
+      "score": number (0-100 confidence),
+      "health_score": number (0-10),
+      "description": "1-sentence health insight"
+    }
+    
+    Return ONLY valid JSON.`;
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
