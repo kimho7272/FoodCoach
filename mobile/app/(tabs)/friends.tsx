@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Modal, ActivityIndicator, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Modal, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,10 +7,13 @@ import { BlurView } from 'expo-blur';
 import { Plus, Search, UserPlus, Check, X, Phone } from 'lucide-react-native';
 import { useTranslation } from '../../src/lib/i18n';
 import { socialService, Friend } from '../../src/services/social_service';
+import { useAlert } from '../../src/context/AlertContext';
+import { theme } from '../../src/constants/theme';
 
 export default function FriendsScreen() {
     const { t, language } = useTranslation();
     const router = useRouter();
+    const { showAlert } = useAlert();
     const [friends, setFriends] = useState<Friend[]>([]);
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,10 +49,10 @@ export default function FriendsScreen() {
     const handleAccept = async (requestId: string) => {
         const success = await socialService.acceptFriendRequest(requestId);
         if (success) {
-            Alert.alert(t('success'), t('friendAdded') || 'Friend added!');
+            showAlert({ title: t('success'), message: t('friendAdded') || 'Friend added!', type: 'success' });
             fetchData();
         } else {
-            Alert.alert(t('error'), 'Failed to accept request');
+            showAlert({ title: t('error'), message: 'Failed to accept request', type: 'error' });
         }
     };
 
@@ -58,7 +61,7 @@ export default function FriendsScreen() {
         if (success) {
             fetchData();
         } else {
-            Alert.alert(t('error'), 'Failed to reject request');
+            showAlert({ title: t('error'), message: 'Failed to reject request', type: 'error' });
         }
     };
 
@@ -71,7 +74,7 @@ export default function FriendsScreen() {
             setContacts(potentialFriends);
         } catch (e) {
             console.error(e);
-            Alert.alert(t('error'), t('contactsError') || 'Could not access contacts');
+            showAlert({ title: t('error'), message: t('contactsError') || 'Could not access contacts', type: 'error' });
         } finally {
             setSearching(false);
         }
@@ -80,10 +83,10 @@ export default function FriendsScreen() {
     const handleSendRequest = async (userId: string) => {
         const success = await socialService.sendFriendRequest(userId);
         if (success) {
-            Alert.alert(t('success'), t('requestSent') || 'Request Sent');
+            showAlert({ title: t('success'), message: t('requestSent') || 'Request Sent', type: 'success' });
             setContacts(prev => prev.map(c => c.id === userId ? { ...c, status: 'sent' } : c));
         } else {
-            Alert.alert(t('error'), t('requestFailed') || 'Failed to send');
+            showAlert({ title: t('error'), message: t('requestFailed') || 'Failed to send', type: 'error' });
         }
     };
 
@@ -101,12 +104,12 @@ export default function FriendsScreen() {
     };
 
     const renderPendingRequest = ({ item }: { item: any }) => (
-        <View style={styles.requestItem}>
+        <BlurView intensity={20} tint="light" style={styles.requestItem}>
             <View style={styles.requestInfo}>
                 {item.sender.avatar_url ? (
                     <Image source={{ uri: item.sender.avatar_url }} style={styles.requestAvatar} />
                 ) : (
-                    <View style={[styles.requestAvatar, { backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center' }]}>
+                    <View style={[styles.requestAvatar, { backgroundColor: theme.colors.background.secondary, justifyContent: 'center', alignItems: 'center' }]}>
                         <Text style={{ fontSize: 20 }}>👤</Text>
                     </View>
                 )}
@@ -116,19 +119,19 @@ export default function FriendsScreen() {
                 </View>
             </View>
             <View style={styles.requestActions}>
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#dcfce7' }]} onPress={() => handleAccept(item.id)}>
-                    <Check size={18} color="#10b981" />
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]} onPress={() => handleAccept(item.id)}>
+                    <Check size={18} color={theme.colors.primary} />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleReject(item.id)}>
-                    <X size={18} color="#ef4444" />
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]} onPress={() => handleReject(item.id)}>
+                    <X size={18} color={theme.colors.danger} />
                 </TouchableOpacity>
             </View>
-        </View>
+        </BlurView>
     );
 
     const renderFriend = ({ item }: { item: Friend }) => (
         <TouchableOpacity
-            style={styles.friendCard}
+            style={styles.friendCardTouch}
             onPress={() => {
                 router.push({
                     pathname: '/friend_detail',
@@ -136,32 +139,34 @@ export default function FriendsScreen() {
                 } as any);
             }}
         >
-            <View style={styles.friendInfo}>
-                <View style={styles.friendAvatarWrapper}>
-                    {item.avatar_url ? (
-                        <Image source={{ uri: item.avatar_url }} style={styles.friendAvatar} />
-                    ) : (
-                        <View style={[styles.friendAvatar, { backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' }]}>
-                            <Text style={{ fontSize: 24 }}>👤</Text>
-                        </View>
-                    )}
-                    <View style={styles.statusDot} />
+            <BlurView intensity={40} tint="light" style={styles.friendCard}>
+                <View style={styles.friendInfo}>
+                    <View style={styles.friendAvatarWrapper}>
+                        {item.avatar_url ? (
+                            <Image source={{ uri: item.avatar_url }} style={styles.friendAvatar} />
+                        ) : (
+                            <View style={[styles.friendAvatar, { backgroundColor: theme.colors.background.secondary, justifyContent: 'center', alignItems: 'center' }]}>
+                                <Text style={{ fontSize: 24 }}>👤</Text>
+                            </View>
+                        )}
+                        <View style={styles.statusDot} />
+                    </View>
+                    <View style={styles.friendText}>
+                        <Text style={styles.friendName}>{item.nickname || item.full_name}</Text>
+                        <Text style={styles.friendStatus}>{t('connected') || 'Connected'}</Text>
+                    </View>
                 </View>
-                <View style={styles.friendText}>
-                    <Text style={styles.friendName}>{item.nickname || item.full_name}</Text>
-                    <Text style={styles.friendStatus}>{t('connected') || 'Connected'}</Text>
+                <View style={styles.arrowContainer}>
+                    <Text style={styles.arrow}>›</Text>
                 </View>
-            </View>
-            <View style={styles.arrowContainer}>
-                <Text style={styles.arrow}>›</Text>
-            </View>
+            </BlurView>
         </TouchableOpacity>
     );
 
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={['#fef3c7', '#dcfce7', '#d1fae5']}
+                colors={theme.colors.gradients.background as any}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
@@ -171,7 +176,7 @@ export default function FriendsScreen() {
                 <View style={styles.header}>
                     <Text style={styles.title}>{t('friends') || 'Friends'}</Text>
                     <TouchableOpacity onPress={handleOpenAddModal} style={styles.addBtn}>
-                        <UserPlus size={24} color="#10b981" />
+                        <UserPlus size={24} color={theme.colors.primary} />
                     </TouchableOpacity>
                 </View>
 
@@ -193,13 +198,13 @@ export default function FriendsScreen() {
 
                     {/* My Friends Section */}
                     <View style={styles.section}>
-                        <View style={styles.searchBar}>
-                            <Search size={20} color="#94a3b8" />
+                        <BlurView intensity={20} tint="light" style={styles.searchBar}>
+                            <Search size={20} color={theme.colors.text.secondary} />
                             <Text style={styles.searchPlaceholder}>{language === 'Korean' ? '친구 검색...' : 'Search friends...'}</Text>
-                        </View>
+                        </BlurView>
 
                         {loading ? (
-                            <ActivityIndicator color="#10b981" style={{ marginTop: 20 }} />
+                            <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 20 }} />
                         ) : friends.length === 0 ? (
                             <View style={styles.emptyState}>
                                 <Text style={styles.emptyEmoji}>👋</Text>
@@ -230,99 +235,107 @@ export default function FriendsScreen() {
                 onRequestClose={() => setShowAddModal(false)}
             >
                 <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>{t('findFriends') || 'Find Friends'}</Text>
-                        <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                            <Text style={styles.closeText}>{t('close')}</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <LinearGradient
+                        colors={theme.colors.gradients.background as any}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <SafeAreaView style={{ flex: 1 }}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{t('findFriends') || 'Find Friends'}</Text>
+                            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                                <Text style={styles.closeText}>{t('close')}</Text>
+                            </TouchableOpacity>
+                        </View>
 
-                    <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
-                        <Text style={{ fontSize: 13, color: '#64748b' }}>
-                            {language === 'Korean' ? '연락처에 있는 친구들을 찾아보세요' : 'Find friends from your contacts'}
-                        </Text>
-                    </View>
+                        <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.glass.border }}>
+                            <Text style={{ fontSize: 13, color: theme.colors.text.secondary }}>
+                                {language === 'Korean' ? '연락처에 있는 친구들을 찾아보세요' : 'Find friends from your contacts'}
+                            </Text>
+                        </View>
 
-                    {searching ? (
-                        <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#10b981" />
-                    ) : (
-                        <>
-                            <View style={styles.modalSearchContainer}>
-                                <Search size={20} color="#94a3b8" />
-                                <TextInput
-                                    style={styles.modalInput}
-                                    placeholder={language === 'Korean' ? '이름 또는 전화번호 검색' : 'Search name or phone'}
-                                    value={searchText}
-                                    onChangeText={setSearchText}
-                                    placeholderTextColor="#94a3b8"
-                                />
-                                {searchText.length > 0 && (
-                                    <TouchableOpacity onPress={() => setSearchText('')}>
-                                        <X size={16} color="#94a3b8" />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                            <FlatList
-                                data={contacts.filter(c =>
-                                    (c.full_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
-                                    (c.nickname || '').toLowerCase().includes(searchText.toLowerCase()) ||
-                                    (c.phone || '').includes(searchText)
-                                )}
-                                keyExtractor={item => item.id || item.phone || Math.random().toString()}
-                                contentContainerStyle={{ padding: 16 }}
-                                ListEmptyComponent={
-                                    <View style={styles.emptyState}>
-                                        <Text style={styles.emptyText}>
-                                            {language === 'Korean' ? 'FoodCoach를 사용하는 친구가 없네요.\n초대해보세요!' : 'No friends found on FoodCoach.\nInvite them!'}
-                                        </Text>
-                                    </View>
-                                }
-                                renderItem={({ item }) => (
-                                    <View style={styles.contactItem}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                            {item.avatar_url ? (
-                                                <Image source={{ uri: item.avatar_url }} style={styles.contactAvatar} />
-                                            ) : (
-                                                <View style={[styles.contactAvatar, { backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' }]}>
-                                                    <Text>👤</Text>
-                                                </View>
-                                            )}
-                                            <View style={{ marginLeft: 12 }}>
-                                                <Text style={styles.contactName}>{item.nickname || item.full_name || 'User'}</Text>
-                                                {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
-                                            </View>
+                        {searching ? (
+                            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.colors.primary} />
+                        ) : (
+                            <>
+                                <View style={styles.modalSearchContainer}>
+                                    <Search size={20} color={theme.colors.text.secondary} />
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        placeholder={language === 'Korean' ? '이름 또는 전화번호 검색' : 'Search name or phone'}
+                                        value={searchText}
+                                        onChangeText={setSearchText}
+                                        placeholderTextColor={theme.colors.text.muted}
+                                    />
+                                    {searchText.length > 0 && (
+                                        <TouchableOpacity onPress={() => setSearchText('')}>
+                                            <X size={16} color={theme.colors.text.muted} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                                <FlatList
+                                    data={contacts.filter(c =>
+                                        (c.full_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                                        (c.nickname || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                                        (c.phone || '').includes(searchText)
+                                    )}
+                                    keyExtractor={item => item.id || item.phone || Math.random().toString()}
+                                    contentContainerStyle={{ padding: 16 }}
+                                    ListEmptyComponent={
+                                        <View style={styles.emptyState}>
+                                            <Text style={styles.emptyText}>
+                                                {language === 'Korean' ? 'FoodCoach를 사용하는 친구가 없네요.\n초대해보세요!' : 'No friends found on FoodCoach.\nInvite them!'}
+                                            </Text>
                                         </View>
+                                    }
+                                    renderItem={({ item }) => (
+                                        <BlurView intensity={20} tint="light" style={styles.contactItem}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                                {item.avatar_url ? (
+                                                    <Image source={{ uri: item.avatar_url }} style={styles.contactAvatar} />
+                                                ) : (
+                                                    <View style={[styles.contactAvatar, { backgroundColor: theme.colors.background.secondary, justifyContent: 'center', alignItems: 'center' }]}>
+                                                        <Text>👤</Text>
+                                                    </View>
+                                                )}
+                                                <View style={{ marginLeft: 12 }}>
+                                                    <Text style={styles.contactName}>{item.nickname || item.full_name || 'User'}</Text>
+                                                    {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
+                                                </View>
+                                            </View>
 
-                                        {item.status === 'accepted' ? (
-                                            <View style={styles.friendBadge}>
-                                                <Check size={14} color="#10b981" />
-                                                <Text style={styles.friendBadgeText}>{t('friends')}</Text>
-                                            </View>
-                                        ) : item.status === 'sent' && !isRequestExpired(item.request_sent_at) ? (
-                                            <View style={styles.sentBadge}>
-                                                <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
-                                            </View>
-                                        ) : !item.is_registered ? (
-                                            <TouchableOpacity
-                                                style={[styles.connectBtn, { backgroundColor: '#10b981' }]} // Invite color
-                                                onPress={() => handleInvite(item.phone)}
-                                            >
-                                                <Text style={styles.connectBtnText}>{t('invite') || 'Invite'}</Text>
-                                            </TouchableOpacity>
-                                        ) : (
-                                            <TouchableOpacity
-                                                style={styles.connectBtn}
-                                                onPress={() => handleSendRequest(item.id)}
-                                            >
-                                                <UserPlus size={16} color="#fff" />
-                                                <Text style={styles.connectBtnText}>{t('connect') || 'Connect'}</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                )}
-                            />
-                        </>
-                    )}
+                                            {item.status === 'accepted' ? (
+                                                <View style={styles.friendBadge}>
+                                                    <Check size={14} color={theme.colors.primary} />
+                                                    <Text style={styles.friendBadgeText}>{t('friends')}</Text>
+                                                </View>
+                                            ) : item.status === 'sent' && !isRequestExpired(item.request_sent_at) ? (
+                                                <View style={styles.sentBadge}>
+                                                    <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
+                                                </View>
+                                            ) : !item.is_registered ? (
+                                                <TouchableOpacity
+                                                    style={[styles.connectBtn, { backgroundColor: theme.colors.primary }]} // Invite color
+                                                    onPress={() => handleInvite(item.phone)}
+                                                >
+                                                    <Text style={styles.connectBtnText}>{t('invite') || 'Invite'}</Text>
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <TouchableOpacity
+                                                    style={[styles.connectBtn, { backgroundColor: theme.colors.secondary }]}
+                                                    onPress={() => handleSendRequest(item.id)}
+                                                >
+                                                    <UserPlus size={16} color="#fff" />
+                                                    <Text style={styles.connectBtnText}>{t('connect') || 'Connect'}</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </BlurView>
+                                    )}
+                                />
+                            </>
+                        )}
+                    </SafeAreaView>
                 </View>
             </Modal>
         </View>
@@ -330,59 +343,60 @@ export default function FriendsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: theme.colors.background.primary },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16 },
-    title: { fontSize: 28, fontWeight: '800', color: '#1e293b' },
-    addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+    title: { fontSize: 28, fontWeight: '800', color: theme.colors.text.primary },
+    addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.colors.glass.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.glass.border },
     section: { paddingHorizontal: 24, marginBottom: 24 },
-    sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 12 },
-    searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-    searchPlaceholder: { color: '#94a3b8', marginLeft: 10, fontSize: 16 },
-    friendCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 24, marginBottom: 12, borderWidth: 1, borderColor: '#fff' },
+    sectionTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text.primary, marginBottom: 12 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    searchPlaceholder: { color: theme.colors.text.secondary, marginLeft: 10, fontSize: 16 },
+    friendCardTouch: { borderRadius: 24, overflow: 'hidden', marginBottom: 12 },
+    friendCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderWidth: 1, borderColor: theme.colors.glass.border },
     friendInfo: { flexDirection: 'row', alignItems: 'center' },
     friendAvatarWrapper: { marginRight: 16 },
-    friendAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#cbd5e1' },
-    statusDot: { position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#10b981', borderWidth: 2, borderColor: '#fff' },
+    friendAvatar: { width: 56, height: 56, borderRadius: 28 },
+    statusDot: { position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: theme.colors.primary, borderWidth: 2, borderColor: theme.colors.background.primary },
     friendText: {},
-    friendName: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
-    friendStatus: { fontSize: 12, color: '#64748b', marginTop: 2 },
-    arrowContainer: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.5)', justifyContent: 'center', alignItems: 'center' },
-    arrow: { fontSize: 18, color: '#94a3b8', fontWeight: 'bold', marginTop: -2 },
+    friendName: { fontSize: 16, fontWeight: '700', color: theme.colors.text.primary },
+    friendStatus: { fontSize: 12, color: theme.colors.text.secondary, marginTop: 2 },
+    arrowContainer: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+    arrow: { fontSize: 18, color: theme.colors.text.secondary, fontWeight: 'bold', marginTop: -2 },
 
     // Requests
     requestsList: {},
-    requestItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
+    requestItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
     requestInfo: { flexDirection: 'row', alignItems: 'center' },
-    requestAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#e2e8f0' },
-    requestName: { fontSize: 15, fontWeight: '700', color: '#1e293b' },
-    requestTime: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+    requestAvatar: { width: 48, height: 48, borderRadius: 24 },
+    requestName: { fontSize: 15, fontWeight: '700', color: theme.colors.text.primary },
+    requestTime: { fontSize: 11, color: theme.colors.text.secondary, marginTop: 2 },
     requestActions: { flexDirection: 'row', gap: 10 },
     actionBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
 
     // Empty
     emptyState: { alignItems: 'center', padding: 40 },
     emptyEmoji: { fontSize: 48, marginBottom: 16 },
-    emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b', marginBottom: 8 },
-    emptyDesc: { textAlign: 'center', color: '#64748b', lineHeight: 22, marginBottom: 24 },
-    inviteBtn: { backgroundColor: '#10b981', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
+    emptyTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.text.primary, marginBottom: 8 },
+    emptyDesc: { textAlign: 'center', color: theme.colors.text.secondary, lineHeight: 22, marginBottom: 24 },
+    inviteBtn: { backgroundColor: theme.colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
     inviteBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    emptyText: { textAlign: 'center', color: '#94a3b8', fontSize: 16, lineHeight: 24 },
+    emptyText: { textAlign: 'center', color: theme.colors.text.secondary, fontSize: 16, lineHeight: 24 },
 
     // Modal
-    modalContainer: { flex: 1, backgroundColor: '#fff' },
-    modalHeader: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    modalTitle: { fontSize: 18, fontWeight: 'bold' },
-    closeText: { fontSize: 16, color: '#64748b' },
-    contactItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    modalContainer: { flex: 1, backgroundColor: theme.colors.background.primary },
+    modalHeader: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.glass.border },
+    modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text.primary },
+    closeText: { fontSize: 16, color: theme.colors.text.secondary },
+    contactItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.glass.border, marginBottom: 8, borderRadius: 16, overflow: 'hidden' },
     contactAvatar: { width: 48, height: 48, borderRadius: 24 },
-    contactName: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
-    contactPhone: { fontSize: 12, color: '#94a3b8' },
-    connectBtn: { flexDirection: 'row', backgroundColor: '#3b82f6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, alignItems: 'center', gap: 6 },
+    contactName: { fontSize: 16, fontWeight: '600', color: theme.colors.text.primary },
+    contactPhone: { fontSize: 12, color: theme.colors.text.secondary },
+    connectBtn: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, alignItems: 'center', gap: 6 },
     connectBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
-    friendBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-    friendBadgeText: { color: '#10b981', fontWeight: 'bold', fontSize: 12 },
-    sentBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-    sentText: { color: '#64748b', fontWeight: 'bold', fontSize: 12 },
-    modalSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', margin: 16, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
-    modalInput: { flex: 1, marginLeft: 10, fontSize: 16, color: '#1e293b' },
+    friendBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16, 185, 129, 0.2)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+    friendBadgeText: { color: theme.colors.primary, fontWeight: 'bold', fontSize: 12 },
+    sentBadge: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+    sentText: { color: theme.colors.text.secondary, fontWeight: 'bold', fontSize: 12 },
+    modalSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.glass.highlight, margin: 16, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.glass.border },
+    modalInput: { flex: 1, marginLeft: 10, fontSize: 16, color: theme.colors.text.primary },
 });

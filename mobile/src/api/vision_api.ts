@@ -18,6 +18,7 @@ export type NutritionData = {
 
 export type AnalysisResult = {
     food_name: string;
+    restaurant_name?: string;
 
     // Dual Analysis Data
     total: NutritionData;
@@ -42,11 +43,18 @@ export type UserProfile = {
     };
 };
 
-export const analyzeMealImage = async (base64Image: string, userProfile?: UserProfile): Promise<AnalysisResult> => {
+export type LocationContext = {
+    lat: number;
+    lng: number;
+    name?: string | null;
+    address?: string | null;
+};
+
+export const analyzeMealImage = async (base64Image: string, userProfile?: UserProfile, location?: LocationContext): Promise<AnalysisResult> => {
     try {
         console.log(`Invoking Supabase Edge Function: analyze-meal (Payload: ${Math.round(base64Image.length / 1024)}KB)`);
         const { data, error } = await supabase.functions.invoke('analyze-meal', {
-            body: { base64Image, userProfile }
+            body: { base64Image, userProfile, location }
         });
 
         if (error) {
@@ -90,6 +98,7 @@ export const analyzeMealImage = async (base64Image: string, userProfile?: UserPr
         return {
             is_food: !!data.is_food,
             food_name: data.food_name || "Unknown",
+            restaurant_name: data.restaurant_name,
             total,
             recommended,
             score: data.score || 0,

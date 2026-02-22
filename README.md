@@ -36,7 +36,8 @@
 
 ## 📂 프로젝트 구조 (Project Structure)
 
-- `/web`: Next.js 기반 웹 애플리케이션 프론트엔드 및 API
+- `/web`: Next.js 기반 랜딩 페이지 및 웹 애플리케이션
+- `/mobile`: Expo/React Native 기반 모바일 애플리케이션
 - `/execution`: 비전 분석, 영양 API 연동, 시뮬레이션 테스트 스크립트 (Python)
 - `/directives`: 에이전트 행동 지침 및 시나리오 정의
 - `foodcoach.db`: 사용자 데이터 및 식단 기록 저장소

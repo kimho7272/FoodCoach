@@ -3,12 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Calendar, Trash2, ArrowUp, ArrowDown, ChevronRight, Flame, Zap, BarChart2, ChevronUp, ChevronDown, MapPin } from 'lucide-react-native';
+import { ChevronLeft, Calendar, Trash2, ArrowUp, ChevronRight, Flame, Zap, BarChart2, MapPin, ThumbsUp, ZoomIn, X } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName } from '../src/lib/meal_service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAlert } from '../src/context/AlertContext';
+import ImageView from 'react-native-image-viewing';
+import { theme } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -20,164 +22,78 @@ export default function MealHistoryScreen() {
     const params = useLocalSearchParams();
     const { date, highlightId } = params;
 
-    // Initialize selectedDate from params if present
     const [selectedDate, setSelectedDate] = useState(() => {
         if (date) {
-            // Robust local date parsing for YYYY-MM-DD
             const parts = (date as string).split('-');
-            if (parts.length === 3) {
-                return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            }
+            if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
             return new Date(date as string);
         }
         return new Date();
     });
 
-    const [logs, setLogs] = useState<any[]>([]);
+    const [allLogs, setAllLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
     const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(null);
-    const hasScrolledRef = useRef<string | null>(null);
-    const scrollAttempts = useRef(0);
-    const dateScrollRef = useRef<ScrollView>(null);
+    const [favorites, setFavorites] = useState<{ [key: string]: 'up' | 'down' | null }>({});
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [zoomImage, setZoomImage] = useState<string | null>(null);
+
     const mainScrollRef = useRef<ScrollView>(null);
     const itemPositions = useRef<Map<string, number>>(new Map());
 
-    // Generate dates (today at the left)
     const dates = Array.from({ length: 14 }).map((_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
         return d;
     });
 
+    useEffect(() => {
+        const loadFavorites = async () => {
+            try {
+                const stored = await AsyncStorage.getItem('meal_favorites');
+                if (stored) setFavorites(JSON.parse(stored));
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        loadFavorites();
+        fetchLogs();
+    }, []);
+
+    const toggleFavorite = async (id: string) => {
+        const newFavs = { ...favorites };
+        if (newFavs[id] === 'up') delete newFavs[id];
+        else newFavs[id] = 'up';
+        setFavorites(newFavs);
+        try {
+            await AsyncStorage.setItem('meal_favorites', JSON.stringify(newFavs));
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     const fetchLogs = useCallback(async () => {
         setLoading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-
             const { data } = await getMealLogs(user.id);
-            if (data) {
-                const filtered = data.filter((log: any) =>
-                    new Date(log.created_at).toDateString() === selectedDate.toDateString()
-                );
-
-                const defaultSorted = [...filtered].sort((a, b) =>
-                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                );
-
-                const orderKey = `meal_order_${user.id}_${selectedDate.toDateString()}`;
-                const savedOrder = await AsyncStorage.getItem(orderKey);
-
-                if (savedOrder) {
-                    const idOrder = JSON.parse(savedOrder);
-                    const sorted = [...filtered].sort((a, b) => {
-                        const idxA = idOrder.indexOf(a.id);
-                        const idxB = idOrder.indexOf(b.id);
-
-                        // New items (not in saved order) go to the FRONT (top)
-                        if (idxA === -1 && idxB === -1) {
-                            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                        }
-                        if (idxA === -1) return -1;
-                        if (idxB === -1) return 1;
-
-                        return idxA - idxB;
-                    });
-                    setLogs(sorted);
-                } else {
-                    setLogs(defaultSorted);
-                }
-            }
+            if (data) setAllLogs(data);
         } catch (error) {
             console.error(error);
         } finally {
             setLoading(false);
         }
-    }, [selectedDate]);
+    }, []);
 
-    useEffect(() => {
-        fetchLogs();
-    }, [fetchLogs]);
-
-    // Reset/Sync state when navigation parameters change
-    useEffect(() => {
-        if (date) {
-            const parts = (date as string).split('-');
-            if (parts.length === 3) {
-                const newDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                // Only update if it's actually different to avoid redundant updates
-                if (newDate.toDateString() !== selectedDate.toDateString()) {
-                    setSelectedDate(newDate);
-                    itemPositions.current.clear(); // Only clear when the ACTUAL date changes
-                }
-            }
-        }
-        hasScrolledRef.current = null;
-        scrollAttempts.current = 0;
-    }, [date]);
-
-    const performScroll = useCallback((force = false) => {
-        if (!highlightId || !mainScrollRef.current || loading) return;
-        const targetId = String(highlightId);
-
-        // Skip if already scrolled to this ID (unless forced via onLayout)
-        if (!force && hasScrolledRef.current === targetId) return;
-
-        const yPos = itemPositions.current.get(targetId);
-        // Changed to >= 0 to include the first item
-        if (yPos !== undefined && yPos >= 0) {
-            const screenHeight = Dimensions.get('window').height;
-            // Center the card: Item Y - (Screen/2) + Offset for Header/DateSelector
-            // A higher offset (like 250) accounts for the top UI elements
-            const cardHeight = 250; // Estimated card height
-            const targetOffset = Math.max(0, yPos - (screenHeight / 2) + (cardHeight / 2) + 150);
-
-            mainScrollRef.current.scrollTo({ y: targetOffset, animated: true });
-            hasScrolledRef.current = targetId;
-            return true;
-        }
-
-        if (scrollAttempts.current < 20) {
-            scrollAttempts.current++;
-            setTimeout(() => performScroll(), 150);
-        }
-        return false;
-    }, [loading, highlightId]);
-
-    useEffect(() => {
-        if (!loading && highlightId && logs.length > 0) {
-            // Multiple attempts to catch slow rendering
-            performScroll();
-            const t1 = setTimeout(() => performScroll(), 500);
-            const t2 = setTimeout(() => performScroll(), 1500);
-            return () => {
-                clearTimeout(t1);
-                clearTimeout(t2);
-            };
-        }
-    }, [loading, highlightId, logs.length, performScroll]);
-
-    const saveOrder = async (newLogs: any[]) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const orderKey = `meal_order_${user.id}_${selectedDate.toDateString()}`;
-        const idOrder = newLogs.map(l => l.id);
-        await AsyncStorage.setItem(orderKey, JSON.stringify(idOrder));
-    };
-
-    const moveItem = async (index: number, direction: 'up' | 'down') => {
-        const newLogs = [...logs];
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-
-        if (targetIndex < 0 || targetIndex >= newLogs.length) return;
-
-        [newLogs[index], newLogs[targetIndex]] = [newLogs[targetIndex], newLogs[index]];
-        setLogs(newLogs);
-        await saveOrder(newLogs);
-    };
+    const displayedLogs = React.useMemo(() => {
+        if (showFavoritesOnly) return allLogs.filter(l => favorites[l.id] === 'up');
+        return allLogs.filter(log => new Date(log.created_at).toDateString() === selectedDate.toDateString());
+    }, [allLogs, showFavoritesOnly, selectedDate, favorites]);
 
     const handleDelete = (id: string) => {
         showAlert({
@@ -187,358 +103,229 @@ export default function MealHistoryScreen() {
             confirmText: "Delete",
             onConfirm: async () => {
                 const { error } = await deleteMealLog(id);
-                if (!error) {
-                    setLogs(logs.filter(l => l.id !== id));
-                } else {
-                    showAlert({ title: "Error", message: "Failed to delete meal.", type: 'error' });
-                }
+                if (!error) setAllLogs(prev => prev.filter(l => l.id !== id));
+                else showAlert({ title: "Error", message: "Failed to delete meal.", type: 'error' });
             }
         });
     };
 
-    const handleUpdateCategory = async (id: string, newCategory: any) => {
+    const handleUpdateCategory = async (id: string, newCategory: string) => {
         setUpdatingId(id);
         const { error } = await updateMealLogCategory(id, newCategory);
-        if (!error) {
-            setLogs(prev => prev.map(l => l.id === id ? { ...l, meal_type: newCategory } : l));
-        } else {
-            showAlert({ title: "Error", message: "Failed to update category.", type: 'error' });
-        }
+        if (!error) setAllLogs(prev => prev.map(l => l.id === id ? { ...l, meal_type: newCategory } : l));
         setUpdatingId(null);
         setShowCategoryPicker(null);
     };
 
     const handleUpdateName = async (id: string, newName: string) => {
-        if (!newName || newName === logs.find(l => l.id === id)?.food_name) {
+        if (!newName || newName === allLogs.find(l => l.id === id)?.food_name) {
             setEditingId(null);
             return;
         }
-
         const { error } = await updateMealLogName(id, newName);
-        if (!error) {
-            setLogs(prev => prev.map(l => l.id === id ? { ...l, food_name: newName } : l));
-        } else {
-            showAlert({ title: "Error", message: "Failed to update name.", type: 'error' });
-        }
+        if (!error) setAllLogs(prev => prev.map(l => l.id === id ? { ...l, food_name: newName } : l));
         setEditingId(null);
     };
 
-    const formatDate = (date: Date) => {
-        const today = new Date().toDateString();
-        if (date.toDateString() === today) return 'Today';
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-
-    const MealCard = ({ item, index }: { item: any, index: number }) => {
-        const isHighlighted = highlightId && String(item.id) === String(highlightId);
+    const MealCard = ({ item }: { item: any }) => {
+        const isSelected = selectedId === String(item.id);
+        const isFavorite = favorites[item.id] === 'up';
 
         return (
-            <View
-                onLayout={(e) => {
-                    const y = e.nativeEvent.layout.y;
-                    itemPositions.current.set(String(item.id), y);
-                    if (highlightId && String(item.id) === String(highlightId)) {
-                        performScroll(true);
-                    }
-                }}
-                style={[
-                    styles.mealCard,
-                    isHighlighted && { borderColor: '#10b981', borderWidth: 2, shadowOpacity: 0.1, shadowRadius: 20 }
-                ]}
-            >
+            <BlurView intensity={40} tint="light" style={[styles.mealCard, isSelected && styles.mealCardSelected]}>
                 <View style={styles.cardHeader}>
                     <View style={styles.headerLeft}>
                         <TouchableOpacity onPress={() => setShowCategoryPicker(item.id)} style={styles.typeBadge}>
                             <Text style={styles.typeText}>{item.meal_type}</Text>
-                            <ChevronRight size={12} color="#64748b" style={{ marginLeft: 4 }} />
+                            <ChevronRight size={10} color={theme.colors.text.secondary} />
                         </TouchableOpacity>
                         <Text style={styles.timeText}>
                             {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Text>
                     </View>
-
-                    <View style={styles.headerActions}>
-                        <TouchableOpacity
-                            onPress={() => moveItem(index, 'up')}
-                            disabled={index === 0}
-                            style={[styles.actionBtn, index === 0 && { opacity: 0.3 }]}
-                        >
-                            <ChevronUp size={20} color="#64748b" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => moveItem(index, 'down')}
-                            disabled={index === logs.length - 1}
-                            style={[styles.actionBtn, index === logs.length - 1 && { opacity: 0.3 }]}
-                        >
-                            <ChevronDown size={20} color="#64748b" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => handleDelete(item.id)}
-                            style={[styles.actionBtn, styles.deleteBtn]}
-                        >
-                            <Trash2 size={18} color="#ef4444" />
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
+                        <Trash2 size={16} color="#f87171" />
+                    </TouchableOpacity>
                 </View>
 
-                <View style={styles.mainInfo}>
-                    <View style={styles.imageWrapper}>
+                <View style={styles.mealMain}>
+                    <TouchableOpacity style={styles.imageBox} onPress={() => item.image_url && setZoomImage(item.image_url)}>
                         {item.image_url ? (
-                            <Image source={{ uri: item.image_url }} style={styles.mealImage} />
+                            <>
+                                <Image source={{ uri: item.image_url }} style={styles.mealImg} />
+                                <View style={styles.zoomIcon}><ZoomIn size={12} color="#fff" /></View>
+                            </>
                         ) : (
-                            <View style={styles.imagePlaceholder}>
-                                <Text style={{ fontSize: 32 }}>🍱</Text>
-                            </View>
+                            <View style={styles.imgPlaceholder}><Text style={{ fontSize: 24 }}>🍱</Text></View>
                         )}
-                    </View>
-                    <View style={styles.textInfo}>
+                    </TouchableOpacity>
+
+                    <View style={styles.mealInfo}>
                         {editingId === item.id ? (
                             <TextInput
-                                style={[styles.foodName, styles.nameInput]}
+                                style={styles.nameInput}
                                 value={editValue}
                                 onChangeText={setEditValue}
                                 onBlur={() => handleUpdateName(item.id, editValue)}
                                 onSubmitEditing={() => handleUpdateName(item.id, editValue)}
                                 autoFocus
-                                selectTextOnFocus
                             />
                         ) : (
                             <TouchableOpacity onPress={() => { setEditingId(item.id); setEditValue(item.food_name); }}>
-                                <Text style={styles.foodName} numberOfLines={1}>{item.food_name}</Text>
+                                <Text style={styles.mealName} numberOfLines={1}>{item.food_name}</Text>
                             </TouchableOpacity>
                         )}
                         <View style={styles.scoreRow}>
-                            <View style={[styles.scoreDot, { backgroundColor: item.health_score >= 7 ? '#10b981' : (item.health_score >= 4 ? '#f59e0b' : '#ef4444') }]} />
-                            <Text style={styles.scoreText}>Health Score: {item.health_score}/10</Text>
+                            <View style={[styles.scoreDot, { backgroundColor: item.health_score >= 7 ? theme.colors.primary : (item.health_score >= 4 ? theme.colors.secondary : '#ef4444') }]} />
+                            <Text style={styles.scoreText}>METABOLIC SCORE: {item.health_score}/10</Text>
                         </View>
+                        {item.place_name && (
+                            <View style={styles.locationRow}>
+                                <MapPin size={10} color={theme.colors.text.secondary} />
+                                <Text style={styles.locationText} numberOfLines={1}>{item.place_name}</Text>
+                            </View>
+                        )}
+                        <TouchableOpacity
+                            onPress={() => toggleFavorite(item.id)}
+                            style={[styles.favBtn, isFavorite && styles.favBtnActive]}
+                        >
+                            <ThumbsUp size={14} color={isFavorite ? theme.colors.primary : theme.colors.text.secondary} fill={isFavorite ? theme.colors.primary : 'none'} />
+                        </TouchableOpacity>
                     </View>
                 </View>
 
-                {/* Macro Row - Fixed Width Alignment */}
-                <View style={styles.macroRowAlign}>
-                    <View style={styles.macroBox}>
-                        <Flame size={14} color="#f59e0b" />
-                        <Text style={styles.macroValueText}>{item.calories}</Text>
-                        <Text style={styles.macroLabelText}>kcal</Text>
-                    </View>
-                    <View style={styles.macroBox}>
-                        <Zap size={14} color="#10b981" />
-                        <Text style={styles.macroValueText}>{item.protein}</Text>
-                        <Text style={styles.macroLabelText}>P</Text>
-                    </View>
-                    <View style={styles.macroBox}>
-                        <BarChart2 size={14} color="#6366f1" />
-                        <Text style={styles.macroValueText}>{item.fat}</Text>
-                        <Text style={styles.macroLabelText}>F</Text>
-                    </View>
-                    <View style={styles.macroBox}>
-                        <ArrowUp size={14} color="#ec4899" />
-                        <Text style={styles.macroValueText}>{item.carbs}</Text>
-                        <Text style={styles.macroLabelText}>C</Text>
-                    </View>
+                <View style={styles.macroStrip}>
+                    <View style={styles.macroTile}><Flame size={12} color={theme.colors.secondary} /><Text style={styles.macroVal}>{item.calories} <Text style={styles.macroUnit}>kcal</Text></Text></View>
+                    <View style={styles.macroTile}><Zap size={12} color={theme.colors.primary} /><Text style={styles.macroVal}>{item.protein} <Text style={styles.macroUnit}>g</Text></Text></View>
+                    <View style={styles.macroTile}><BarChart2 size={12} color="#818cf8" /><Text style={styles.macroVal}>{item.fat} <Text style={styles.macroUnit}>g</Text></Text></View>
+                    <View style={styles.macroTile}><ArrowUp size={12} color="#ec4899" /><Text style={styles.macroVal}>{item.carbs} <Text style={styles.macroUnit}>g</Text></Text></View>
                 </View>
 
-                {(item.place_name || item.address) && (
-                    <TouchableOpacity
-                        style={styles.locationRow}
-                        onPress={() => {
-                            const label = encodeURIComponent(item.place_name || item.address);
-                            let url = '';
-                            if (item.location_lat && item.location_lng) {
-                                const latLng = `${item.location_lat},${item.location_lng}`;
-                                if (Platform.OS === 'ios') {
-                                    url = `http://maps.apple.com/?ll=${latLng}&q=${label}`;
-                                } else {
-                                    url = `geo:0,0?q=${latLng}(${label})`;
-                                }
-                            } else {
-                                if (Platform.OS === 'ios') {
-                                    url = `http://maps.apple.com/?q=${label}`;
-                                } else {
-                                    url = `geo:0,0?q=${label}`;
-                                }
-                            }
-                            Linking.openURL(url);
-                        }}
-                    >
-                        <MapPin size={12} color="#64748b" />
-                        <Text style={styles.locationText} numberOfLines={1}>{item.place_name || item.address}</Text>
-                    </TouchableOpacity>
-                )}
-
-                <View style={styles.descriptionBox}>
-                    <Text style={styles.descriptionText}>{item.description || 'No description provided.'}</Text>
-                </View>
-            </View>
+                {item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
+            </BlurView>
         );
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.container}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
-        >
-            <LinearGradient colors={['#f8fafc', '#f1f5f9']} style={StyleSheet.absoluteFill} />
-
-            <SafeAreaView style={styles.safeArea}>
-                {/* Header */}
+        <View style={styles.container}>
+            <LinearGradient colors={theme.colors.gradients.background as any} style={StyleSheet.absoluteFill} />
+            <SafeAreaView style={{ flex: 1 }}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft size={28} color="#1e293b" />
+                        <BlurView intensity={20} tint="light" style={styles.iconBlur}>
+                            <ChevronLeft size={24} color={theme.colors.text.primary} />
+                        </BlurView>
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Meal History</Text>
-                    <View style={{ width: 40 }} />
+                    <Text style={styles.headerTitle}>{showFavoritesOnly ? 'Favorites' : 'History'}</Text>
+                    <TouchableOpacity onPress={() => setShowFavoritesOnly(!showFavoritesOnly)} style={[styles.toggleBtn, showFavoritesOnly && styles.toggleBtnActive]}>
+                        <ThumbsUp size={20} color={showFavoritesOnly ? theme.colors.primary : theme.colors.text.muted} fill={showFavoritesOnly ? theme.colors.primary : 'none'} />
+                    </TouchableOpacity>
                 </View>
 
-                {/* Date Selector */}
-                <View style={styles.dateContainer}>
-                    <ScrollView
-                        ref={dateScrollRef}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.dateScrollContent}
-                    >
-                        {dates.map((date, idx) => {
-                            const isSelected = date.toDateString() === selectedDate.toDateString();
-                            return (
-                                <TouchableOpacity
-                                    key={idx}
-                                    onPress={() => setSelectedDate(date)}
-                                    style={[styles.dateItem, isSelected && styles.dateItemActive]}
-                                >
-                                    <Text style={[styles.dateDay, isSelected && styles.dateTextActive]}>
-                                        {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                                    </Text>
-                                    <Text style={[styles.dateNumber, isSelected && styles.dateTextActive]}>
-                                        {date.getDate()}
-                                    </Text>
-                                    {isSelected && <View style={styles.activeDot} />}
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </ScrollView>
-                </View>
+                {!showFavoritesOnly && (
+                    <View style={styles.dateBar}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
+                            {dates.map((d, i) => {
+                                const isSelected = d.toDateString() === selectedDate.toDateString();
+                                return (
+                                    <TouchableOpacity key={i} onPress={() => setSelectedDate(d)} style={[styles.dateCard, isSelected && styles.dateCardActive]}>
+                                        <Text style={[styles.dateDay, isSelected && styles.dateTextActive]}>{d.toLocaleDateString('en-US', { weekday: 'short' })}</Text>
+                                        <Text style={[styles.dateNum, isSelected && styles.dateTextActive]}>{d.getDate()}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                )}
 
                 {loading ? (
-                    <View style={styles.centerContainer}>
-                        <ActivityIndicator size="large" color="#10b981" />
-                    </View>
-                ) : logs.length === 0 ? (
-                    <View style={styles.centerContainer}>
-                        <Calendar size={64} color="#cbd5e1" />
-                        <Text style={styles.emptyText}>No meals logged for {formatDate(selectedDate)}</Text>
-                        <TouchableOpacity
-                            style={styles.addNowBtn}
-                            onPress={() => router.push('/(tabs)/analysis' as any)}
-                        >
-                            <Text style={styles.addNowBtnText}>Log New Meal</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <View style={styles.center}><ActivityIndicator color={theme.colors.primary} size="large" /></View>
                 ) : (
-                    <ScrollView
-                        ref={mainScrollRef}
-                        style={styles.listScroll}
-                        contentContainerStyle={styles.listContent}
-                    >
-                        {logs.map((item, index) => (
-                            <MealCard key={item.id} item={item} index={index} />
-                        ))}
+                    <ScrollView ref={mainScrollRef} contentContainerStyle={styles.list}>
+                        {displayedLogs.length === 0 ? (
+                            <View style={styles.empty}>
+                                <Calendar size={60} color={theme.colors.text.muted} style={{ opacity: 0.3, marginBottom: 16 }} />
+                                <Text style={styles.emptyText}>No logs found for this period.</Text>
+                            </View>
+                        ) : (
+                            displayedLogs.map(item => <MealCard key={item.id} item={item} />)
+                        )}
                         <View style={{ height: 100 }} />
                     </ScrollView>
                 )}
             </SafeAreaView>
 
-            {/* Category Picker Modal */}
-            <Modal
-                transparent
-                visible={!!showCategoryPicker}
-                animationType="fade"
-                onRequestClose={() => setShowCategoryPicker(null)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowCategoryPicker(null)}
-                >
-                    <BlurView intensity={30} style={StyleSheet.absoluteFill} />
-                    <View style={styles.pickerCard}>
-                        <Text style={styles.pickerTitle}>Select Category</Text>
+            <Modal visible={!!showCategoryPicker} transparent animationType="fade">
+                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.modalContent}>
+                    <BlurView intensity={80} tint="dark" style={styles.pickerCard}>
+                        <Text style={styles.pickerHeader}>Category</Text>
                         {MEAL_TYPES.map(type => (
-                            <TouchableOpacity
-                                key={type}
-                                style={styles.pickerItem}
-                                onPress={() => showCategoryPicker && handleUpdateCategory(showCategoryPicker, type)}
-                            >
-                                <Text style={styles.pickerItemText}>{type}</Text>
+                            <TouchableOpacity key={type} style={styles.pickerBtn} onPress={() => handleUpdateCategory(showCategoryPicker!, type)}>
+                                <Text style={styles.pickerText}>{type}</Text>
                             </TouchableOpacity>
                         ))}
-                    </View>
-                </TouchableOpacity>
+                        <TouchableOpacity style={styles.closeBtn} onPress={() => setShowCategoryPicker(null)}><X size={20} color="#fff" /></TouchableOpacity>
+                    </BlurView>
+                </View>
             </Modal>
-        </KeyboardAvoidingView>
+
+            <ImageView images={zoomImage ? [{ uri: zoomImage }] : []} imageIndex={0} visible={!!zoomImage} onRequestClose={() => setZoomImage(null)} swipeToCloseEnabled doubleTapToZoomEnabled />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
-    safeArea: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15 },
-    backBtn: { padding: 4 },
-    headerTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-
-    dateContainer: { height: 100, marginBottom: 10 },
-    dateScrollContent: { paddingHorizontal: 20, alignItems: 'center' },
-    dateItem: { width: 60, height: 80, borderRadius: 20, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', marginRight: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    dateItemActive: { backgroundColor: '#10b981' },
-    dateDay: { fontSize: 12, color: '#94a3b8', fontWeight: 'bold', marginBottom: 4 },
-    dateNumber: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-    dateTextActive: { color: 'white' },
-    activeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'white', marginTop: 4 },
-
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-    emptyText: { marginTop: 16, color: '#64748b', textAlign: 'center', fontSize: 16, fontWeight: '600' },
-    addNowBtn: { marginTop: 24, backgroundColor: '#10b981', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 25 },
-    addNowBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-
-    listScroll: { flex: 1 },
-    listContent: { padding: 20 },
-    mealCard: { backgroundColor: 'white', borderRadius: 30, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 15, elevation: 5 },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    headerLeft: { flexDirection: 'row', alignItems: 'center' },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    actionBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
-    deleteBtn: { backgroundColor: '#fee2e2' },
-
-    typeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginRight: 10 },
-    typeText: { fontSize: 10, fontWeight: '800', color: '#64748b', textTransform: 'uppercase' },
-    timeText: { fontSize: 12, color: '#94a3b8', fontWeight: 'bold' },
-
-    mainInfo: { flexDirection: 'row', marginBottom: 20 },
-    imageWrapper: { width: 80, height: 80, borderRadius: 20, overflow: 'hidden', backgroundColor: '#f1f5f9' },
-    mealImage: { width: '100%', height: '100%' },
-    imagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    textInfo: { flex: 1, marginLeft: 16, justifyContent: 'center' },
-    foodName: { fontSize: 20, fontWeight: '800', color: '#1e293b', marginBottom: 4 },
-    nameInput: { borderBottomWidth: 1, borderBottomColor: '#10b981', paddingBottom: 0, marginBottom: 2 },
-    scoreRow: { flexDirection: 'row', alignItems: 'center' },
-    scoreDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-    scoreText: { fontSize: 12, color: '#64748b', fontWeight: 'bold' },
-
-    macroRowAlign: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-    macroBox: { flex: 1, backgroundColor: '#f8fafc', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
-    macroValueText: { fontSize: 14, fontWeight: '800', color: '#1e293b', marginTop: 4 },
-    macroLabelText: { fontSize: 9, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase' },
-
-    locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginTop: -8, paddingHorizontal: 4 },
-    locationText: { fontSize: 11, color: '#64748b', fontWeight: 'bold', marginLeft: 6 },
-
-    descriptionBox: { paddingTop: 15, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-    descriptionText: { fontSize: 13, color: '#64748b', lineHeight: 18, fontStyle: 'italic' },
-
-    modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    pickerCard: { backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30, paddingBottom: 50 },
-    pickerTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginBottom: 20, textAlign: 'center' },
-    pickerItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    pickerItemText: { fontSize: 16, fontWeight: '600', color: '#1e293b', textAlign: 'center' }
+    container: { flex: 1, backgroundColor: theme.colors.background.primary },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
+    iconBlur: { padding: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    backBtn: {},
+    headerTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.text.primary },
+    toggleBtn: { padding: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: theme.colors.glass.border },
+    toggleBtnActive: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: theme.colors.primary },
+    dateBar: { height: 90, marginBottom: 8 },
+    dateScroll: { paddingHorizontal: 20, gap: 12 },
+    dateCard: { width: 55, height: 75, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.03)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.glass.border },
+    dateCardActive: { backgroundColor: theme.colors.background.secondary, borderColor: theme.colors.primary },
+    dateDay: { fontSize: 11, color: theme.colors.text.secondary, fontWeight: '800', marginBottom: 4, textTransform: 'uppercase' },
+    dateNum: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary },
+    dateTextActive: { color: theme.colors.text.primary },
+    list: { padding: 20, gap: 16 },
+    mealCard: { borderRadius: 28, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    mealCardSelected: { borderColor: theme.colors.primary, backgroundColor: 'rgba(16, 185, 129, 0.05)' },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    typeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
+    typeText: { fontSize: 10, fontWeight: '900', color: theme.colors.text.secondary, textTransform: 'uppercase' },
+    timeText: { fontSize: 12, color: theme.colors.text.secondary, fontWeight: '600' },
+    deleteBtn: { padding: 6 },
+    mealMain: { flexDirection: 'row', gap: 16, marginBottom: 16 },
+    imageBox: { width: 70, height: 70, borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', position: 'relative' },
+    mealImg: { width: '100%', height: '100%' },
+    imgPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    zoomIcon: { position: 'absolute', right: 4, bottom: 4, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: 3 },
+    mealInfo: { flex: 1, justifyContent: 'center' },
+    mealName: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary, marginBottom: 4 },
+    nameInput: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary, borderBottomWidth: 1, borderBottomColor: theme.colors.primary, padding: 0 },
+    scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    scoreDot: { width: 6, height: 6, borderRadius: 3 },
+    scoreText: { fontSize: 10, fontWeight: '800', color: theme.colors.text.secondary, letterSpacing: 0.5 },
+    locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    locationText: { fontSize: 10, color: theme.colors.text.secondary, fontWeight: '600' },
+    favBtn: { alignSelf: 'flex-start', marginTop: 10, padding: 6, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: theme.colors.glass.border },
+    favBtnActive: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' },
+    macroStrip: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    macroTile: { flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.glass.border },
+    macroVal: { fontSize: 14, fontWeight: '800', color: theme.colors.text.primary, marginTop: 4 },
+    macroUnit: { fontSize: 9, color: theme.colors.text.secondary, fontWeight: '600' },
+    description: { fontSize: 12, color: theme.colors.text.secondary, fontStyle: 'italic', lineHeight: 18 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
+    emptyText: { color: theme.colors.text.muted, fontSize: 16, fontWeight: '600' },
+    modalContent: { flex: 1, justifyContent: 'center', padding: 30 },
+    pickerCard: { borderRadius: 32, padding: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    pickerHeader: { fontSize: 20, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 20 },
+    pickerBtn: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    pickerText: { fontSize: 16, color: '#fff', textAlign: 'center', fontWeight: '600' },
+    closeBtn: { position: 'absolute', top: 20, right: 20, padding: 4 }
 });

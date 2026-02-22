@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView, PanResponder, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView, PanResponder, Alert, Modal } from 'react-native';
 import * as Localization from 'expo-localization';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -9,7 +9,9 @@ import Animated, {
     useAnimatedStyle,
     withTiming,
     interpolateColor,
-    useDerivedValue
+    useDerivedValue,
+    FadeInDown,
+    FadeInUp
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -22,8 +24,9 @@ const Notifications = {
 };
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { Bell, Camera as CameraIcon, Image as ImageIcon, MapPin } from 'lucide-react-native';
+import { Bell, Camera as CameraIcon, Image as ImageIcon, MapPin, Check } from 'lucide-react-native';
 import * as Location from 'expo-location';
+import { theme } from '../src/constants/theme';
 
 const { width, height } = Dimensions.get('window');
 const isSmallDevice = height < 700;
@@ -119,20 +122,6 @@ export default function EnhancedOnboarding() {
 
     const characterScale = useSharedValue(1);
     const characterRotation = useSharedValue(0);
-
-    const bgColor = useDerivedValue(() => {
-        return interpolateColor(
-            weight,
-            [40, 120],
-            ['#F0FDFA', '#FFF1F2']
-        );
-    });
-
-    const animatedBgStyle = useAnimatedStyle(() => ({
-        backgroundColor: bgColor.value,
-    }));
-
-    const scrollViewRef = useRef<ScrollView>(null);
 
     const steps = [
         { title: t('phoneNumber'), sub: t('phoneVerificationDesc'), type: "phone" },
@@ -389,20 +378,35 @@ export default function EnhancedOnboarding() {
         },
     });
 
+    const scrollViewRef = useRef<ScrollView>(null);
+
     return (
-        <Animated.View style={[styles.root, animatedBgStyle]}>
+        <View style={styles.root}>
+            {/* Dark Premium Background */}
+            <View style={StyleSheet.absoluteFill}>
+                <LinearGradient
+                    colors={theme.colors.gradients.background as any}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                />
+            </View>
+
             <SafeAreaView style={styles.safeArea}>
                 {/* Header Bar */}
                 <View style={styles.header}>
                     {step > 1 ? (
                         <TouchableOpacity onPress={prevStep} style={styles.backIconButton}>
-                            <ArrowLeft color="#64748b" size={24} />
+                            <ArrowLeft color={theme.colors.text.secondary} size={24} />
                         </TouchableOpacity>
                     ) : <View style={{ width: 44 }} />}
 
                     <View style={styles.progressRow}>
                         {steps.map((_, i) => (
-                            <View key={i} style={[styles.progressDot, { backgroundColor: i === step ? '#6366f1' : '#e2e8f0' }]} />
+                            <View key={i} style={[
+                                styles.progressDot,
+                                { backgroundColor: i === step ? theme.colors.primary : theme.colors.text.muted }
+                            ]} />
                         ))}
                     </View>
                     <View style={{ width: 24 }} />
@@ -420,8 +424,12 @@ export default function EnhancedOnboarding() {
                     >
                         <View style={styles.mainContainer}>
                             {/* Character Column */}
-                            <View style={[styles.characterContainer, steps[step].type === "permissions" && { marginBottom: 4 }]} {...panResponder.panHandlers}>
-                                <Animated.View style={[characterStyle, styles.characterShadow]}>
+                            <Animated.View
+                                entering={FadeInDown.duration(600)}
+                                style={[styles.characterContainer, steps[step].type === "permissions" && { marginBottom: 4 }]}
+                                {...panResponder.panHandlers}
+                            >
+                                <Animated.View style={[characterStyle, styles.characterGlow]}>
                                     <Image
                                         source={fruitCharacter}
                                         style={[
@@ -431,618 +439,763 @@ export default function EnhancedOnboarding() {
                                         resizeMode="contain"
                                     />
                                 </Animated.View>
-                            </View>
+                            </Animated.View>
 
                             {/* Setup Card */}
-                            <BlurView intensity={40} tint="light" style={styles.glassCard}>
-                                <View style={[styles.cardContent, steps[step].type === "permissions" && { paddingHorizontal: 16, paddingVertical: 16 }]}>
-                                    <Text style={styles.cardTitle}>{steps[step].title}</Text>
-                                    {steps[step].sub ? <Text style={styles.cardSub}>{steps[step].sub}</Text> : null}
+                            <Animated.View entering={FadeInUp.delay(200).duration(600)} style={{ width: '100%' }}>
+                                <BlurView intensity={30} tint="dark" style={styles.glassCard}>
+                                    <View style={[styles.cardContent, steps[step].type === "permissions" && { paddingHorizontal: 16, paddingVertical: 16 }]}>
+                                        <Text style={styles.cardTitle}>{steps[step].title}</Text>
+                                        {steps[step].sub ? <Text style={styles.cardSub}>{steps[step].sub}</Text> : null}
 
-                                    {steps[step].type === "text" && (
-                                        <View style={styles.inputBody}>
-                                            <View style={styles.inputGroup}>
-                                                <Text style={styles.inputLabel}>{t('language')}</Text>
-                                                <View style={styles.toggleContainer}>
-                                                    <TouchableOpacity
-                                                        onPress={() => handleLanguageChange('English')}
-                                                        style={[styles.toggleBtn, language === 'English' && styles.toggleBtnActive]}
-                                                    >
-                                                        <Text style={[styles.toggleBtnText, language === 'English' && styles.toggleBtnTextActive]}>English</Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity
-                                                        onPress={() => handleLanguageChange('Korean')}
-                                                        style={[styles.toggleBtn, language === 'Korean' && styles.toggleBtnActive]}
-                                                    >
-                                                        <Text style={[styles.toggleBtnText, language === 'Korean' && styles.toggleBtnTextActive]}>한국어</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-
-                                            <View style={styles.inputGroup}>
-                                                <Text style={styles.inputLabel}>{t('nickname')}</Text>
-                                                <TextInput
-                                                    style={styles.textInput}
-                                                    placeholder={t('enterNickname')}
-                                                    value={nickname}
-                                                    onChangeText={setNickname}
-                                                    autoFocus
-                                                    onFocus={() => {
-                                                        setTimeout(() => {
-                                                            // Scroll just enough to show button, around y=80 hides top character
-                                                            scrollViewRef.current?.scrollTo({ y: 80, animated: true });
-                                                        }, 500);
-                                                    }}
-                                                />
-                                            </View>
-                                        </View>
-                                    )}
-
-                                    {steps[step].type === "phone" && (
-                                        <View style={styles.inputBody}>
-                                            <View style={[styles.inputGroup, { marginBottom: 20 }]}>
-                                                <View style={styles.toggleContainer}>
-                                                    <TouchableOpacity
-                                                        onPress={() => handleLanguageChange('English')}
-                                                        style={[styles.toggleBtn, language === 'English' && styles.toggleBtnActive]}
-                                                    >
-                                                        <Text style={[styles.toggleBtnText, language === 'English' && styles.toggleBtnTextActive]}>English (+1)</Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity
-                                                        onPress={() => handleLanguageChange('Korean')}
-                                                        style={[styles.toggleBtn, language === 'Korean' && styles.toggleBtnActive]}
-                                                    >
-                                                        <Text style={[styles.toggleBtnText, language === 'Korean' && styles.toggleBtnTextActive]}>한국어 (+82)</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-
-                                            {!isOtpSent ? (
-                                                <>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, width: '100%' }}>
-                                                        <TextInput
-                                                            style={[styles.textInput, { width: 75, textAlign: 'center', paddingHorizontal: 0 }]}
-                                                            value={countryCode}
-                                                            editable={false}
-                                                        />
-                                                        <TextInput
-                                                            style={[styles.textInput, { flex: 1, width: undefined, paddingHorizontal: 16 }]}
-                                                            placeholder={countryCode === '+1' ? "(201) 555-0123" : "010-0000-0000"}
-                                                            value={phone}
-                                                            onChangeText={handlePhoneChange}
-                                                            keyboardType="phone-pad"
-                                                            autoFocus
-                                                        />
+                                        {steps[step].type === "text" && (
+                                            <View style={styles.inputBody}>
+                                                <View style={styles.inputGroup}>
+                                                    <Text style={styles.inputLabel}>{t('language')}</Text>
+                                                    <View style={styles.toggleContainer}>
+                                                        <TouchableOpacity
+                                                            onPress={() => handleLanguageChange('English')}
+                                                            style={[styles.toggleBtn, language === 'English' && styles.toggleBtnActive]}
+                                                        >
+                                                            <Text style={[styles.toggleBtnText, language === 'English' && styles.toggleBtnTextActive]}>English</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            onPress={() => handleLanguageChange('Korean')}
+                                                            style={[styles.toggleBtn, language === 'Korean' && styles.toggleBtnActive]}
+                                                        >
+                                                            <Text style={[styles.toggleBtnText, language === 'Korean' && styles.toggleBtnTextActive]}>한국어</Text>
+                                                        </TouchableOpacity>
                                                     </View>
-                                                    <TouchableOpacity
-                                                        style={[styles.primaryBtn, { opacity: sendingOtp ? 0.7 : 1 }]}
-                                                        onPress={handleSendOtp}
-                                                        disabled={sendingOtp}
-                                                    >
-                                                        <Text style={styles.primaryBtnTxt}>{sendingOtp ? "Sending..." : t('sendCode')}</Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity onPress={() => setStep(s => s + 1)} style={{ marginTop: 16 }}>
-                                                        <Text style={{ color: '#94a3b8', textDecorationLine: 'underline' }}>{t('skipVerification')}</Text>
-                                                    </TouchableOpacity>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <View style={{ marginBottom: 16 }}>
-                                                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#10b981', textAlign: 'center' }}>
-                                                            {phone}
-                                                        </Text>
-                                                    </View>
+                                                </View>
+
+                                                <View style={styles.inputGroup}>
+                                                    <Text style={styles.inputLabel}>{t('nickname')}</Text>
                                                     <TextInput
-                                                        style={[styles.textInput, { textAlign: 'center', letterSpacing: 8, fontSize: 24, fontWeight: 'bold' }]}
-                                                        placeholder="000000"
-                                                        value={otp}
-                                                        onChangeText={setOtp}
-                                                        keyboardType="number-pad"
-                                                        maxLength={6}
+                                                        style={styles.textInput}
+                                                        placeholder={t('enterNickname')}
+                                                        placeholderTextColor={theme.colors.text.muted}
+                                                        value={nickname}
+                                                        onChangeText={setNickname}
                                                         autoFocus
-                                                        textContentType="oneTimeCode"
+                                                        onFocus={() => {
+                                                            setTimeout(() => {
+                                                                scrollViewRef.current?.scrollTo({ y: 80, animated: true });
+                                                            }, 500);
+                                                        }}
                                                     />
-                                                    <TouchableOpacity
-                                                        style={[styles.primaryBtn, { opacity: otp.length < 6 || verifyingOtp ? 0.7 : 1 }]}
-                                                        onPress={handleVerifyOtp}
-                                                        disabled={otp.length < 6 || verifyingOtp}
-                                                    >
-                                                        <Text style={styles.primaryBtnTxt}>{verifyingOtp ? "Verifying..." : t('verifyCode')}</Text>
-                                                    </TouchableOpacity>
-
-                                                    <View style={{ flexDirection: 'row', gap: 16, marginTop: 16, alignItems: 'center' }}>
-                                                        <TouchableOpacity onPress={() => setIsOtpSent(false)}>
-                                                            <Text style={{ color: '#64748b' }}>{t('resendCode')}</Text>
-                                                        </TouchableOpacity>
-                                                        <View style={{ width: 1, height: 12, backgroundColor: '#cbd5e1' }} />
-                                                        <TouchableOpacity onPress={() => setStep(s => s + 1)}>
-                                                            <Text style={{ color: '#94a3b8' }}>{t('skipVerification')}</Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </>
-                                            )}
-                                        </View>
-                                    )}
-
-                                    {steps[step].type === "biometrics" && (
-                                        <View style={{ width: '100%' }}>
-                                            {/* Gender Section */}
-                                            <View style={styles.inputGroup}>
-                                                <Text style={styles.inputLabel}>{t('gender')}</Text>
-                                                <View style={styles.toggleContainer}>
-                                                    <TouchableOpacity
-                                                        onPress={() => setGender('Male')}
-                                                        style={[styles.toggleBtn, gender === 'Male' && styles.toggleBtnActive]}
-                                                    >
-                                                        <Text style={[styles.toggleBtnText, gender === 'Male' && styles.toggleBtnTextActive]}>{t('male')}</Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity
-                                                        onPress={() => setGender('Female')}
-                                                        style={[styles.toggleBtn, gender === 'Female' && styles.toggleBtnActive]}
-                                                    >
-                                                        <Text style={[styles.toggleBtnText, gender === 'Female' && styles.toggleBtnTextActive]}>{t('female')}</Text>
-                                                    </TouchableOpacity>
                                                 </View>
                                             </View>
+                                        )}
 
-                                            {/* Height Section */}
-                                            <View style={styles.inputGroup}>
-                                                <View style={styles.labelRow}>
-                                                    <Text style={styles.inputLabel}>{t('height')}</Text>
-                                                    <View style={styles.unitToggleRowInline}>
+                                        {steps[step].type === "phone" && (
+                                            <View style={styles.inputBody}>
+                                                <View style={[styles.inputGroup, { marginBottom: 20 }]}>
+                                                    <View style={styles.toggleContainer}>
                                                         <TouchableOpacity
-                                                            onPress={() => {
-                                                                if (heightUnit === 'ft') {
-                                                                    setHeightUnit('cm');
-                                                                    const totalIn = feet * 12 + inches;
-                                                                    setHeightVal(Math.round(totalIn * 2.54));
-                                                                }
-                                                            }}
-                                                            style={[styles.unitBtnSmall, heightUnit === 'cm' && styles.unitBtnActive]}
+                                                            onPress={() => handleLanguageChange('English')}
+                                                            style={[styles.toggleBtn, language === 'English' && styles.toggleBtnActive]}
                                                         >
-                                                            <Text style={[styles.unitBtnTextSmall, heightUnit === 'cm' && styles.unitBtnTextActive]}>cm</Text>
+                                                            <Text style={[styles.toggleBtnText, language === 'English' && styles.toggleBtnTextActive]}>English (+1)</Text>
                                                         </TouchableOpacity>
                                                         <TouchableOpacity
-                                                            onPress={() => {
-                                                                if (heightUnit === 'cm') {
-                                                                    setHeightUnit('ft');
-                                                                    const totalIn = heightVal / 2.54;
-                                                                    setFeet(Math.floor(totalIn / 12));
-                                                                    setInches(Math.round(totalIn % 12));
-                                                                }
-                                                            }}
-                                                            style={[styles.unitBtnSmall, heightUnit === 'ft' && styles.unitBtnActive]}
+                                                            onPress={() => handleLanguageChange('Korean')}
+                                                            style={[styles.toggleBtn, language === 'Korean' && styles.toggleBtnActive]}
                                                         >
-                                                            <Text style={[styles.unitBtnTextSmall, heightUnit === 'ft' && styles.unitBtnTextActive]}>ft/in</Text>
+                                                            <Text style={[styles.toggleBtnText, language === 'Korean' && styles.toggleBtnTextActive]}>한국어 (+82)</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
 
-                                                {heightUnit === 'cm' ? (
-                                                    <View style={styles.adjustmentRow}>
-                                                        <TouchableOpacity onPress={() => setHeightVal((h: number) => Math.max(1, h - 1))} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>-</Text></TouchableOpacity>
-                                                        <Text style={styles.adjustValue}>{heightVal} cm</Text>
-                                                        <TouchableOpacity onPress={() => setHeightVal((h: number) => h + 1)} style={styles.adjustBtn}><Text style={styles.adjustBtnText}>+</Text></TouchableOpacity>
-                                                    </View>
+                                                {!isOtpSent ? (
+                                                    <>
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, width: '100%' }}>
+                                                            <TextInput
+                                                                style={[styles.textInput, { width: 75, textAlign: 'center', paddingHorizontal: 0 }]}
+                                                                value={countryCode}
+                                                                editable={false}
+                                                                placeholderTextColor={theme.colors.text.muted}
+                                                            />
+                                                            <TextInput
+                                                                style={[styles.textInput, { flex: 1, width: undefined, paddingHorizontal: 16 }]}
+                                                                placeholder={countryCode === '+1' ? "(201) 555-0123" : "010-0000-0000"}
+                                                                placeholderTextColor={theme.colors.text.muted}
+                                                                value={phone}
+                                                                onChangeText={handlePhoneChange}
+                                                                keyboardType="phone-pad"
+                                                                autoFocus
+                                                            />
+                                                        </View>
+                                                        <TouchableOpacity
+                                                            style={[styles.primaryBtn, { opacity: sendingOtp ? 0.7 : 1 }]}
+                                                            onPress={handleSendOtp}
+                                                            disabled={sendingOtp}
+                                                        >
+                                                            <Text style={styles.primaryBtnTxt}>{sendingOtp ? "Sending..." : t('sendCode')}</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity onPress={() => setStep(s => s + 1)} style={{ marginTop: 16 }}>
+                                                            <Text style={{ color: theme.colors.text.secondary, textDecorationLine: 'underline' }}>{t('skipVerification')}</Text>
+                                                        </TouchableOpacity>
+                                                    </>
                                                 ) : (
-                                                    <View style={styles.ftInContainer}>
-                                                        <View style={styles.ftInBlock}>
-                                                            <TouchableOpacity onPress={() => setFeet((f: number) => Math.max(1, f - 1))} style={styles.miniBtn}><Text>-</Text></TouchableOpacity>
-                                                            <Text style={styles.ftInValue}>{feet} ft</Text>
-                                                            <TouchableOpacity onPress={() => setFeet((f: number) => f + 1)} style={styles.miniBtn}><Text>+</Text></TouchableOpacity>
+                                                    <>
+                                                        <View style={{ marginBottom: 16 }}>
+                                                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.primary, textAlign: 'center' }}>
+                                                                {phone}
+                                                            </Text>
                                                         </View>
-                                                        <View style={styles.ftInBlock}>
-                                                            <TouchableOpacity onPress={() => setInches((i: number) => Math.max(0, i - 1))} style={styles.miniBtn}><Text>-</Text></TouchableOpacity>
-                                                            <Text style={styles.ftInValue}>{inches} in</Text>
-                                                            <TouchableOpacity onPress={() => setInches((i: number) => i >= 11 ? 0 : i + 1)} style={styles.miniBtn}><Text>+</Text></TouchableOpacity>
+                                                        <TextInput
+                                                            style={[styles.textInput, { textAlign: 'center', letterSpacing: 8, fontSize: 24, fontWeight: 'bold' }]}
+                                                            placeholder="000000"
+                                                            placeholderTextColor={theme.colors.text.muted}
+                                                            value={otp}
+                                                            onChangeText={setOtp}
+                                                            keyboardType="number-pad"
+                                                            maxLength={6}
+                                                            autoFocus
+                                                            textContentType="oneTimeCode"
+                                                        />
+                                                        <TouchableOpacity
+                                                            style={[styles.primaryBtn, { opacity: otp.length < 6 || verifyingOtp ? 0.7 : 1 }]}
+                                                            onPress={handleVerifyOtp}
+                                                            disabled={otp.length < 6 || verifyingOtp}
+                                                        >
+                                                            <Text style={styles.primaryBtnTxt}>{verifyingOtp ? "Verifying..." : t('verifyCode')}</Text>
+                                                        </TouchableOpacity>
+
+                                                        <View style={{ flexDirection: 'row', gap: 16, marginTop: 16, alignItems: 'center' }}>
+                                                            <TouchableOpacity onPress={() => setIsOtpSent(false)}>
+                                                                <Text style={{ color: theme.colors.text.secondary }}>{t('resendCode')}</Text>
+                                                            </TouchableOpacity>
+                                                            <View style={{ width: 1, height: 12, backgroundColor: theme.colors.text.muted }} />
+                                                            <TouchableOpacity onPress={() => setStep(s => s + 1)}>
+                                                                <Text style={{ color: theme.colors.text.muted }}>{t('skipVerification')}</Text>
+                                                            </TouchableOpacity>
                                                         </View>
-                                                    </View>
+                                                    </>
                                                 )}
                                             </View>
+                                        )}
 
-                                            {/* Weight Section */}
-                                            <View style={[styles.inputGroup, { marginBottom: 0 }]}>
-                                                <View style={styles.labelRow}>
-                                                    <Text style={styles.inputLabel}>{t('weight')}</Text>
-                                                    <View style={styles.unitToggleRowInline}>
+                                        {steps[step].type === "biometrics" && (
+                                            <View style={{ width: '100%' }}>
+                                                {/* Gender Section */}
+                                                <View style={styles.inputGroup}>
+                                                    <Text style={styles.inputLabel}>{t('gender')}</Text>
+                                                    <View style={styles.toggleContainer}>
                                                         <TouchableOpacity
-                                                            onPress={() => {
-                                                                if (weightUnit === 'lb') {
-                                                                    setWeightUnit('kg');
-                                                                    setWeight(Math.round(weight * 0.453592));
-                                                                }
-                                                            }}
-                                                            style={[styles.unitBtnSmall, weightUnit === 'kg' && styles.unitBtnActive]}
+                                                            onPress={() => setGender('Male')}
+                                                            style={[styles.toggleBtn, gender === 'Male' && styles.toggleBtnActive]}
                                                         >
-                                                            <Text style={[styles.unitBtnTextSmall, weightUnit === 'kg' && styles.unitBtnTextActive]}>kg</Text>
+                                                            <Text style={[styles.toggleBtnText, gender === 'Male' && styles.toggleBtnTextActive]}>{t('male')}</Text>
                                                         </TouchableOpacity>
                                                         <TouchableOpacity
-                                                            onPress={() => {
-                                                                if (weightUnit === 'kg') {
-                                                                    setWeightUnit('lb');
-                                                                    setWeight(Math.round(weight * 2.20462));
-                                                                }
-                                                            }}
-                                                            style={[styles.unitBtnSmall, weightUnit === 'lb' && styles.unitBtnActive]}
+                                                            onPress={() => setGender('Female')}
+                                                            style={[styles.toggleBtn, gender === 'Female' && styles.toggleBtnActive]}
                                                         >
-                                                            <Text style={[styles.unitBtnTextSmall, weightUnit === 'lb' && styles.unitBtnTextActive]}>lb</Text>
+                                                            <Text style={[styles.toggleBtnText, gender === 'Female' && styles.toggleBtnTextActive]}>{t('female')}</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
-                                                <View style={styles.weightCenterRow}>
-                                                    <Text style={styles.adjustValue}>{weight} {weightUnit}</Text>
+
+                                                {/* Height Section */}
+                                                <View style={styles.inputGroup}>
+                                                    <View style={styles.labelRow}>
+                                                        <Text style={styles.inputLabel}>{t('height')}</Text>
+                                                        <View style={styles.unitToggleRowInline}>
+                                                            <TouchableOpacity
+                                                                onPress={() => {
+                                                                    if (heightUnit === 'ft') {
+                                                                        setHeightUnit('cm');
+                                                                        const totalIn = feet * 12 + inches;
+                                                                        setHeightVal(Math.round(totalIn * 2.54));
+                                                                    }
+                                                                }}
+                                                                style={[styles.unitBtnSmall, heightUnit === 'cm' && styles.unitBtnActive]}
+                                                            >
+                                                                <Text style={[styles.unitBtnTextSmall, heightUnit === 'cm' && styles.unitBtnTextActive]}>cm</Text>
+                                                            </TouchableOpacity>
+                                                            <TouchableOpacity
+                                                                onPress={() => {
+                                                                    if (heightUnit === 'cm') {
+                                                                        setHeightUnit('ft');
+                                                                        const totalIn = heightVal / 2.54;
+                                                                        setFeet(Math.floor(totalIn / 12));
+                                                                        setInches(Math.round(totalIn % 12));
+                                                                    }
+                                                                }}
+                                                                style={[styles.unitBtnSmall, heightUnit === 'ft' && styles.unitBtnActive]}
+                                                            >
+                                                                <Text style={[styles.unitBtnTextSmall, heightUnit === 'ft' && styles.unitBtnTextActive]}>ft/in</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+
+                                                    {heightUnit === 'cm' ? (
+                                                        <>
+                                                            <View style={styles.weightCenterRow}>
+                                                                <Text style={styles.adjustValue}>{heightVal} cm</Text>
+                                                            </View>
+                                                            <View style={styles.weightBtnRow}>
+                                                                {[-5, -1, 1, 5].map(val => (
+                                                                    <TouchableOpacity
+                                                                        key={val}
+                                                                        onPress={() => setHeightVal((h: number) => Math.max(1, h + val))}
+                                                                        style={styles.stepBtn}
+                                                                    >
+                                                                        <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </View>
+                                                        </>
+                                                    ) : (
+                                                        <View style={styles.ftInContainer}>
+                                                            <View style={styles.ftInBlock}>
+                                                                <TouchableOpacity onPress={() => setFeet((f: number) => Math.max(1, f - 1))} style={styles.miniBtn}><Text style={styles.miniBtnText}>-</Text></TouchableOpacity>
+                                                                <Text style={styles.ftInValue}>{feet} ft</Text>
+                                                                <TouchableOpacity onPress={() => setFeet((f: number) => f + 1)} style={styles.miniBtn}><Text style={styles.miniBtnText}>+</Text></TouchableOpacity>
+                                                            </View>
+                                                            <View style={styles.ftInBlock}>
+                                                                <TouchableOpacity onPress={() => setInches((i: number) => Math.max(0, i - 1))} style={styles.miniBtn}><Text style={styles.miniBtnText}>-</Text></TouchableOpacity>
+                                                                <Text style={styles.ftInValue}>{inches} in</Text>
+                                                                <TouchableOpacity onPress={() => setInches((i: number) => i >= 11 ? 0 : i + 1)} style={styles.miniBtn}><Text style={styles.miniBtnText}>+</Text></TouchableOpacity>
+                                                            </View>
+                                                        </View>
+                                                    )}
                                                 </View>
+
+                                                {/* Weight Section */}
+                                                <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                                                    <View style={styles.labelRow}>
+                                                        <Text style={styles.inputLabel}>{t('weight')}</Text>
+                                                        <View style={styles.unitToggleRowInline}>
+                                                            <TouchableOpacity
+                                                                onPress={() => {
+                                                                    if (weightUnit === 'lb') {
+                                                                        setWeightUnit('kg');
+                                                                        setWeight(Math.round(weight * 0.453592));
+                                                                    }
+                                                                }}
+                                                                style={[styles.unitBtnSmall, weightUnit === 'kg' && styles.unitBtnActive]}
+                                                            >
+                                                                <Text style={[styles.unitBtnTextSmall, weightUnit === 'kg' && styles.unitBtnTextActive]}>kg</Text>
+                                                            </TouchableOpacity>
+                                                            <TouchableOpacity
+                                                                onPress={() => {
+                                                                    if (weightUnit === 'kg') {
+                                                                        setWeightUnit('lb');
+                                                                        setWeight(Math.round(weight * 2.20462));
+                                                                    }
+                                                                }}
+                                                                style={[styles.unitBtnSmall, weightUnit === 'lb' && styles.unitBtnActive]}
+                                                            >
+                                                                <Text style={[styles.unitBtnTextSmall, weightUnit === 'lb' && styles.unitBtnTextActive]}>lb</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+                                                    <View style={styles.weightCenterRow}>
+                                                        <Text style={styles.adjustValue}>{weight} {weightUnit}</Text>
+                                                    </View>
+                                                    <View style={styles.weightBtnRow}>
+                                                        {[-5, -1, 1, 5].map(val => (
+                                                            <TouchableOpacity
+                                                                key={val}
+                                                                onPress={() => setWeight((w: number) => w + val)}
+                                                                style={styles.stepBtn}
+                                                            >
+                                                                <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        )}
+
+                                        {steps[step].type === "slider_kcal" && (
+                                            <View style={styles.inputBody}>
+                                                <View style={styles.unitToggleRow}>
+                                                    <View style={[styles.unitBtn, styles.unitBtnActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                                                        <Text style={styles.unitBtnTextActive}>{!isManualKcal ? t('recommended') : t('manualTarget')}</Text>
+                                                    </View>
+                                                </View>
+                                                <View style={{ alignItems: 'center' }}>
+                                                    <Text style={styles.valueTxt}>{targetKcal} kcal</Text>
+                                                    {!isManualKcal && (
+                                                        <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 20 }}>
+                                                            <Text style={{ fontSize: 12, color: '#10b981', fontWeight: 'bold' }}>✨ {t('basedOnGenderHeightWeight') || "Based on Gender, Height & Weight"}</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+
                                                 <View style={styles.weightBtnRow}>
-                                                    {[-5, -1, 1, 5].map(val => (
+                                                    {[-100, -50, 50, 100].map(val => (
                                                         <TouchableOpacity
                                                             key={val}
-                                                            onPress={() => setWeight((w: number) => w + val)}
+                                                            onPress={() => {
+                                                                setTargetKcal(k => k + val);
+                                                                setIsManualKcal(true);
+                                                            }}
                                                             style={styles.stepBtn}
                                                         >
                                                             <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
                                                         </TouchableOpacity>
                                                     ))}
                                                 </View>
-                                            </View>
-                                        </View>
-                                    )}
-
-                                    {steps[step].type === "slider_kcal" && (
-                                        <View style={styles.inputBody}>
-                                            <View style={styles.unitToggleRow}>
-                                                <View style={[styles.unitBtn, styles.unitBtnActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                                                    <Text style={styles.unitBtnTextActive}>{!isManualKcal ? t('recommended') : t('manualTarget')}</Text>
-                                                </View>
-                                            </View>
-                                            <View style={{ alignItems: 'center' }}>
-                                                <Text style={styles.valueTxt}>{targetKcal} kcal</Text>
-                                                {!isManualKcal && (
-                                                    <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 20 }}>
-                                                        <Text style={{ fontSize: 12, color: '#10b981', fontWeight: 'bold' }}>✨ {t('basedOnGenderHeightWeight') || "Based on Gender, Height & Weight"}</Text>
-                                                    </View>
+                                                {isManualKcal && (
+                                                    <TouchableOpacity
+                                                        onPress={() => setIsManualKcal(false)}
+                                                        style={{ marginTop: 20 }}
+                                                    >
+                                                        <Text style={{ fontSize: 13, color: '#6366f1', fontWeight: 'bold', textDecorationLine: 'underline' }}>{t('recommendedValue')}로 초기화</Text>
+                                                    </TouchableOpacity>
                                                 )}
                                             </View>
+                                        )}
 
-                                            <View style={styles.weightBtnRow}>
-                                                {[-100, -50, 50, 100].map(val => (
-                                                    <TouchableOpacity
-                                                        key={val}
-                                                        onPress={() => {
-                                                            setTargetKcal(k => k + val);
-                                                            setIsManualKcal(true);
-                                                        }}
-                                                        style={styles.stepBtn}
-                                                    >
-                                                        <Text style={styles.stepBtnTxt}>{val > 0 ? `+` : ''}{val}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </View>
-                                            {isManualKcal && (
-                                                <TouchableOpacity
-                                                    onPress={() => setIsManualKcal(false)}
-                                                    style={{ marginTop: 20 }}
-                                                >
-                                                    <Text style={{ fontSize: 13, color: '#6366f1', fontWeight: 'bold', textDecorationLine: 'underline' }}>{t('recommendedValue')}로 초기화</Text>
+                                        {steps[step].type === "permissions" && (
+                                            <View style={styles.inputBody}>
+                                                <View style={styles.permissionItem}>
+                                                    <View style={styles.permIconBox}>
+                                                        <CameraIcon size={18} color="#6366f1" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.permTitle}>{t('cameraAccess')}</Text>
+                                                        <Text style={styles.permSub} numberOfLines={1}>{t('cameraAccessDesc')}</Text>
+                                                    </View>
+                                                    {cameraGranted && <Check size={18} color={theme.colors.primary} />}
+                                                </View>
+                                                <View style={styles.permissionItem}>
+                                                    <View style={styles.permIconBox}>
+                                                        <Bell size={18} color="#6366f1" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.permTitle}>{t('notificationAccess')}</Text>
+                                                        <Text style={styles.permSub} numberOfLines={1}>{t('notificationAccessDesc')}</Text>
+                                                    </View>
+                                                    {notifGranted && <Check size={18} color={theme.colors.primary} />}
+                                                </View>
+                                                <View style={styles.permissionItem}>
+                                                    <View style={styles.permIconBox}>
+                                                        <ImageIcon size={18} color="#6366f1" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.permTitle}>{t('galleryAccess')}</Text>
+                                                        <Text style={styles.permSub} numberOfLines={1}>{t('galleryAccessDesc')}</Text>
+                                                    </View>
+                                                    {libraryGranted && <Check size={18} color={theme.colors.primary} />}
+                                                </View>
+                                                <View style={styles.permissionItem}>
+                                                    <View style={styles.permIconBox}>
+                                                        <MapPin size={18} color="#6366f1" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.permTitle}>{t('locationAccess')}</Text>
+                                                        <Text style={styles.permSub} numberOfLines={1}>{t('locationAccessDesc')}</Text>
+                                                    </View>
+                                                    {locationGranted && <Check size={18} color={theme.colors.primary} />}
+                                                </View>
+
+                                                <TouchableOpacity onPress={handleGrantPermissions} style={[styles.primaryBtn, { marginTop: 12 }]}>
+                                                    <Text style={styles.primaryBtnTxt}>{t('grantAllPermissions')}</Text>
                                                 </TouchableOpacity>
-                                            )}
-                                        </View>
-                                    )}
+                                            </View>
+                                        )}
 
-                                    {steps[step].type === "permissions" && (
-                                        <View style={styles.inputBody}>
-                                            <View style={styles.permissionItem}>
-                                                <View style={styles.permIconBox}>
-                                                    <CameraIcon size={18} color="#6366f1" />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={styles.permTitle}>{t('cameraAccess')}</Text>
-                                                    <Text style={styles.permSub} numberOfLines={1}>{t('cameraAccessDesc')}</Text>
-                                                </View>
+                                        {steps[step].type !== "permissions" && steps[step].type !== "phone" && (
+                                            <View style={styles.buttonRow}>
+                                                <TouchableOpacity onPress={nextStep} style={styles.primaryBtn}>
+                                                    <Text style={styles.primaryBtnTxt}>{t('next')}</Text>
+                                                </TouchableOpacity>
                                             </View>
-                                            <View style={styles.permissionItem}>
-                                                <View style={styles.permIconBox}>
-                                                    <Bell size={18} color="#6366f1" />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={styles.permTitle}>{t('notificationAccess')}</Text>
-                                                    <Text style={styles.permSub} numberOfLines={1}>{t('notificationAccessDesc')}</Text>
-                                                </View>
-                                            </View>
-                                            <View style={styles.permissionItem}>
-                                                <View style={styles.permIconBox}>
-                                                    <ImageIcon size={18} color="#6366f1" />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={styles.permTitle}>{t('galleryAccess')}</Text>
-                                                    <Text style={styles.permSub} numberOfLines={1}>{t('galleryAccessDesc')}</Text>
-                                                </View>
-                                            </View>
-                                            <View style={styles.permissionItem}>
-                                                <View style={styles.permIconBox}>
-                                                    <MapPin size={18} color="#6366f1" />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={styles.permTitle}>{t('locationAccess')}</Text>
-                                                    <Text style={styles.permSub} numberOfLines={1}>{t('locationAccessDesc')}</Text>
-                                                </View>
-                                            </View>
-
-                                            <TouchableOpacity onPress={handleGrantPermissions} style={[styles.primaryBtn, { marginTop: 12 }]}>
-                                                <Text style={styles.primaryBtnTxt}>{t('grantAllPermissions')}</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-
-                                    {steps[step].type !== "permissions" && steps[step].type !== "phone" && (
-                                        <View style={styles.buttonRow}>
-                                            <TouchableOpacity onPress={nextStep} style={styles.primaryBtn}>
-                                                <Text style={styles.primaryBtnTxt}>{t('next')}</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-                                </View>
-                            </BlurView>
+                                        )}
+                                    </View>
+                                </BlurView>
+                            </Animated.View>
                         </View>
                         {/* Spacer for keyboard handling */}
                         <View style={{ height: 100 }} />
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
-        </Animated.View>
+        </View>
+
 
     );
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#F0FDFA' },
-    safeArea: { flex: 1 },
+    root: {
+        flex: 1,
+        backgroundColor: theme.colors.background.primary,
+    },
+    safeArea: {
+        flex: 1,
+    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 24,
-        paddingVertical: 16,
+        paddingVertical: 12,
     },
     backIconButton: {
         width: 44,
         height: 44,
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        borderRadius: 22,
+        backgroundColor: theme.colors.background.overlay,
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
     },
-    progressRow: { flexDirection: 'row', gap: 8 },
-    progressDot: { height: 6, width: 24, borderRadius: 3 },
+    progressRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    progressDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
     scrollContainer: {
         flexGrow: 1,
-        // justifyContent: 'center', // Removed to allow top alignment
+        justifyContent: 'center',
+        paddingBottom: 40,
     },
     mainContainer: {
-        flex: 1,
-        // justifyContent: 'center', // Removed
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 0, // Removed top padding
-        paddingBottom: 20,
-    },
-    characterContainer: { alignItems: 'center', marginBottom: 0 }, // Removed bottom margin
-    characterImg: { width: isSmallDevice ? 100 : 130, height: isSmallDevice ? 100 : 130 },
-    characterShadow: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 15,
-    },
-    labelWrapper: {
-        marginTop: 16,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.4)',
-    },
-    labelTxt: { color: '#6366f1', fontWeight: 'bold' },
-    glassCard: {
         width: '100%',
-        borderRadius: 40,
-        borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.6)',
-        overflow: 'hidden',
-    },
-    cardContent: { padding: 20, alignItems: 'center' },
-    cardTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 4, textAlign: 'center' },
-    cardSub: { fontSize: 13, color: '#64748b', marginBottom: 12, textAlign: 'center' },
-    textInput: {
-        width: '100%',
-        paddingVertical: 2, // Reduced to minimal
-        backgroundColor: 'rgba(255,255,255,0.5)',
-        borderRadius: 16,
         paddingHorizontal: 24,
-        fontSize: 16, // Reduced from 18 to decrease intrinsic height
-        color: '#1e293b',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.4)',
     },
-    inputBody: { width: '100%', alignItems: 'center' },
-    valueTxt: { fontSize: 32, fontWeight: 'bold', color: '#6366f1', marginBottom: 16 },
-
-    primaryBtn: {
-        marginTop: 16,
-        width: '100%',
-        height: 42,
-        backgroundColor: '#0f172a',
-        borderRadius: 20,
+    characterContainer: {
         alignItems: 'center',
         justifyContent: 'center',
+        marginBottom: 0,
+        zIndex: 10,
     },
-    primaryBtnTxt: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    buttonRow: {
-        marginTop: 12,
-        flexDirection: 'row',
-        gap: 12,
+    characterGlow: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    glowEffect: {
+        position: 'absolute',
+        width: 160,
+        height: 160,
+        borderRadius: 80,
+        backgroundColor: theme.colors.primary,
+        opacity: 0.15,
+        transform: [{ scale: 1.5 }],
+    },
+    characterImg: {
+        width: isSmallDevice ? 120 : 150,
+        height: isSmallDevice ? 120 : 150,
+    },
+    glassCard: {
         width: '100%',
+        borderRadius: theme.borderRadius.xl,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
+        backgroundColor: theme.colors.glass.card,
     },
-    // Styles for Biometrics matching Edit Profile geometry
-    inputGroup: { marginBottom: 12, width: '100%' },
-    inputLabel: { fontSize: 11, fontWeight: '700', color: '#64748b', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' },
-
-    // Gender Toggle Styles
+    cardContent: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    cardTitle: {
+        fontSize: 24,
+        fontFamily: theme.typography.header.fontFamily,
+        fontWeight: 'bold',
+        color: theme.colors.text.primary,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    cardSub: {
+        fontSize: 15,
+        fontFamily: theme.typography.body.fontFamily,
+        color: theme.colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: 24,
+        lineHeight: 22,
+    },
+    inputBody: {
+        width: '100%',
+        gap: 20,
+    },
+    inputGroup: {
+        width: '100%',
+        marginBottom: 16,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontFamily: theme.typography.label.fontFamily,
+        fontWeight: '600',
+        color: theme.colors.text.secondary,
+        marginBottom: 8,
+        marginLeft: 4,
+    },
+    textInput: {
+        width: '100%',
+        height: 56,
+        backgroundColor: theme.colors.background.secondary,
+        borderRadius: theme.borderRadius.l,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        color: theme.colors.text.primary,
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
+    },
     toggleContainer: {
         flexDirection: 'row',
-        backgroundColor: '#f1f5f9', // Updated to match input background
-        borderRadius: 16,
+        backgroundColor: theme.colors.background.secondary,
+        borderRadius: theme.borderRadius.l,
         padding: 4,
-        width: '100%',
-        height: 44, // Standardized height
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
     },
     toggleBtn: {
         flex: 1,
-        borderRadius: 12,
+        paddingVertical: 10,
         alignItems: 'center',
         justifyContent: 'center',
+        borderRadius: theme.borderRadius.m,
     },
     toggleBtnActive: {
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
+        backgroundColor: theme.colors.background.overlay,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3.84,
+        elevation: 2,
     },
-    toggleBtnText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
-    toggleBtnTextActive: { color: '#6366f1', fontWeight: 'bold' }, // Keep Indigo for Gender as it's not in Edit Profile
+    toggleBtnText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.text.muted,
+    },
+    toggleBtnTextActive: {
+        color: theme.colors.text.primary,
+    },
 
-    // Height/Weight Geometry adapted from Edit Profile
-    unitToggleRowInline: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 2 },
-    unitBtnSmall: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    unitBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-    unitBtnTextSmall: { fontSize: 10, fontWeight: 'bold', color: '#64748b' },
-    unitBtnTextActive: { color: '#0f172a' },
+    // Units
+    labelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    unitToggleRowInline: {
+        flexDirection: 'row',
+        backgroundColor: theme.colors.background.secondary,
+        borderRadius: 8,
+        padding: 2,
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
+    },
+    unitBtnSmall: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    unitBtnSmallActive: {
 
-    labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, width: '100%' },
+    },
+    unitBtnActive: {
+        backgroundColor: theme.colors.background.overlay,
+    },
+    unitBtnTextSmall: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: theme.colors.text.muted,
+    },
+    unitBtnTextActive: {
+        color: theme.colors.text.primary,
+    },
 
-    // Adjustment Row - Pill shaped buttons - Matched Colors to Edit Profile
+    // Adjustments
     adjustmentRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#f8fafc',
-        paddingHorizontal: 16,
-        borderRadius: 12,
+        backgroundColor: theme.colors.background.secondary,
+        borderRadius: theme.borderRadius.l,
+        padding: 8,
         borderWidth: 1,
-        borderColor: '#e2e8f0',
-        width: '100%',
-        height: 44, // Fixed Standardized Height
+        borderColor: theme.colors.glass.border,
     },
     adjustBtn: {
-        height: 32, // Fixed height to match miniBtn
-        paddingVertical: 0,
-        paddingHorizontal: 12,
-        backgroundColor: '#fff',
-        elevation: 1,
-        minWidth: 44,
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: theme.colors.background.overlay,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
     },
-    adjustBtnText: { fontSize: 20, fontWeight: 'bold', color: '#10b981' }, // Changed to Green to match Edit Profile
-    adjustValue: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+    adjustBtnText: {
+        fontSize: 24,
+        color: theme.colors.text.primary,
+        lineHeight: 28,
+    },
+    adjustValue: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: theme.colors.text.primary,
+    },
 
-    ftInContainer: { flexDirection: 'row', gap: 12, width: '100%' },
+    // Ft/In
+    ftInContainer: {
+        flexDirection: 'row',
+        gap: 12,
+    },
     ftInBlock: {
         flex: 1,
-        flexDirection: 'row', // Changed to row to match adjustmentRow
+        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#f8fafc',
-        paddingHorizontal: 8,
-        // paddingVertical: 4, // Removed
-        borderRadius: 12,
+        backgroundColor: theme.colors.background.secondary,
+        borderRadius: theme.borderRadius.l,
+        padding: 6,
         borderWidth: 1,
-        borderColor: '#e2e8f0',
-        height: 44, // Fixed Standardized Height
+        borderColor: theme.colors.glass.border,
     },
-    ftInValue: { fontSize: 16, fontWeight: '700', color: '#1e293b' }, // Removed margin bottom
-    miniBtnRow: { display: 'none' }, // No longer needed
     miniBtn: {
-        width: 32, // Increased from 28 to match adjustmentRow buttons roughly
-        height: 32,
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        alignItems: 'center',
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: theme.colors.background.overlay,
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
+    },
+    miniBtnText: {
+        fontSize: 18,
+        color: theme.colors.text.primary,
+        lineHeight: 22,
+    },
+    ftInValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: theme.colors.text.primary,
     },
 
-    weightCenterRow: { alignItems: 'center', marginBottom: 8 },
-    weightBtnRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 8 },
+    // Weight Buttons
+    weightCenterRow: {
+        alignItems: 'center',
+        marginVertical: 16,
+    },
+    weightBtnRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 12,
+    },
     stepBtn: {
-        flex: 1,
-        paddingVertical: 4, // Matches Edit Profile
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        alignItems: 'center',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: theme.colors.background.overlay,
         justifyContent: 'center',
+        alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.4)', // Using translucent border for consistency
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
-        marginHorizontal: 0
+        borderColor: theme.colors.glass.border,
     },
-    stepBtnTxt: { fontSize: 12, fontWeight: '700', color: '#1e293b' }, // Matches Edit Profile fontSize
+    stepBtnTxt: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: theme.colors.text.primary,
+    },
 
-    secondaryBtn: {
-        flex: 1,
-        height: 56,
-        backgroundColor: 'rgba(15, 23, 42, 0.1)',
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(15, 23, 42, 0.1)',
-    },
-    secondaryBtnTxt: { color: '#0f172a', fontWeight: 'bold', fontSize: 16 },
+    // Slider / Kcal
     unitToggleRow: {
         flexDirection: 'row',
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 16,
+        justifyContent: 'center',
+        marginBottom: 20,
     },
     unitBtn: {
         paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 8,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: theme.colors.background.secondary,
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
     },
-    unitBtnText: {
+    unitBtnText: { // Added missing style
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#64748b',
+        color: theme.colors.text.muted,
     },
+
+    valueTxt: {
+        fontSize: 40,
+        fontWeight: '800',
+        color: theme.colors.primary,
+        marginBottom: 8,
+    },
+
+    // Permissions
     permissionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.4)',
-        padding: 10,
-        borderRadius: 16,
-        marginBottom: 6,
-        width: '100%',
-        gap: 12,
+        backgroundColor: theme.colors.background.secondary,
+        padding: 16,
+        borderRadius: theme.borderRadius.l,
+        marginBottom: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
+        borderColor: theme.colors.glass.border,
     },
     permIconBox: {
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
+        borderRadius: 12,
         backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        borderRadius: 10,
-        alignItems: 'center',
         justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
-    permTitle: { fontWeight: 'bold', fontSize: 16, color: '#1e293b' },
-    permSub: { fontSize: 13, color: '#64748b' },
+    permTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.colors.text.primary,
+        marginBottom: 2,
+    },
+    permSub: {
+        fontSize: 13,
+        color: theme.colors.text.muted,
+    },
+
+    // Buttons
+    buttonRow: {
+        width: '100%',
+        marginTop: 12,
+    },
+    primaryBtn: {
+        width: '100%',
+        height: 56,
+        backgroundColor: theme.colors.primary,
+        borderRadius: theme.borderRadius.l,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    primaryBtnTxt: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+    },
+    secondaryBtn: {
+        marginTop: 16,
+        paddingVertical: 12,
+    },
+    secondaryBtnTxt: {
+        fontSize: 14,
+        color: theme.colors.text.secondary,
+        textDecorationLine: 'underline',
+    },
     // Unused Styles Cleanup (previously genderBtn etc)
     genderBtn: { display: 'none' },
     genderBtnActive: { display: 'none' },

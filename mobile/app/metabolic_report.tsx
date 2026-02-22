@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, Zap, Flame, ShieldCheck, Award, TrendingUp, Info, ChevronLeft, BarChart2, Activity } from 'lucide-react-native';
-import Svg, { Circle, Polygon, Path, G, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedProps, withSpring, withTiming, withRepeat, withSequence, interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import { Heart, Zap, Flame, ShieldCheck, Award, TrendingUp, Info, ChevronLeft, BarChart2, Activity, Target } from 'lucide-react-native';
+import Svg, { Circle, G } from 'react-native-svg';
+import Animated, { useSharedValue, useAnimatedProps, withSpring, withTiming } from 'react-native-reanimated';
 import { useTranslation } from '../src/lib/i18n';
+import { theme } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedG = Animated.createAnimatedComponent(G);
 
 export default function MetabolicReport() {
     const router = useRouter();
@@ -53,25 +54,24 @@ export default function MetabolicReport() {
     });
 
     const getIcon = () => {
-        if (headline.includes('Peak')) return <Flame size={32} color="#f97316" />;
-        if (headline.includes('Surplus')) return <Zap size={32} color="#fbbf24" />;
-        if (headline.includes('Energy')) return <Heart size={32} color="#10b981" />;
-        return <Award size={32} color="#6366f1" />;
+        const iconSize = 32;
+        if (headline.includes('Peak')) return <Flame size={iconSize} color={theme.colors.accent} />;
+        if (headline.includes('Surplus')) return <Zap size={iconSize} color={theme.colors.secondary} />;
+        if (headline.includes('Energy')) return <Heart size={iconSize} color={theme.colors.primary} />;
+        return <Award size={iconSize} color="#fcd34d" />;
     };
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={['#f8fafc', '#f1f5f9']}
-                style={StyleSheet.absoluteFill}
-            />
-
+            <LinearGradient colors={theme.colors.gradients.background as any} style={StyleSheet.absoluteFill} />
             <SafeAreaView style={{ flex: 1 }}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft size={24} color="#1e293b" />
+                        <BlurView intensity={20} tint="light" style={styles.iconBlur}>
+                            <ChevronLeft size={24} color={theme.colors.text.primary} />
+                        </BlurView>
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{t('intelligenceReport')}</Text>
+                    <Text style={styles.headerTitle}>Intelligence Report</Text>
                     <View style={{ width: 44 }} />
                 </View>
 
@@ -79,188 +79,135 @@ export default function MetabolicReport() {
                     {/* Hero Section */}
                     <View style={styles.heroSection}>
                         <View style={styles.heroIconBox}>
-                            {getIcon()}
+                            <BlurView intensity={30} tint="light" style={styles.heroBlur}>
+                                {getIcon()}
+                            </BlurView>
                         </View>
-                        <Text style={styles.heroHeadline}>{language === 'Korean' ? (headline === 'Steady Energy' ? '안정적 에너지' : headline === 'Metabolic Peak' ? '대사 피크' : headline) : headline}</Text>
-                        <View style={[styles.gradeBadge, { backgroundColor: grade === 'S' ? '#fef3c7' : '#dcfce7' }]}>
-                            <Text style={styles.gradeText}>{t('currentGrade')}: {grade}</Text>
-                        </View>
+                        <Text style={styles.heroHeadline}>
+                            {language === 'Korean' ? (headline === 'Steady Energy' ? '안정적 에너지' : headline === 'Metabolic Peak' ? '대사 피크' : headline) : headline}
+                        </Text>
+                        <BlurView intensity={20} tint="light" style={styles.gradeBadge}>
+                            <Text style={styles.gradeText}>GRADE {grade}</Text>
+                        </BlurView>
                     </View>
 
-                    {/* The Why Section */}
-                    <View style={styles.reportSection}>
-                        <View style={styles.sectionTitleRow}>
-                            <Info size={18} color="#10b981" />
-                            <Text style={styles.sectionTitle}>{t('statusBreakdown')}</Text>
+                    {/* Impact Analysis */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHead}>
+                            <Info size={16} color={theme.colors.primary} />
+                            <Text style={styles.sectionTitle}>Impact Analysis</Text>
                         </View>
-                        <View style={styles.insightCard}>
+                        <BlurView intensity={40} tint="light" style={styles.glassCard}>
                             <Text style={styles.insightTitle}>🔥 What is {headline}?</Text>
-                            <Text style={styles.insightDescription}>
+                            <Text style={styles.insightDesc}>
                                 {headline === 'Steady Energy' ? (
-                                    language === 'Korean' ? "회원님의 식사 타이밍과 식이섬유 섭취가 안정적인 포도당 반응을 만들어냈습니다. 이는 에너지 급락을 최소화하고 집중력을 날카롭게 유지해 줍니다." : "Your meal timing and fiber intake have created a stable glucose response. This minimizes energy crashes and keeps your focus sharp."
-                                ) : headline === 'Metabolic Peak' ? (
-                                    language === 'Korean' ? "최적의 단백질 섭취와 높은 영양 밀도가 결합되어 대사 준비 수준이 최고치에 도달했습니다." : "High nutrient density combined with optimal protein intake has pushed your metabolic readiness to the peak range."
+                                    language === 'Korean' ? "본인의 식사 타이밍과 식이섬유 섭취가 안정적인 포도당 반응을 만들어냈습니다. 이는 에너지 급락을 최소화합니다." : "Your meal timing and fiber intake have created a stable glucose response. This minimizes energy crashes and keeps focus sharp."
                                 ) : (
-                                    language === 'Korean' ? "현재 패턴은 균형 잡힌 섭취를 보여주고 있으나, 다양성을 최적화할 여지가 있습니다." : "Your current patterns show balanced intake, though there is room to optimize your variety."
-                                )
-                                }
+                                    language === 'Korean' ? "영양 밀도가 결합되어 대사 준비 수준이 최고치에 도달했습니다. 안정적인 흐름을 유지하고 있습니다." : "High nutrient density has pushed your metabolic readiness to the peak range. You are maintaining a steady flow."
+                                )}
                             </Text>
-                            <View style={styles.improveBox}>
-                                <Text style={styles.improveTitle}>✨ {t('proTipToMaintain')}</Text>
-                                <Text style={styles.improveText}>
-                                    {headline === 'Steady Energy' ?
-                                        (language === 'Korean' ? "이 수준을 유지하려면 식간에 당분이 높은 간식을 피하세요." : "Keep avoiding high-sugar snacks between meals to sustain this level.") :
-                                        (language === 'Korean' ? "단백질 대 탄수화물 비율을 꾸준히 유지하세요." : "Stay consistent with your protein-to-carb ratio.")}
+                            <View style={styles.adviceBox}>
+                                <Text style={styles.adviceTitle}>PRO TIP</Text>
+                                <Text style={styles.adviceText}>
+                                    {language === 'Korean' ? "당분이 높은 간식을 피하여 현재의 에너지 안정성을 유지하세요." : "Avoid high-sugar snacks between meals to sustain this metabolic state."}
                                 </Text>
                             </View>
-                        </View>
+                        </BlurView>
                     </View>
 
-                    {/* Readiness & Fuel Section - Stacked Vertically */}
-                    <View style={styles.reportSection}>
-                        <View style={styles.sectionTitleRow}>
-                            <TrendingUp size={18} color="#10b981" />
-                            <Text style={styles.sectionTitle}>{t('metabolicMetrics')}</Text>
+                    {/* Metrics Breakdown */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHead}>
+                            <BarChart2 size={16} color={theme.colors.secondary} />
+                            <Text style={styles.sectionTitle}>Metabolic Pulse</Text>
                         </View>
 
-                        {/* Readiness Item */}
-                        <View style={styles.insightCard}>
-                            <View style={styles.metricHeader}>
-                                <Text style={styles.insightTitle}>🎯 {t('readiness')}: {healthScore * 10}</Text>
-                                <View style={styles.improveTag}><Text style={styles.improveTagText}>{t('success')}</Text></View>
-                            </View>
-                            <Text style={styles.insightDescription}>
-                                {t('readinessDesc')}
-                            </Text>
-                            <View style={styles.improveBox}>
-                                <Text style={styles.improveTitle}>🚀 {t('howToImproveReadiness')}</Text>
-                                <Text style={styles.improveText}>{language === 'Korean' ? "가공된 간식 대신 생땅콩이나 베리류를 선택하여 미세 영양소 밀도를 즉시 높여보세요." : "Switch processed snacks for raw nuts or dark berries to increase micronutrient density instantly."}</Text>
-                            </View>
-                        </View>
-
-                        {/* Fuel Item */}
-                        <View style={[styles.insightCard, { marginTop: 16 }]}>
-                            <View style={styles.metricHeader}>
-                                <Text style={styles.insightTitle}>⛽ {t('fuel')}: {Math.round(readiness * 100)}%</Text>
-                                <View style={styles.improveTag}><Text style={styles.improveTagText}>{t('success')}</Text></View>
-                            </View>
-                            <Text style={styles.insightDescription}>
-                                {t('fuelDesc').replace('%{target}', targetKcal.toString())}
-                            </Text>
-                            <View style={styles.improveBox}>
-                                <Text style={styles.improveTitle}>🚀 {t('howToBalanceFuel')}</Text>
-                                <Text style={styles.improveText}>
-                                    {readiness < 0.7 ?
-                                        (language === 'Korean' ? "영양이 부족합니다. 200kcal 정도의 고단백 간식을 추가하세요." : "You're under-fueled. Add a 200kcal high-protein snack.") :
-                                        readiness > 1 ?
-                                            (language === 'Korean' ? "영양 섭취가 초과되었습니다. 다음 4시간 동안은 고식이섬유 저칼로리 음식을 드세요." : "You've exceeded your fuel. Prioritize high-fiber low-kcal foods for the next 4 hours.") :
-                                            (language === 'Korean' ? "완벽한 섭취량입니다. 이대로 유지하세요!" : "Perfectly fueled. Stay the course!")}
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Metabolic Pulse Deep-dive */}
-                    <View style={styles.reportSection}>
-                        <View style={styles.sectionTitleRow}>
-                            <Activity size={18} color="#ef4444" />
-                            <Text style={styles.sectionTitle}>{t('metabolicPulseAnalysis')}</Text>
-                        </View>
-                        <View style={styles.insightCard}>
-                            <Text style={styles.insightTitle}>📈 {t('volatilityCurve')}</Text>
-                            <Text style={styles.insightDescription}>
-                                {t('volatilityDesc')}
-                            </Text>
-                            <View style={styles.improveBox}>
-                                <Text style={styles.improveTitle}>🚀 {t('howToFlattenCurve')}</Text>
-                                <Text style={styles.improveText}>{language === 'Korean' ? "탄수화물보다 식이섬유(채소)를 먼저 섭취하여 포도당 흡수를 늦추고 스파이크를 방지하세요." : "Start meals with fiber (greens) before carbs to slow down glucose absorption and prevent spikes."}</Text>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Chart Anatomy Section */}
-                    <View style={styles.reportSection}>
-                        <View style={styles.sectionTitleRow}>
-                            <BarChart2 size={18} color="#3b82f6" />
-                            <Text style={styles.sectionTitle}>{t('chartIntelligence')}</Text>
-                        </View>
-
-                        <View style={styles.blueprintRow}>
-                            <View style={styles.blueprintVisual}>
-                                <Svg width={140} height={140} viewBox="0 0 140 140">
-                                    <Circle cx="70" cy="70" r="60" stroke="#e2e8f0" strokeWidth="10" fill="none" />
-                                    <AnimatedCircle
-                                        cx="70" cy="70" r="60"
-                                        stroke="#10b981" strokeWidth="10" fill="none"
-                                        strokeDasharray={`${2 * Math.PI * 60}`}
-                                        animatedProps={animatedRingProps}
-                                        strokeLinecap="round" transform="rotate(-90 70 70)"
-                                    />
-                                    <Circle cx="70" cy="70" r="45" stroke="#e2e8f0" strokeWidth="8" fill="none" />
-                                    <AnimatedCircle
-                                        cx="70" cy="70" r="45"
-                                        stroke="#3b82f6" strokeWidth="8" fill="none"
-                                        strokeDasharray={`${2 * Math.PI * 45}`}
-                                        animatedProps={animatedQualityProps}
-                                        strokeLinecap="round" transform="rotate(-90 70 70)"
-                                    />
-                                </Svg>
-                            </View>
-                            <View style={styles.blueprintLegend}>
-                                <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-                                    <Text style={styles.legendText}>{t('quantityCalories')}</Text>
+                        <View style={styles.metricsGrid}>
+                            <BlurView intensity={30} tint="light" style={styles.metricItem}>
+                                <View style={styles.itemHeader}>
+                                    <Target size={14} color={theme.colors.primary} />
+                                    <Text style={styles.itemLabel}>READINESS</Text>
                                 </View>
-                                <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
-                                    <Text style={styles.legendText}>{t('qualityNutrients')}</Text>
-                                </View>
-                                <Text style={styles.legendSubtext}>
-                                    {language === 'Korean' ? `현재 양(Quantity)은 ${Math.round(readiness * 100)}%, 질(Quality)은 ${Math.round(quality * 100)}% 수준입니다.` : `Your quantity is at ${Math.round(readiness * 100)}%, while quality is at ${Math.round(quality * 100)}%.`}
-                                </Text>
-                            </View>
-                        </View>
+                                <Text style={styles.itemValue}>{healthScore * 10}%</Text>
+                                <View style={styles.miniProgress}><View style={[styles.miniFill, { width: `${healthScore * 10}%`, backgroundColor: theme.colors.primary }]} /></View>
+                            </BlurView>
 
-                        <View style={styles.insightCard}>
-                            <Text style={styles.insightTitle}>📐 {t('macroTriangleBalance')}</Text>
-                            <Text style={styles.insightDescription}>
-                                {language === 'Korean' ?
-                                    `내부 삼각형은 영양 밸런스를 추적합니다. 현재 ${carbs > protein + fat ? " 탄수화물" : protein > carbs + fat ? " 단백질" : " 균형 잡힌"} 비율로 치우쳐 있습니다.` :
-                                    `The inner triangle tracks your balance. Currently, you are leaning towards ${carbs > protein + fat ? " Carbs" : protein > carbs + fat ? " Protein" : " a Balanced ratio"}.`}
-                            </Text>
-                            <View style={styles.improveBox}>
-                                <Text style={styles.improveTitle}>🚀 {t('howToCenterTriangle')}</Text>
-                                <Text style={styles.improveText}>
-                                    {carbs > protein + fat ?
-                                        (language === 'Korean' ? "다음 간식으로는 순수 단백질원(계란 흰자, 닭가슴살)을 추가하세요." : "Add a source of pure protein (egg whites, chicken breast) to your next snack.") :
-                                        (language === 'Korean' ? "정말 잘하고 계십니다! 이상적인 대사 건강을 위해 이 밸런스를 유지하세요." : "You're doing great! Maintain this balance for sustained metabolic health.")}
-                                </Text>
-                            </View>
+                            <BlurView intensity={30} tint="light" style={styles.metricItem}>
+                                <View style={styles.itemHeader}>
+                                    <Activity size={14} color={theme.colors.accent} />
+                                    <Text style={styles.itemLabel}>FUEL LEVEL</Text>
+                                </View>
+                                <Text style={styles.itemValue}>{Math.round(readiness * 100)}%</Text>
+                                <View style={styles.miniProgress}><View style={[styles.miniFill, { width: `${Math.min(readiness * 100, 100)}%`, backgroundColor: theme.colors.accent }]} /></View>
+                            </BlurView>
                         </View>
                     </View>
 
-                    {/* How to reach Grade S */}
-                    <View style={styles.reportSection}>
-                        <View style={styles.sectionTitleRow}>
-                            <TrendingUp size={18} color="#f59e0b" />
-                            <Text style={styles.sectionTitle}>{t('goalReachGradeS')}</Text>
+                    {/* Blueprint Visual */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHead}>
+                            <TrendingUp size={16} color="#818cf8" />
+                            <Text style={styles.sectionTitle}>Composition Audit</Text>
                         </View>
-                        <LinearGradient colors={['#fff', '#fffbeb']} style={styles.goalCard}>
-                            <Text style={styles.goalHint}>
-                                {t('reachSLevelHint').replace('%{grade}', grade)}
-                            </Text>
+                        <BlurView intensity={40} tint="light" style={styles.glassCard}>
+                            <View style={styles.blueprintRow}>
+                                <View style={styles.visualContainer}>
+                                    <Svg width={120} height={120} viewBox="0 0 140 140">
+                                        <Circle cx="70" cy="70" r="60" stroke="rgba(255,255,255,0.05)" strokeWidth="10" fill="none" />
+                                        <AnimatedCircle
+                                            cx="70" cy="70" r="60"
+                                            stroke={theme.colors.primary} strokeWidth="10" fill="none"
+                                            strokeDasharray={`${2 * Math.PI * 60}`}
+                                            animatedProps={animatedRingProps}
+                                            strokeLinecap="round" transform="rotate(-90 70 70)"
+                                        />
+                                        <Circle cx="70" cy="70" r="45" stroke="rgba(255,255,255,0.05)" strokeWidth="8" fill="none" />
+                                        <AnimatedCircle
+                                            cx="70" cy="70" r="45"
+                                            stroke={theme.colors.secondary} strokeWidth="8" fill="none"
+                                            strokeDasharray={`${2 * Math.PI * 45}`}
+                                            animatedProps={animatedQualityProps}
+                                            strokeLinecap="round" transform="rotate(-90 70 70)"
+                                        />
+                                    </Svg>
+                                </View>
+                                <View style={styles.legend}>
+                                    <View style={styles.legendItem}>
+                                        <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+                                        <Text style={styles.legendText}>Quantity (Fuel)</Text>
+                                    </View>
+                                    <View style={styles.legendItem}>
+                                        <View style={[styles.legendDot, { backgroundColor: theme.colors.secondary }]} />
+                                        <Text style={styles.legendText}>Quality (Intel)</Text>
+                                    </View>
+                                    <Text style={styles.blueprintVerdict}>
+                                        Balance is {readiness > 0.8 && quality > 0.8 ? 'Optimized' : 'Improving'}.
+                                    </Text>
+                                </View>
+                            </View>
+                        </BlurView>
+                    </View>
+
+                    {/* How to reach S */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHead}>
+                            <Award size={16} color="#fcd34d" />
+                            <Text style={styles.sectionTitle}>Road to Elite Status</Text>
+                        </View>
+                        <LinearGradient colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']} style={styles.goalCard}>
+                            <Text style={styles.goalHint}>To reach <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>Grade S</Text>, focus on these key metabolic drivers:</Text>
                             <View style={styles.checkItem}>
-                                <ShieldCheck size={16} color="#10b981" />
-                                <Text style={styles.checkText}>{t('vegetableDiversity')}</Text>
+                                <ShieldCheck size={18} color={theme.colors.primary} />
+                                <Text style={styles.checkText}>Increase food diversity (Targets: 15+ weekly)</Text>
                             </View>
                             <View style={styles.checkItem}>
-                                <ShieldCheck size={16} color="#10b981" />
-                                <Text style={styles.checkText}>{t('proteinGoal').replace('%{count}', Math.max(20, Math.round(protein * 0.5)).toString())}</Text>
+                                <ShieldCheck size={18} color={theme.colors.primary} />
+                                <Text style={styles.checkText}>Front-load protein for muscle preservation</Text>
                             </View>
                         </LinearGradient>
                     </View>
 
-                    <View style={{ height: 40 }} />
+                    <View style={{ height: 60 }} />
                 </ScrollView>
             </SafeAreaView>
         </View>
@@ -268,38 +215,43 @@ export default function MetabolicReport() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60 },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
-    scrollContent: { padding: 24, paddingBottom: 60 },
-    row: { flexDirection: 'row', alignItems: 'stretch' },
-    heroSection: { alignItems: 'center', marginVertical: 20 },
-    heroIconBox: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: '#fff' },
-    heroHeadline: { fontSize: 32, fontWeight: '900', color: '#0f172a', marginTop: 16 },
-    gradeBadge: { marginTop: 10, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
-    gradeText: { fontSize: 14, fontWeight: '800', color: '#10b981' },
-    reportSection: { marginTop: 32 },
-    sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-    sectionTitle: { fontSize: 16, fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
-    insightCard: { padding: 16, borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
-    insightTitle: { fontSize: 16, fontWeight: '800', color: '#1e293b', marginBottom: 8 },
-    insightDescription: { fontSize: 14, color: '#64748b', lineHeight: 20 },
-    metricHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    improveTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.1)' },
-    improveTagText: { fontSize: 10, fontWeight: '800', color: '#10b981', textTransform: 'uppercase' },
-    improveBox: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
-    improveTitle: { fontSize: 13, fontWeight: '800', color: '#10b981', marginBottom: 4 },
-    improveText: { fontSize: 13, color: '#334155', lineHeight: 18, fontWeight: '500' },
-    blueprintRow: { flexDirection: 'row', alignItems: 'center', gap: 24, marginBottom: 20 },
-    blueprintVisual: { width: 140, height: 140 },
-    blueprintLegend: { flex: 1 },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    container: { flex: 1, backgroundColor: theme.colors.background.primary },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
+    iconBlur: { padding: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    backBtn: {},
+    headerTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.text.primary },
+    scrollContent: { padding: 24, paddingTop: 12 },
+    heroSection: { alignItems: 'center', marginBottom: 32 },
+    heroIconBox: { width: 100, height: 100, borderRadius: 50, padding: 3, backgroundColor: 'rgba(255,255,255,0.1)' },
+    heroBlur: { flex: 1, borderRadius: 47, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    heroHeadline: { fontSize: 32, fontWeight: '900', color: theme.colors.text.primary, marginVertical: 12 },
+    gradeBadge: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    gradeText: { fontSize: 14, fontWeight: '900', color: theme.colors.primary, letterSpacing: 1 },
+    section: { marginBottom: 32 },
+    sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, marginLeft: 4 },
+    sectionTitle: { fontSize: 13, fontWeight: '900', color: theme.colors.text.muted, textTransform: 'uppercase', letterSpacing: 1.5 },
+    glassCard: { borderRadius: 28, padding: 24, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    insightTitle: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary, marginBottom: 8 },
+    insightDesc: { fontSize: 15, color: theme.colors.text.secondary, lineHeight: 22, opacity: 0.9 },
+    adviceBox: { marginTop: 20, padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderLeftWidth: 3, borderLeftColor: theme.colors.primary },
+    adviceTitle: { fontSize: 11, fontWeight: '900', color: theme.colors.primary, marginBottom: 4, letterSpacing: 1 },
+    adviceText: { fontSize: 14, color: theme.colors.text.primary, fontWeight: '600' },
+    metricsGrid: { flexDirection: 'row', gap: 12 },
+    metricItem: { flex: 1, borderRadius: 24, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+    itemLabel: { fontSize: 10, fontWeight: '900', color: theme.colors.text.muted },
+    itemValue: { fontSize: 24, fontWeight: '900', color: theme.colors.text.primary, marginBottom: 12 },
+    miniProgress: { height: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' },
+    miniFill: { height: '100%', borderRadius: 2 },
+    blueprintRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+    visualContainer: { width: 120, height: 120 },
+    legend: { flex: 1 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
     legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { fontSize: 14, fontWeight: '700', color: '#334155' },
-    legendSubtext: { fontSize: 12, color: '#94a3b8', marginTop: 10, lineHeight: 18 },
-    goalCard: { padding: 24, borderRadius: 32, borderWidth: 1, borderColor: '#fef3c7', shadowColor: '#f59e0b', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20 },
-    goalHint: { fontSize: 16, color: '#92400e', marginBottom: 20, lineHeight: 24 },
+    legendText: { fontSize: 14, fontWeight: '700', color: theme.colors.text.secondary },
+    blueprintVerdict: { fontSize: 12, color: theme.colors.text.muted, marginTop: 12, fontStyle: 'italic' },
+    goalCard: { borderRadius: 28, padding: 24, borderWidth: 1, borderColor: theme.colors.glass.border },
+    goalHint: { fontSize: 15, color: theme.colors.text.primary, marginBottom: 20, lineHeight: 22 },
     checkItem: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-    checkText: { fontSize: 14, fontWeight: '600', color: '#451a03' },
+    checkText: { fontSize: 14, fontWeight: '600', color: theme.colors.text.secondary }
 });

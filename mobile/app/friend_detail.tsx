@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { getMealLogs } from '../src/lib/meal_service';
 import { useTranslation } from '../src/lib/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, MessageCircle, BarChart2, Calendar } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
+import { ChevronLeft, MessageCircle, Calendar, User, Zap, Activity, Heart } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { socialService } from '../src/services/social_service';
+import { theme } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -67,101 +68,134 @@ export default function FriendDetailScreen() {
     };
 
     const handleCheer = async () => {
-        if (friendProfile?.phone) {
-            await socialService.inviteViaSMS(friendProfile.phone); // Reusing SMS logic to send a structured cheer message
-            // Wait, inviteViaSMS sends a specific invite message. I should make a generic SMS sender or just use standard Linking.openURL('sms:...')?
-            // socialService.inviteViaSMS uses expo-sms which allows pre-filled message.
-            // Let's stick to a simple alert for MVP saying "Cheered!" or just use the invite function for now if no custom message support in service yet.
-            // Actually, let's just use Linking for a custom message.
-            // Linking.openURL(`sms:${friendProfile.phone}${Platform.OS === 'ios' ? '&' : '?'}body=Great job tracking your meals! 💪`);
-        }
+        // Mock cheer functionality or navigation to chat/SMS
+        // For now, let's just trigger a toast/alert or similar if implemented
     };
 
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#10b981" />
+                <LinearGradient colors={theme.colors.gradients.background as any} style={StyleSheet.absoluteFill} />
+                <ActivityIndicator size="large" color={theme.colors.primary} />
             </View>
         );
     }
 
     return (
         <View style={styles.container}>
-            <LinearGradient colors={['#f0fdf4', '#fff']} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={theme.colors.gradients.background as any} style={StyleSheet.absoluteFill} />
             <SafeAreaView style={{ flex: 1 }}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft size={28} color="#1e293b" />
+                        <BlurView intensity={20} tint="light" style={styles.backBtnBlur}>
+                            <ChevronLeft size={24} color={theme.colors.text.primary} />
+                        </BlurView>
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{friendProfile?.nickname || 'Friend'}'s Log</Text>
-                    <View style={{ width: 40 }} />
+                    <Text style={styles.headerTitle}>{friendProfile?.nickname || friendProfile?.full_name || 'Friend'}</Text>
+                    <View style={{ width: 44 }} />
                 </View>
 
-                <ScrollView contentContainerStyle={styles.scrollContent}>
-                    {/* Profile Header */}
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    {/* Profile Section */}
                     <View style={styles.profileSection}>
-                        <View style={styles.avatarContainer}>
-                            {friendProfile?.avatar_url ? (
-                                <Image source={{ uri: friendProfile.avatar_url }} style={styles.avatar} />
-                            ) : (
-                                <Text style={{ fontSize: 40 }}>👤</Text>
-                            )}
+                        <View style={styles.avatarWrapper}>
+                            <LinearGradient
+                                colors={theme.colors.gradients.primary as any}
+                                style={styles.avatarBorder}
+                            >
+                                <View style={styles.avatarContainer}>
+                                    {friendProfile?.avatar_url ? (
+                                        <Image source={{ uri: friendProfile.avatar_url }} style={styles.avatar} />
+                                    ) : (
+                                        <View style={styles.avatarPlaceholder}>
+                                            <User size={40} color={theme.colors.text.secondary} />
+                                        </View>
+                                    )}
+                                </View>
+                            </LinearGradient>
+                            <View style={styles.activeBadge} />
                         </View>
+
                         <Text style={styles.profileName}>{friendProfile?.full_name || friendProfile?.nickname}</Text>
+
                         <View style={styles.statsRow}>
-                            <View style={styles.statItem}>
+                            <BlurView intensity={30} tint="light" style={styles.statBox}>
+                                <Activity size={18} color={theme.colors.primary} />
                                 <Text style={styles.statValue}>{stats.mealCount}</Text>
                                 <Text style={styles.statLabel}>{t('meals') || 'Meals'}</Text>
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.statItem}>
+                            </BlurView>
+                            <BlurView intensity={30} tint="light" style={styles.statBox}>
+                                <Heart size={18} color={theme.colors.danger} />
                                 <Text style={styles.statValue}>{stats.avgHealth}</Text>
                                 <Text style={styles.statLabel}>Avg Score</Text>
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.statItem}>
+                            </BlurView>
+                            <BlurView intensity={30} tint="light" style={styles.statBox}>
+                                <Zap size={18} color={theme.colors.accent} />
                                 <Text style={styles.statValue}>{(stats.totalKcal / 7).toFixed(0)}</Text>
                                 <Text style={styles.statLabel}>Avg Kcal</Text>
-                            </View>
+                            </BlurView>
                         </View>
 
                         <TouchableOpacity style={styles.cheerBtn} onPress={handleCheer}>
-                            <MessageCircle size={20} color="#fff" />
-                            <Text style={styles.cheerText}>{t('cheer') || 'Send Cheer'}</Text>
+                            <LinearGradient
+                                colors={theme.colors.gradients.primary as any}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.cheerGradient}
+                            >
+                                <MessageCircle size={20} color={theme.colors.text.inverse} />
+                                <Text style={styles.cheerText}>{t('cheer') || 'Send Cheer'}</Text>
+                            </LinearGradient>
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.sectionTitle}>{t('recentMealsTitle') || 'Recent Meals (7 Days)'}</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>{t('recentMealsTitle') || 'Recent Activity'}</Text>
+                        <Text style={styles.sectionSub}>Past 7 Days</Text>
+                    </View>
 
                     {logs.length === 0 ? (
-                        <View style={styles.emptyState}>
-                            <Calendar size={48} color="#cbd5e1" />
-                            <Text style={styles.emptyText}>No meals logged recently.</Text>
-                        </View>
+                        <BlurView intensity={20} tint="light" style={styles.emptyCard}>
+                            <Calendar size={48} color={theme.colors.text.muted} />
+                            <Text style={styles.emptyText}>No recent activity shared</Text>
+                        </BlurView>
                     ) : (
                         logs.map((log) => (
-                            <View key={log.id} style={styles.logCard}>
+                            <BlurView key={log.id} intensity={40} tint="light" style={styles.logCard}>
                                 <View style={styles.logImageWrapper}>
                                     {log.image_url ? (
                                         <Image source={{ uri: log.image_url }} style={styles.logImage} />
                                     ) : (
-                                        <Text style={{ fontSize: 24 }}>🍱</Text>
+                                        <LinearGradient
+                                            colors={['#334155', '#1e293b']}
+                                            style={styles.logImagePlaceholder}
+                                        >
+                                            <Activity size={24} color={theme.colors.text.muted} />
+                                        </LinearGradient>
                                     )}
+                                    <View style={styles.scoreBadge}>
+                                        <Text style={styles.scoreText}>{log.health_score}</Text>
+                                    </View>
                                 </View>
                                 <View style={styles.logContent}>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                        <Text style={styles.logName}>{log.food_name}</Text>
+                                    <View style={styles.logHeader}>
+                                        <Text style={styles.logName} numberOfLines={1}>{log.food_name}</Text>
                                         <Text style={styles.logTime}>
                                             {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                         </Text>
                                     </View>
-                                    <Text style={styles.logKcal}>{log.calories} kcal • Score: {log.health_score}</Text>
+                                    <View style={styles.logDetails}>
+                                        <View style={styles.kcalBadge}>
+                                            <Text style={styles.kcalText}>{log.calories} kcal</Text>
+                                        </View>
+                                        <Text style={styles.mealType}>{log.meal_type}</Text>
+                                    </View>
                                 </View>
-                            </View>
+                            </BlurView>
                         ))
                     )}
 
-                    <View style={{ height: 40 }} />
+                    <View style={{ height: 60 }} />
                 </ScrollView>
             </SafeAreaView>
         </View>
@@ -169,31 +203,45 @@ export default function FriendDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: theme.colors.background.primary },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10 },
-    backBtn: { padding: 4 },
-    headerTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-    scrollContent: { padding: 20 },
-    profileSection: { alignItems: 'center', marginBottom: 30 },
-    avatarContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', marginBottom: 12, overflow: 'hidden' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
+    backBtn: { borderRadius: 12, overflow: 'hidden' },
+    backBtnBlur: { padding: 10, backgroundColor: 'rgba(255,255,255,0.05)' },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.text.primary },
+    scrollContent: { padding: 24 },
+    profileSection: { alignItems: 'center', marginBottom: 32 },
+    avatarWrapper: { position: 'relative', marginBottom: 16 },
+    avatarBorder: { padding: 3, borderRadius: 60 },
+    avatarContainer: { width: 110, height: 110, borderRadius: 55, backgroundColor: theme.colors.background.secondary, overflow: 'hidden' },
     avatar: { width: '100%', height: '100%' },
-    profileName: { fontSize: 24, fontWeight: '800', color: '#1e293b', marginBottom: 16 },
-    statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 20, padding: 16, width: '100%', justifyContent: 'space-around', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 4 },
-    statItem: { alignItems: 'center' },
-    statValue: { fontSize: 20, fontWeight: '800', color: '#10b981' },
-    statLabel: { fontSize: 12, color: '#64748b', fontWeight: 'bold' },
-    divider: { width: 1, height: 30, backgroundColor: '#e2e8f0' },
-    cheerBtn: { marginTop: 24, flexDirection: 'row', alignItems: 'center', backgroundColor: '#3b82f6', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, gap: 8, shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 10 },
-    cheerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginBottom: 16 },
-    logCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, padding: 12, marginBottom: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-    logImageWrapper: { width: 60, height: 60, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    avatarPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    activeBadge: { position: 'absolute', bottom: 5, right: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: theme.colors.primary, borderWidth: 3, borderColor: theme.colors.background.primary },
+    profileName: { fontSize: 26, fontWeight: '900', color: theme.colors.text.primary, marginBottom: 24 },
+    statsRow: { flexDirection: 'row', gap: 12, width: '100%', justifyContent: 'center' },
+    statBox: { flex: 1, padding: 16, borderRadius: 24, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    statValue: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary, marginVertical: 4 },
+    statLabel: { fontSize: 10, color: theme.colors.text.muted, fontWeight: 'bold', textTransform: 'uppercase' },
+    cheerBtn: { marginTop: 24, width: '100%', borderRadius: 16, overflow: 'hidden', elevation: 4, shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+    cheerGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 10 },
+    cheerText: { color: theme.colors.text.inverse, fontWeight: '800', fontSize: 16 },
+    sectionHeader: { marginBottom: 16, paddingHorizontal: 4 },
+    sectionTitle: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary },
+    sectionSub: { fontSize: 12, color: theme.colors.text.muted, marginTop: 2 },
+    logCard: { flexDirection: 'row', borderRadius: 24, padding: 12, marginBottom: 12, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    logImageWrapper: { width: 70, height: 70, borderRadius: 18, position: 'relative', overflow: 'hidden' },
     logImage: { width: '100%', height: '100%' },
-    logContent: { flex: 1, marginLeft: 12, justifyContent: 'center' },
-    logName: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
-    logTime: { fontSize: 12, color: '#94a3b8' },
-    logKcal: { fontSize: 14, color: '#64748b', marginTop: 4 },
-    emptyState: { alignItems: 'center', padding: 40 },
-    emptyText: { color: '#94a3b8', fontSize: 16, marginTop: 10 }
+    logImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    scoreBadge: { position: 'absolute', top: 4, left: 4, backgroundColor: 'rgba(16, 185, 129, 0.9)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+    scoreText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+    logContent: { flex: 1, marginLeft: 16 },
+    logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    logName: { fontSize: 16, fontWeight: '700', color: theme.colors.text.primary, flex: 1, marginRight: 8 },
+    logTime: { fontSize: 12, color: theme.colors.text.muted },
+    logDetails: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    kcalBadge: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    kcalText: { fontSize: 12, color: theme.colors.primary, fontWeight: '700' },
+    mealType: { fontSize: 12, color: theme.colors.text.muted },
+    emptyCard: { padding: 48, borderRadius: 32, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
+    emptyText: { color: theme.colors.text.muted, fontSize: 15, marginTop: 12, fontWeight: '600' }
 });

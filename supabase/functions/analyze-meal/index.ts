@@ -18,7 +18,7 @@ serve(async (req) => {
 
     try {
         const body = await req.json();
-        let { base64Image, userProfile } = body;
+        let { base64Image, userProfile, location } = body;
 
         if (!base64Image) {
             return new Response(JSON.stringify({ error: 'Image data is missing' }), {
@@ -56,7 +56,16 @@ serve(async (req) => {
             userInfoPrompt += ` Current State: Readiness ${readinessScore}/100, Steps ${steps}.`;
         }
 
-        const promptText = `Analyze this image. ${userInfoPrompt}
+        let locationContext = '';
+        if (location) {
+            const { lat, lng, name, address } = location;
+            locationContext = `User Location: Lat ${lat}, Lng ${lng}.`;
+            if (name) locationContext += ` Place Name: "${name}".`;
+            if (address) locationContext += ` Address: "${address}".`;
+            locationContext += " If the Place Name suggests a restaurant or food establishment, and the image looks like food served there, please confirm the restaurant name in the 'restaurant_name' field. If the Place Name is just a street address or seemingly unrelated, ignore it for naming.";
+        }
+
+        const promptText = `Analyze this image. ${userInfoPrompt} ${locationContext}
     1. Determine if this image contains primarily edible food or drinks.
     2. If NOT food, set "is_food": false.
     3. If IS food, provide TWO sets of nutritional data:
@@ -67,6 +76,7 @@ serve(async (req) => {
     {
       "is_food": boolean,
       "food_name": "short name",
+      "restaurant_name": "Optional: Name of restaurant if identified using location/image",
       "total": {
         "calories": number,
         "macros": { "protein": "10g", "fat": "5g", "carbs": "20g", "sugar": "2g", "fiber": "1g" }

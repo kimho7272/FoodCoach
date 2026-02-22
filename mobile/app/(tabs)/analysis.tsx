@@ -83,7 +83,41 @@ export default function AnalysisScreen() {
                 };
             }
 
-            const data = await analyzeMealImage(base64, userProfile);
+            // Resolve Location if missing (e.g. initial load)
+            let locContext = location;
+            if (!locContext) {
+                try {
+                    const loc = await locationService.getCurrentLocation();
+                    if (loc) {
+                        const place = await locationService.getPlaceName(loc.latitude, loc.longitude);
+                        locContext = { ...place, lat: loc.latitude, lng: loc.longitude };
+                        setLocation(locContext);
+                    }
+                } catch (e) {
+                    console.log("Location fetch failed during analysis init", e);
+                }
+            }
+
+            // Prepare location for API
+            const apiLocation = locContext ? {
+                lat: locContext.lat,
+                lng: locContext.lng,
+                name: locContext.name,
+                address: locContext.address
+            } : undefined;
+
+            const data = await analyzeMealImage(base64, userProfile, apiLocation);
+
+            // If AI identified a restaurant name, override/set the location name
+            if (data.restaurant_name) {
+                if (locContext) {
+                    setLocation({ ...locContext, name: data.restaurant_name });
+                } else {
+                    // Fallback if location services were off but AI found a name (e.g. from logo)
+                    setLocation({ lat: 0, lng: 0, address: null, name: data.restaurant_name });
+                }
+            }
+
             setResult(data);
             setSelectedMealType(data.category);
         } catch (error) {

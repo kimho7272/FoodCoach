@@ -17,6 +17,7 @@ import { Camera as CameraIcon, Image as ImageIcon, X as CloseIcon } from 'lucide
 
 import { HealthStatsCard } from '../../src/components/HealthStatsCard';
 import { FriendsCard } from '../../src/components/FriendsCard';
+import { theme } from '../../src/constants/theme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -60,7 +61,7 @@ export default function HomeScreen() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single() as { data: any };
                 setUserProfile(profile);
 
                 const { data: mealLogs } = await supabase
@@ -69,14 +70,14 @@ export default function HomeScreen() {
                     .eq('user_id', user.id)
                     .order('created_at', { ascending: false });
 
-                let sortedLogs = mealLogs || [];
+                let sortedLogs: any[] = mealLogs || [];
                 const todayForOrder = new Date().toDateString();
                 const orderKey = `meal_order_${user.id}_${todayForOrder}`;
                 const savedOrder = await AsyncStorage.getItem(orderKey);
 
                 if (savedOrder && sortedLogs.length > 0) {
                     const idOrder = JSON.parse(savedOrder);
-                    sortedLogs = [...sortedLogs].sort((a, b) => {
+                    sortedLogs = [...sortedLogs].sort((a: any, b: any) => {
                         const dateA = new Date(a.created_at).toDateString();
                         const dateB = new Date(b.created_at).toDateString();
                         if (dateA === todayForOrder && dateB === todayForOrder) {
@@ -119,7 +120,7 @@ export default function HomeScreen() {
 
                 // Calculate today's totals
                 const today = new Date().toDateString();
-                const todayLogs = (mealLogs || []).filter(log => new Date(log.created_at).toDateString() === today);
+                const todayLogs = ((mealLogs as any[]) || []).filter((log: any) => new Date(log.created_at).toDateString() === today);
 
                 const stats = todayLogs.reduce((acc: any, log: any) => {
                     acc.calories += log.calories || 0;
@@ -282,7 +283,7 @@ export default function HomeScreen() {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={['#fef3c7', '#dcfce7', '#d1fae5', '#e0e7ff', '#fae8ff']}
+                colors={theme.colors.gradients.background as any}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
@@ -338,7 +339,7 @@ export default function HomeScreen() {
                                 onPress={() => setShowLogOptions(true)}
                             >
                                 <View style={styles.addIconCircle}>
-                                    <Plus size={24} color="#64748b" />
+                                    <Plus size={24} color={theme.colors.text.muted} />
                                 </View>
                                 <Text style={styles.addMealLabel}>{t('logMeal')}</Text>
                             </TouchableOpacity>
@@ -388,10 +389,10 @@ export default function HomeScreen() {
                             onPress={() => setSelectedMacro('Calories')}
                         >
                             <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                                <Activity size={16} color="#ef4444" />
+                                <Activity size={16} color={theme.colors.danger} />
                                 <Text style={styles.macroLabel}>{t('calories') || 'Calories'}</Text>
                                 <Text style={styles.macroValue}>
-                                    {totals.calories} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>kcal</Text>
+                                    {totals.calories} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>kcal</Text>
                                 </Text>
                             </BlurView>
                         </TouchableOpacity>
@@ -401,10 +402,10 @@ export default function HomeScreen() {
                             onPress={() => setSelectedMacro('Carbs')}
                         >
                             <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(251, 146, 60, 0.1)' }]}>
-                                <BarChart2 size={16} color="#fb923c" />
+                                <BarChart2 size={16} color={theme.colors.accent} />
                                 <Text style={styles.macroLabel}>{t('carbs')}</Text>
                                 <Text style={styles.macroValue}>
-                                    {totals.carbs} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>g</Text>
+                                    {totals.carbs} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>g</Text>
                                 </Text>
                             </BlurView>
                         </TouchableOpacity>
@@ -414,10 +415,10 @@ export default function HomeScreen() {
                             onPress={() => setSelectedMacro('Protein')}
                         >
                             <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                                <Zap size={16} color="#10b981" />
+                                <Zap size={16} color={theme.colors.primary} />
                                 <Text style={styles.macroLabel}>{t('protein')}</Text>
                                 <Text style={styles.macroValue}>
-                                    {totals.protein} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>g</Text>
+                                    {totals.protein} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>g</Text>
                                 </Text>
                             </BlurView>
                         </TouchableOpacity>
@@ -427,10 +428,10 @@ export default function HomeScreen() {
                             onPress={() => setSelectedMacro('Fats')}
                         >
                             <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                                <Flame size={16} color="#6366f1" />
+                                <Flame size={16} color={theme.colors.secondary} />
                                 <Text style={styles.macroLabel}>{t('fat')}</Text>
                                 <Text style={styles.macroValue}>
-                                    {totals.fat} <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: 'bold' }}>g</Text>
+                                    {totals.fat} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>g</Text>
                                 </Text>
                             </BlurView>
                         </TouchableOpacity>
@@ -455,7 +456,7 @@ export default function HomeScreen() {
                         }}
                     >
                         <View>
-                            <Text style={[styles.sectionTitle, { fontSize: 22, color: '#0f172a' }]}>{getHeadline()}</Text>
+                            <Text style={[styles.sectionTitle, { fontSize: 22 }]}>{getHeadline()}</Text>
                         </View>
                         <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' }}>
                             <Text style={{ fontSize: 10, fontWeight: '800', color: '#059669' }}>{t('gradeLabel')}: {totals.healthScore >= 8 ? 'S' : totals.healthScore >= 6 ? 'A' : 'B'}</Text>
@@ -486,10 +487,10 @@ export default function HomeScreen() {
                             <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, animatedBreathStyle]}>
                                 <View style={{ flex: 1 }}>
                                     <View style={{ padding: 10 }}>
-                                        <Text style={{ fontSize: 10, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.5 }}>{t('readinessScore')}</Text>
+                                        <Text style={{ fontSize: 10, fontWeight: '900', color: theme.colors.text.secondary, textTransform: 'uppercase', letterSpacing: 1.5 }}>{t('readinessScore')}</Text>
                                         <TourTarget id="readiness_score" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-                                            <Text style={{ fontSize: 48, fontWeight: '900', color: '#0f172a' }}>{Math.round(totals.healthScore * 10)}</Text>
-                                            <TrendingUp size={18} color="#10b981" style={{ marginBottom: 12 }} />
+                                            <Text style={{ fontSize: 48, fontWeight: '900', color: theme.colors.text.primary }}>{Math.round(totals.healthScore * 10)}</Text>
+                                            <TrendingUp size={18} color={theme.colors.primary} style={{ marginBottom: 12 }} />
                                         </TourTarget>
 
                                         {/* Metabolic Pulse (Area Chart) */}
@@ -520,9 +521,9 @@ export default function HomeScreen() {
 
                                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 }}>
                                             <View style={{ width: 40, height: 4, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 2, overflow: 'hidden' }}>
-                                                <View style={{ width: `${percentage * 100}%`, height: '100%', backgroundColor: '#10b981' }} />
+                                                <View style={{ width: `${percentage * 100}%`, height: '100%', backgroundColor: theme.colors.primary }} />
                                             </View>
-                                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#64748b' }}>{Math.round(percentage * 100)}% {t('fuelLabel')}</Text>
+                                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.colors.text.muted }}>{Math.round(percentage * 100)}% {t('fuelLabel')}</Text>
                                         </View>
                                     </View>
                                 </View>
@@ -532,12 +533,12 @@ export default function HomeScreen() {
                                     <Svg width={140} height={140} viewBox="0 0 140 140">
                                         <Defs>
                                             <SvgGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <Stop offset="0%" stopColor="#10b981" />
-                                                <Stop offset="100%" stopColor="#34d399" />
+                                                <Stop offset="0%" stopColor={theme.colors.primary} />
+                                                <Stop offset="100%" stopColor="#34D399" />
                                             </SvgGradient>
                                             <SvgGradient id="qualityGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <Stop offset="0%" stopColor="#3b82f6" />
-                                                <Stop offset="100%" stopColor="#60a5fa" />
+                                                <Stop offset="0%" stopColor={theme.colors.secondary} />
+                                                <Stop offset="100%" stopColor="#818CF8" />
                                             </SvgGradient>
                                         </Defs>
 
@@ -610,7 +611,7 @@ export default function HomeScreen() {
                         <View style={styles.modalHeader}>
                             <View>
                                 <Text style={styles.modalTitle}>{String(selectedMacro)} {t('breakdown')}</Text>
-                                <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '600', marginTop: 4 }}>
+                                <Text style={{ fontSize: 13, color: theme.colors.text.muted, fontWeight: '600', marginTop: 4 }}>
                                     {language === 'Korean' ? '오늘의 섭취량 분석' : "Today's Intake Analysis"}
                                 </Text>
                             </View>
@@ -619,12 +620,12 @@ export default function HomeScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <Text style={{ fontSize: 32, fontWeight: '900', color: '#1e293b', marginBottom: 20 }}>
+                        <Text style={{ fontSize: 32, fontWeight: '900', color: theme.colors.text.primary, marginBottom: 20 }}>
                             {selectedMacro === 'Calories' ? totals.calories :
                                 selectedMacro === 'Carbs' ? totals.carbs :
                                     selectedMacro === 'Protein' ? totals.protein :
                                         totals.fat}
-                            <Text style={{ fontSize: 16, color: '#94a3b8', fontWeight: 'bold' }}>
+                            <Text style={{ fontSize: 16, color: theme.colors.text.secondary, fontWeight: 'bold' }}>
                                 {selectedMacro === 'Calories' ? ' kcal' : ' g'}
                             </Text>
                         </Text>
@@ -674,17 +675,17 @@ export default function HomeScreen() {
                                                             {new Date(log.created_at).toLocaleTimeString(language === 'Korean' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                                                         </Text>
                                                     </View>
-                                                    <Text style={styles.breakdownValue}>{numericValue} <Text style={{ fontSize: 12, color: '#94a3b8' }}>{selectedMacro === 'Calories' ? 'kcal' : 'g'}</Text></Text>
+                                                    <Text style={styles.breakdownValue}>{numericValue} <Text style={{ fontSize: 12, color: theme.colors.text.secondary }}>{selectedMacro === 'Calories' ? 'kcal' : 'g'}</Text></Text>
                                                 </View>
                                                 {/* Visual Bar */}
-                                                <View style={{ height: 6, backgroundColor: '#f1f5f9', borderRadius: 3, marginTop: 8, width: '100%', overflow: 'hidden' }}>
+                                                <View style={{ height: 6, backgroundColor: theme.colors.background.secondary, borderRadius: 3, marginTop: 8, width: '100%', overflow: 'hidden' }}>
                                                     <View style={{
                                                         height: '100%',
                                                         width: `${percentageShare * 100}%`,
                                                         backgroundColor:
-                                                            selectedMacro === 'Calories' ? '#ef4444' :
-                                                                selectedMacro === 'Carbs' ? '#fb923c' :
-                                                                    selectedMacro === 'Protein' ? '#10b981' : '#6366f1',
+                                                            selectedMacro === 'Calories' ? theme.colors.danger :
+                                                                selectedMacro === 'Carbs' ? theme.colors.accent :
+                                                                    selectedMacro === 'Protein' ? theme.colors.primary : theme.colors.secondary,
                                                         borderRadius: 3
                                                     }} />
                                                 </View>
@@ -713,7 +714,7 @@ export default function HomeScreen() {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>{t('logMeal')}</Text>
                             <TouchableOpacity onPress={() => setShowLogOptions(false)} style={styles.closeBtn}>
-                                <CloseIcon size={24} color="#64748b" />
+                                <CloseIcon size={24} color={theme.colors.text.muted} />
                             </TouchableOpacity>
                         </View>
 
@@ -726,7 +727,7 @@ export default function HomeScreen() {
                                 }}
                             >
                                 <View style={[styles.selectionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                                    <CameraIcon size={24} color="#10b981" />
+                                    <CameraIcon size={24} color={theme.colors.primary} />
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.selectionTitle}>{t('takePhoto')}</Text>
@@ -739,7 +740,7 @@ export default function HomeScreen() {
                                 onPress={handlePickImage}
                             >
                                 <View style={[styles.selectionIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-                                    <ImageIcon size={24} color="#3b82f6" />
+                                    <ImageIcon size={24} color={theme.colors.secondary} />
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.selectionTitle}>{t('chooseGallery')}</Text>
@@ -757,7 +758,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: theme.colors.background.primary },
     safeArea: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingTop: 20 },
     header: {
@@ -771,111 +772,107 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#fff',
-        borderWidth: 2,
-        borderColor: '#fff',
+        backgroundColor: theme.colors.glass.card,
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
     },
     avatar: { width: '100%', height: '100%', borderRadius: 27 },
     avatarEmoji: { fontSize: 24 },
     userTextContainer: { marginLeft: 10 },
-    dateText: { fontSize: 12, color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
-    greetingText: { fontSize: 16, color: '#1e293b', fontWeight: '700' },
+    dateText: { fontSize: 12, color: theme.colors.text.muted, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
+    greetingText: { fontSize: 16, color: theme.colors.text.primary, fontWeight: '700' },
     streakBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.4)',
+        backgroundColor: theme.colors.glass.highlight,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
+        borderColor: theme.colors.glass.border,
     },
-    streakLabel: { fontSize: 12, fontWeight: 'bold', color: '#f97316', marginRight: 6 },
-    streakCountBox: { backgroundColor: '#ffedd5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
-    streakCount: { color: '#ea580c', fontWeight: 'bold', fontSize: 12 },
-    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
+    streakLabel: { fontSize: 12, fontWeight: 'bold', color: theme.colors.accent, marginRight: 6 },
+    streakCountBox: { backgroundColor: 'rgba(245, 158, 11, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }, // Amber tint
+    streakCount: { color: theme.colors.accent, fontWeight: 'bold', fontSize: 12 },
+    sectionTitle: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    seeAllText: { fontSize: 13, fontWeight: '700', color: '#10b981' },
+    seeAllText: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
     summaryCard: {
-        backgroundColor: 'rgba(255,255,255,0.5)',
+        backgroundColor: theme.colors.glass.card,
         borderRadius: 24,
         padding: 16,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
+        borderColor: theme.colors.glass.border,
     },
-    glassCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
+    glassCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
     glassCardInner: { padding: 20 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     chartMock: { height: 80, width: 60, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
     bar: { width: 10, borderRadius: 5 },
     ringContainer: { alignItems: 'center', justifyContent: 'center' },
     ringCenterText: { position: 'absolute', alignItems: 'center' },
-    kcalValue: { fontSize: 24, fontWeight: '800', color: '#10b981' },
-    kcalTarget: { fontSize: 10, color: '#94a3b8', fontWeight: 'bold' },
+    kcalValue: { fontSize: 24, fontWeight: '800', color: theme.colors.primary },
+    kcalTarget: { fontSize: 10, color: theme.colors.text.muted, fontWeight: 'bold' },
     statusBox: { alignItems: 'center' },
-    statusIcon: { backgroundColor: '#dcfce7', padding: 10, borderRadius: 16, marginBottom: 4 },
-    statusText: { fontSize: 10, color: '#10b981', fontWeight: 'bold' },
+    statusIcon: { backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 10, borderRadius: 16, marginBottom: 4 }, // Emerald tint
+    statusText: { fontSize: 10, color: theme.colors.primary, fontWeight: 'bold' },
     macroRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-    macroCard: { flex: 1, padding: 12, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center' },
-    macroLabel: { fontSize: 9, color: '#64748b', fontWeight: '800', marginTop: 4 },
-    macroValue: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
-    macroPercent: { fontSize: 10, color: '#94a3b8', fontWeight: 'bold' },
+    macroCard: { flex: 1, padding: 12, borderRadius: 20, borderWidth: 1, borderColor: theme.colors.glass.border, alignItems: 'center' },
+    macroLabel: { fontSize: 9, color: theme.colors.text.muted, fontWeight: '800', marginTop: 4 },
+    macroValue: { fontSize: 14, fontWeight: '700', color: theme.colors.text.primary },
+    macroPercent: { fontSize: 10, color: theme.colors.text.muted, fontWeight: 'bold' },
     mealSlider: { marginHorizontal: -24, paddingLeft: 24 },
-    mealCard: { width: 260, height: 140, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.4)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', marginRight: 16, overflow: 'hidden' },
+    mealCard: { width: 260, height: 140, borderRadius: 32, backgroundColor: theme.colors.glass.card, borderWidth: 1, borderColor: theme.colors.glass.border, marginRight: 16, overflow: 'hidden' },
     mealCardContent: { flex: 1, flexDirection: 'row' },
     mealInfo: { flex: 1, padding: 20, justifyContent: 'center' },
-    mealType: { fontSize: 10, color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
-    mealName: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
-    mealKcal: { fontSize: 14, fontWeight: '700', color: '#10b981', marginTop: 2 },
-    mealTime: { fontSize: 10, color: '#94a3b8', marginTop: 10 },
-    mealImagePlaceholder: { width: 100, backgroundColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    mealType: { fontSize: 10, color: theme.colors.text.muted, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
+    mealName: { fontSize: 16, fontWeight: '700', color: theme.colors.text.primary },
+    mealKcal: { fontSize: 14, fontWeight: '700', color: theme.colors.primary, marginTop: 2 },
+    mealTime: { fontSize: 10, color: theme.colors.text.muted, marginTop: 10 },
+    mealImagePlaceholder: { width: 100, backgroundColor: theme.colors.glass.highlight, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     mealImage: { width: '100%', height: '100%' },
     mealEmoji: { fontSize: 40 },
-    addMealCard: { width: 140, height: 140, borderRadius: 32, borderStyle: 'dashed', borderWidth: 2, borderColor: '#94a3b8', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-    addIconCircle: { backgroundColor: '#fff', padding: 12, borderRadius: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 5 },
-    addMealLabel: { fontSize: 12, fontWeight: 'bold', color: '#64748b', marginTop: 10 },
+    addMealCard: { width: 140, height: 140, borderRadius: 32, borderStyle: 'dashed', borderWidth: 2, borderColor: theme.colors.glass.border, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+    addIconCircle: { backgroundColor: theme.colors.glass.card, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.glass.border },
+    addMealLabel: { fontSize: 12, fontWeight: 'bold', color: theme.colors.text.muted, marginTop: 10 },
     activityCard: { marginBottom: 30 },
     activityInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    activityIcon: { backgroundColor: 'rgba(255,255,255,0.6)', padding: 10, borderRadius: 18 },
+    activityIcon: { backgroundColor: theme.colors.glass.highlight, padding: 10, borderRadius: 18 },
     activityTextContainer: { flex: 1, marginLeft: 16 },
-    activityText: { fontSize: 14, fontWeight: '600', color: '#1e293b', lineHeight: 20 },
-    goBtn: { backgroundColor: '#f97316', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+    activityText: { fontSize: 14, fontWeight: '600', color: theme.colors.text.primary, lineHeight: 20 },
+    goBtn: { backgroundColor: theme.colors.accent, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
     goBtnTxt: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
     navigationWrapper: { position: 'absolute', bottom: 30, left: 24, right: 24, height: 80, shadowColor: '#000', shadowOffset: { width: 0, height: 15 }, shadowOpacity: 0.1, shadowRadius: 20 },
-    navigationBlur: { flex: 1, borderRadius: 40, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
+    navigationBlur: { flex: 1, borderRadius: 40, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.glass.border },
     navInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15 },
-    cameraBtn: { width: 60, height: 60, borderRadius: 30, overflow: 'hidden', shadowColor: '#10b981', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.4, shadowRadius: 10 },
+    cameraBtn: { width: 60, height: 60, borderRadius: 30, overflow: 'hidden', shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.4, shadowRadius: 10 },
     cameraGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     navItem: { alignItems: 'center', flex: 1 },
-    navLabel: { fontSize: 10, color: '#64748b', fontWeight: 'bold', marginTop: 4 },
+    navLabel: { fontSize: 10, color: theme.colors.text.muted, fontWeight: 'bold', marginTop: 4 },
     macroTouch: { flex: 1 },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, minHeight: 400 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+    modalContent: { backgroundColor: theme.colors.background.secondary, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, minHeight: 400, borderWidth: 1, borderColor: theme.colors.glass.border },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 22, fontWeight: '800', color: '#1e293b' },
+    modalTitle: { fontSize: 22, fontWeight: '800', color: theme.colors.text.primary },
     closeBtn: { padding: 4 },
-    closeBtnText: { fontSize: 24, color: '#64748b', fontWeight: 'bold' },
+    closeBtnText: { fontSize: 24, color: theme.colors.text.muted, fontWeight: 'bold' },
     breakdownList: { marginTop: 10 },
-    breakdownItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    breakdownItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: theme.colors.glass.border },
     breakdownLeft: { flex: 1 },
-    breakdownName: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
-    breakdownTime: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
-    breakdownValue: { fontSize: 18, fontWeight: '800', color: '#10b981' },
+    breakdownName: { fontSize: 16, fontWeight: '700', color: theme.colors.text.primary },
+    breakdownTime: { fontSize: 12, color: theme.colors.text.muted, marginTop: 2 },
+    breakdownValue: { fontSize: 18, fontWeight: '800', color: theme.colors.primary },
     selectionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: '#f8fafc',
+        backgroundColor: theme.colors.glass.card,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#f1f5f9',
+        borderColor: theme.colors.glass.border,
         gap: 16,
     },
     selectionIcon: {
@@ -888,11 +885,11 @@ const styles = StyleSheet.create({
     selectionTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#1e293b',
+        color: theme.colors.text.primary,
     },
     selectionDesc: {
         fontSize: 12,
-        color: '#64748b',
+        color: theme.colors.text.muted,
         marginTop: 2,
     },
 });
