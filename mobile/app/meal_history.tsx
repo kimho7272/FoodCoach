@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Calendar, Trash2, ArrowUp, ChevronRight, Flame, Zap, BarChart2, MapPin, ThumbsUp, ZoomIn, X } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
-import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName } from '../src/lib/meal_service';
+import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName, updateMealLogLocation } from '../src/lib/meal_service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAlert } from '../src/context/AlertContext';
 import ImageView from 'react-native-image-viewing';
@@ -15,6 +15,143 @@ import { theme } from '../src/constants/theme';
 const { width } = Dimensions.get('window');
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+interface MealCardProps {
+    item: any;
+    isSelected: boolean;
+    isFavorite: boolean;
+    updatingId: string | null;
+    editingId: string | null;
+    editValue: string;
+    editingLocId: string | null;
+    editLocValue: string;
+    onDelete: (id: string) => void;
+    onUpdateCategory: (id: string, category: string) => void;
+    onUpdateName: (id: string, name: string) => void;
+    onUpdateLocation: (id: string, loc: string) => void;
+    onSetEditingId: (id: string | null) => void;
+    onSetEditValue: (val: string) => void;
+    onSetEditingLocId: (id: string | null) => void;
+    onSetEditLocValue: (val: string) => void;
+    onToggleFavorite: (id: string) => void;
+    onZoomImage: (url: string) => void;
+    onShowCategoryPicker: (id: string) => void;
+    onStartEdit: (id: string, y: number) => void;
+}
+
+const MealCard = React.memo(({
+    item, isSelected, isFavorite, updatingId, editingId, editValue,
+    editingLocId, editLocValue, onDelete, onUpdateName, onUpdateLocation,
+    onSetEditingId, onSetEditValue, onSetEditingLocId, onSetEditLocValue,
+    onToggleFavorite, onZoomImage, onShowCategoryPicker, onStartEdit
+}: MealCardProps) => {
+    const cardY = useRef(0);
+
+    return (
+        <BlurView
+            intensity={40}
+            tint="light"
+            style={[styles.mealCard, isSelected && styles.mealCardSelected]}
+            onLayout={(e) => {
+                cardY.current = e.nativeEvent.layout.y;
+            }}
+        >
+            <View style={styles.cardHeader}>
+                <View style={styles.headerLeft}>
+                    <TouchableOpacity onPress={() => onShowCategoryPicker(item.id)} style={styles.typeBadge}>
+                        <Text style={styles.typeText}>{item.meal_type}</Text>
+                        <ChevronRight size={10} color={theme.colors.text.secondary} />
+                    </TouchableOpacity>
+                    <Text style={styles.timeText}>
+                        {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                </View>
+                <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteBtn}>
+                    <Trash2 size={16} color="#f87171" />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.mealMain}>
+                <TouchableOpacity style={styles.imageBox} onPress={() => item.image_url && onZoomImage(item.image_url)}>
+                    {item.image_url ? (
+                        <>
+                            <Image source={{ uri: item.image_url }} style={styles.mealImg} />
+                            <View style={styles.zoomIcon}><ZoomIn size={12} color="#fff" /></View>
+                        </>
+                    ) : (
+                        <View style={styles.imgPlaceholder}><Text style={{ fontSize: 24 }}>🍱</Text></View>
+                    )}
+                </TouchableOpacity>
+
+                <View style={styles.mealInfo}>
+                    {editingId === item.id ? (
+                        <TextInput
+                            style={styles.nameInput}
+                            value={editValue}
+                            onChangeText={onSetEditValue}
+                            onBlur={() => onUpdateName(item.id, editValue)}
+                            onSubmitEditing={() => onUpdateName(item.id, editValue)}
+                            autoFocus
+                        />
+                    ) : (
+                        <TouchableOpacity onPress={() => {
+                            onStartEdit(item.id, cardY.current);
+                            onSetEditingId(item.id);
+                            onSetEditValue(item.food_name);
+                        }}>
+                            <Text style={styles.mealName} numberOfLines={1}>{item.food_name}</Text>
+                        </TouchableOpacity>
+                    )}
+                    <View style={styles.scoreRow}>
+                        <View style={[styles.scoreDot, { backgroundColor: item.health_score >= 7 ? theme.colors.primary : (item.health_score >= 4 ? theme.colors.secondary : '#ef4444') }]} />
+                        <Text style={styles.scoreText}>METABOLIC SCORE: {item.health_score}/10</Text>
+                    </View>
+                    {editingLocId === item.id ? (
+                        <TextInput
+                            style={styles.locationInput}
+                            value={editLocValue}
+                            onChangeText={onSetEditLocValue}
+                            onBlur={() => onUpdateLocation(item.id, editLocValue)}
+                            onSubmitEditing={() => onUpdateLocation(item.id, editLocValue)}
+                            autoFocus
+                            placeholder="Restaurant or Place Name"
+                            placeholderTextColor={theme.colors.text.muted}
+                        />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.locationRow}
+                            onPress={() => {
+                                onStartEdit(item.id, cardY.current);
+                                onSetEditingLocId(item.id);
+                                onSetEditLocValue(item.place_name || '');
+                            }}
+                        >
+                            <MapPin size={10} color={theme.colors.text.secondary} />
+                            <Text style={styles.locationText} numberOfLines={1}>
+                                {item.place_name || item.address || 'Unknown Location'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                        onPress={() => onToggleFavorite(item.id)}
+                        style={[styles.favBtn, isFavorite && styles.favBtnActive]}
+                    >
+                        <ThumbsUp size={14} color={isFavorite ? theme.colors.primary : theme.colors.text.secondary} fill={isFavorite ? theme.colors.primary : 'none'} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={styles.macroStrip}>
+                <View style={styles.macroTile}><Flame size={12} color={theme.colors.secondary} /><Text style={styles.macroVal}>{item.calories} <Text style={styles.macroUnit}>kcal</Text></Text></View>
+                <View style={styles.macroTile}><Zap size={12} color={theme.colors.primary} /><Text style={styles.macroVal}>{item.protein} <Text style={styles.macroUnit}>g</Text></Text></View>
+                <View style={styles.macroTile}><BarChart2 size={12} color="#818cf8" /><Text style={styles.macroVal}>{item.fat} <Text style={styles.macroUnit}>g</Text></Text></View>
+                <View style={styles.macroTile}><ArrowUp size={12} color="#ec4899" /><Text style={styles.macroVal}>{item.carbs} <Text style={styles.macroUnit}>g</Text></Text></View>
+            </View>
+
+            {item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
+        </BlurView>
+    );
+});
 
 export default function MealHistoryScreen() {
     const router = useRouter();
@@ -41,6 +178,8 @@ export default function MealHistoryScreen() {
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [zoomImage, setZoomImage] = useState<string | null>(null);
+    const [editingLocId, setEditingLocId] = useState<string | null>(null);
+    const [editLocValue, setEditLocValue] = useState('');
 
     const mainScrollRef = useRef<ScrollView>(null);
     const itemPositions = useRef<Map<string, number>>(new Map());
@@ -127,84 +266,37 @@ export default function MealHistoryScreen() {
         setEditingId(null);
     };
 
-    const MealCard = ({ item }: { item: any }) => {
-        const isSelected = selectedId === String(item.id);
-        const isFavorite = favorites[item.id] === 'up';
+    const handleUpdateLocation = async (id: string, newLoc: string) => {
+        const targetLog = allLogs.find(l => l.id === id);
+        if (newLoc === targetLog?.place_name) {
+            setEditingLocId(null);
+            return;
+        }
 
-        return (
-            <BlurView intensity={40} tint="light" style={[styles.mealCard, isSelected && styles.mealCardSelected]}>
-                <View style={styles.cardHeader}>
-                    <View style={styles.headerLeft}>
-                        <TouchableOpacity onPress={() => setShowCategoryPicker(item.id)} style={styles.typeBadge}>
-                            <Text style={styles.typeText}>{item.meal_type}</Text>
-                            <ChevronRight size={10} color={theme.colors.text.secondary} />
-                        </TouchableOpacity>
-                        <Text style={styles.timeText}>
-                            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-                        <Trash2 size={16} color="#f87171" />
-                    </TouchableOpacity>
-                </View>
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-                <View style={styles.mealMain}>
-                    <TouchableOpacity style={styles.imageBox} onPress={() => item.image_url && setZoomImage(item.image_url)}>
-                        {item.image_url ? (
-                            <>
-                                <Image source={{ uri: item.image_url }} style={styles.mealImg} />
-                                <View style={styles.zoomIcon}><ZoomIn size={12} color="#fff" /></View>
-                            </>
-                        ) : (
-                            <View style={styles.imgPlaceholder}><Text style={{ fontSize: 24 }}>🍱</Text></View>
-                        )}
-                    </TouchableOpacity>
+            const { error } = await updateMealLogLocation(id, user.id, targetLog?.address || null, newLoc);
 
-                    <View style={styles.mealInfo}>
-                        {editingId === item.id ? (
-                            <TextInput
-                                style={styles.nameInput}
-                                value={editValue}
-                                onChangeText={setEditValue}
-                                onBlur={() => handleUpdateName(item.id, editValue)}
-                                onSubmitEditing={() => handleUpdateName(item.id, editValue)}
-                                autoFocus
-                            />
-                        ) : (
-                            <TouchableOpacity onPress={() => { setEditingId(item.id); setEditValue(item.food_name); }}>
-                                <Text style={styles.mealName} numberOfLines={1}>{item.food_name}</Text>
-                            </TouchableOpacity>
-                        )}
-                        <View style={styles.scoreRow}>
-                            <View style={[styles.scoreDot, { backgroundColor: item.health_score >= 7 ? theme.colors.primary : (item.health_score >= 4 ? theme.colors.secondary : '#ef4444') }]} />
-                            <Text style={styles.scoreText}>METABOLIC SCORE: {item.health_score}/10</Text>
-                        </View>
-                        {item.place_name && (
-                            <View style={styles.locationRow}>
-                                <MapPin size={10} color={theme.colors.text.secondary} />
-                                <Text style={styles.locationText} numberOfLines={1}>{item.place_name}</Text>
-                            </View>
-                        )}
-                        <TouchableOpacity
-                            onPress={() => toggleFavorite(item.id)}
-                            style={[styles.favBtn, isFavorite && styles.favBtnActive]}
-                        >
-                            <ThumbsUp size={14} color={isFavorite ? theme.colors.primary : theme.colors.text.secondary} fill={isFavorite ? theme.colors.primary : 'none'} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
+            if (!error) {
+                // Bulk update local state as well
+                setAllLogs(prev => prev.map(l => {
+                    if (l.id === id) return { ...l, place_name: newLoc };
+                    if (targetLog?.address && l.address === targetLog.address && !l.place_name) {
+                        return { ...l, place_name: newLoc };
+                    }
+                    return l;
+                }));
+            }
+        } catch (e) {
+            console.error(e);
+        }
 
-                <View style={styles.macroStrip}>
-                    <View style={styles.macroTile}><Flame size={12} color={theme.colors.secondary} /><Text style={styles.macroVal}>{item.calories} <Text style={styles.macroUnit}>kcal</Text></Text></View>
-                    <View style={styles.macroTile}><Zap size={12} color={theme.colors.primary} /><Text style={styles.macroVal}>{item.protein} <Text style={styles.macroUnit}>g</Text></Text></View>
-                    <View style={styles.macroTile}><BarChart2 size={12} color="#818cf8" /><Text style={styles.macroVal}>{item.fat} <Text style={styles.macroUnit}>g</Text></Text></View>
-                    <View style={styles.macroTile}><ArrowUp size={12} color="#ec4899" /><Text style={styles.macroVal}>{item.carbs} <Text style={styles.macroUnit}>g</Text></Text></View>
-                </View>
-
-                {item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
-            </BlurView>
-        );
+        setEditingLocId(null);
     };
+
+
 
     return (
         <View style={styles.container}>
@@ -241,17 +333,49 @@ export default function MealHistoryScreen() {
                 {loading ? (
                     <View style={styles.center}><ActivityIndicator color={theme.colors.primary} size="large" /></View>
                 ) : (
-                    <ScrollView ref={mainScrollRef} contentContainerStyle={styles.list}>
-                        {displayedLogs.length === 0 ? (
-                            <View style={styles.empty}>
-                                <Calendar size={60} color={theme.colors.text.muted} style={{ opacity: 0.3, marginBottom: 16 }} />
-                                <Text style={styles.emptyText}>No logs found for this period.</Text>
-                            </View>
-                        ) : (
-                            displayedLogs.map(item => <MealCard key={item.id} item={item} />)
-                        )}
-                        <View style={{ height: 100 }} />
-                    </ScrollView>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={{ flex: 1 }}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                    >
+                        <ScrollView ref={mainScrollRef} contentContainerStyle={styles.list}>
+                            {displayedLogs.length === 0 ? (
+                                <View style={styles.empty}>
+                                    <Calendar size={60} color={theme.colors.text.muted} style={{ opacity: 0.3, marginBottom: 16 }} />
+                                    <Text style={styles.emptyText}>No logs found for this period.</Text>
+                                </View>
+                            ) : (
+                                displayedLogs.map(item => (
+                                    <MealCard
+                                        key={item.id}
+                                        item={item}
+                                        isSelected={selectedId === String(item.id)}
+                                        isFavorite={favorites[item.id] === 'up'}
+                                        updatingId={updatingId}
+                                        editingId={editingId}
+                                        editValue={editValue}
+                                        editingLocId={editingLocId}
+                                        editLocValue={editLocValue}
+                                        onDelete={handleDelete}
+                                        onUpdateCategory={handleUpdateCategory}
+                                        onUpdateName={handleUpdateName}
+                                        onUpdateLocation={handleUpdateLocation}
+                                        onSetEditingId={setEditingId}
+                                        onSetEditValue={setEditValue}
+                                        onSetEditingLocId={setEditingLocId}
+                                        onSetEditLocValue={setEditLocValue}
+                                        onToggleFavorite={toggleFavorite}
+                                        onZoomImage={setZoomImage}
+                                        onShowCategoryPicker={setShowCategoryPicker}
+                                        onStartEdit={(id, y) => {
+                                            mainScrollRef.current?.scrollTo({ y: y - 20, animated: true });
+                                        }}
+                                    />
+                                ))
+                            )}
+                            <View style={{ height: 100 }} />
+                        </ScrollView>
+                    </KeyboardAvoidingView>
                 )}
             </SafeAreaView>
 
@@ -310,8 +434,9 @@ const styles = StyleSheet.create({
     scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     scoreDot: { width: 6, height: 6, borderRadius: 3 },
     scoreText: { fontSize: 10, fontWeight: '800', color: theme.colors.text.secondary, letterSpacing: 0.5 },
-    locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, paddingVertical: 2 },
     locationText: { fontSize: 10, color: theme.colors.text.secondary, fontWeight: '600' },
+    locationInput: { fontSize: 10, color: theme.colors.text.primary, borderBottomWidth: 1, borderBottomColor: theme.colors.primary, padding: 0, marginTop: 4 },
     favBtn: { alignSelf: 'flex-start', marginTop: 10, padding: 6, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: theme.colors.glass.border },
     favBtnActive: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' },
     macroStrip: { flexDirection: 'row', gap: 8, marginBottom: 12 },

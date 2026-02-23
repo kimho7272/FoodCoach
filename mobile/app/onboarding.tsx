@@ -329,7 +329,13 @@ export default function EnhancedOnboarding() {
                 const finalWeight = weightUnit === 'lb' ? Math.round(weight * 0.453592) : weight;
 
                 // Combine logic: use verified phone if available
-                const finalPhone = isVerified ? phone.replace(/[^\d]/g, '') : null;
+                let finalPhone = null;
+                if (isVerified) {
+                    const cleanPhone = phone.replace(/[^\d]/g, '');
+                    let finalBody = cleanPhone;
+                    if (finalBody.startsWith('0')) finalBody = finalBody.substring(1);
+                    finalPhone = `${countryCode}${finalBody}`;
+                }
 
                 const result = await updateProfile(user.id, {
                     nickname,

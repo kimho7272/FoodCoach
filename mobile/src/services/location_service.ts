@@ -9,13 +9,25 @@ export const locationService = {
         }
 
         try {
-            let location = await Location.getCurrentPositionAsync({});
+            // First try last known position (very fast)
+            const lastKnown = await Location.getLastKnownPositionAsync({});
+            if (lastKnown) {
+                return {
+                    latitude: lastKnown.coords.latitude,
+                    longitude: lastKnown.coords.longitude
+                };
+            }
+
+            // Fallback to current position with reasonable accuracy and 5s timeout
+            let location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
             return {
                 latitude: location.coords.latitude,
                 longitude: location.coords.longitude
             };
         } catch (e) {
-            console.error(e);
+            console.error('Location Error:', e);
             return null;
         }
     },

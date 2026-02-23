@@ -9,6 +9,7 @@ import { useTranslation } from '../../src/lib/i18n';
 import { socialService, Friend } from '../../src/services/social_service';
 import { useAlert } from '../../src/context/AlertContext';
 import { theme } from '../../src/constants/theme';
+import { AddFriendModal } from '../../src/components/AddFriendModal';
 
 export default function FriendsScreen() {
     const { t, language } = useTranslation();
@@ -18,11 +19,6 @@ export default function FriendsScreen() {
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
-
-    // Add Friend Modal State
-    const [contacts, setContacts] = useState<Friend[]>([]);
-    const [searching, setSearching] = useState(false);
-    const [searchText, setSearchText] = useState('');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -65,36 +61,6 @@ export default function FriendsScreen() {
         }
     };
 
-    const handleOpenAddModal = async () => {
-        setShowAddModal(true);
-        setSearching(true);
-        setSearchText(''); // Reset search on open
-        try {
-            const potentialFriends = await socialService.findFriendsInContacts();
-            setContacts(potentialFriends);
-        } catch (e) {
-            console.error(e);
-            showAlert({ title: t('error'), message: t('contactsError') || 'Could not access contacts', type: 'error' });
-        } finally {
-            setSearching(false);
-        }
-    };
-
-    const handleSendRequest = async (userId: string) => {
-        const success = await socialService.sendFriendRequest(userId);
-        if (success) {
-            showAlert({ title: t('success'), message: t('requestSent') || 'Request Sent', type: 'success' });
-            setContacts(prev => prev.map(c => c.id === userId ? { ...c, status: 'sent' } : c));
-        } else {
-            showAlert({ title: t('error'), message: t('requestFailed') || 'Failed to send', type: 'error' });
-        }
-    };
-
-    const handleInvite = async (phone: string | null) => {
-        if (!phone) return;
-        await socialService.inviteViaSMS(phone);
-    };
-
     const isRequestExpired = (dateString?: string) => {
         if (!dateString) return false;
         const sentTime = new Date(dateString).getTime();
@@ -114,7 +80,7 @@ export default function FriendsScreen() {
                     </View>
                 )}
                 <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.requestName}>{item.sender.nickname || item.sender.full_name}</Text>
+                    <Text style={styles.requestName}>{item.sender.full_name || 'User'}</Text>
                     <Text style={styles.requestTime}>{new Date(item.created_at).toLocaleDateString()}</Text>
                 </View>
             </View>
@@ -152,7 +118,7 @@ export default function FriendsScreen() {
                         <View style={styles.statusDot} />
                     </View>
                     <View style={styles.friendText}>
-                        <Text style={styles.friendName}>{item.nickname || item.full_name}</Text>
+                        <Text style={styles.friendName}>{item.full_name || 'User'}</Text>
                         <Text style={styles.friendStatus}>{t('connected') || 'Connected'}</Text>
                     </View>
                 </View>
@@ -175,7 +141,7 @@ export default function FriendsScreen() {
             <SafeAreaView style={{ flex: 1 }}>
                 <View style={styles.header}>
                     <Text style={styles.title}>{t('friends') || 'Friends'}</Text>
-                    <TouchableOpacity onPress={handleOpenAddModal} style={styles.addBtn}>
+                    <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addBtn}>
                         <UserPlus size={24} color={theme.colors.primary} />
                     </TouchableOpacity>
                 </View>
@@ -212,7 +178,7 @@ export default function FriendsScreen() {
                                 <Text style={styles.emptyDesc}>
                                     {language === 'Korean' ? '연락처에서 친구를 초대하고\n함께 건강해지세요!' : 'Invite friends from contacts\nand get healthy together!'}
                                 </Text>
-                                <TouchableOpacity style={styles.inviteBtn} onPress={handleOpenAddModal}>
+                                <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowAddModal(true)}>
                                     <Text style={styles.inviteBtnText}>{t('addFriend') || 'Add Friend'}</Text>
                                 </TouchableOpacity>
                             </View>
@@ -227,117 +193,11 @@ export default function FriendsScreen() {
                 </ScrollView>
             </SafeAreaView>
 
-            {/* Add Friend Modal */}
-            <Modal
+            <AddFriendModal
                 visible={showAddModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowAddModal(false)}
-            >
-                <View style={styles.modalContainer}>
-                    <LinearGradient
-                        colors={theme.colors.gradients.background as any}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={StyleSheet.absoluteFill}
-                    />
-                    <SafeAreaView style={{ flex: 1 }}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{t('findFriends') || 'Find Friends'}</Text>
-                            <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                                <Text style={styles.closeText}>{t('close')}</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.glass.border }}>
-                            <Text style={{ fontSize: 13, color: theme.colors.text.secondary }}>
-                                {language === 'Korean' ? '연락처에 있는 친구들을 찾아보세요' : 'Find friends from your contacts'}
-                            </Text>
-                        </View>
-
-                        {searching ? (
-                            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={theme.colors.primary} />
-                        ) : (
-                            <>
-                                <View style={styles.modalSearchContainer}>
-                                    <Search size={20} color={theme.colors.text.secondary} />
-                                    <TextInput
-                                        style={styles.modalInput}
-                                        placeholder={language === 'Korean' ? '이름 또는 전화번호 검색' : 'Search name or phone'}
-                                        value={searchText}
-                                        onChangeText={setSearchText}
-                                        placeholderTextColor={theme.colors.text.muted}
-                                    />
-                                    {searchText.length > 0 && (
-                                        <TouchableOpacity onPress={() => setSearchText('')}>
-                                            <X size={16} color={theme.colors.text.muted} />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                                <FlatList
-                                    data={contacts.filter(c =>
-                                        (c.full_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
-                                        (c.nickname || '').toLowerCase().includes(searchText.toLowerCase()) ||
-                                        (c.phone || '').includes(searchText)
-                                    )}
-                                    keyExtractor={item => item.id || item.phone || Math.random().toString()}
-                                    contentContainerStyle={{ padding: 16 }}
-                                    ListEmptyComponent={
-                                        <View style={styles.emptyState}>
-                                            <Text style={styles.emptyText}>
-                                                {language === 'Korean' ? 'FoodCoach를 사용하는 친구가 없네요.\n초대해보세요!' : 'No friends found on FoodCoach.\nInvite them!'}
-                                            </Text>
-                                        </View>
-                                    }
-                                    renderItem={({ item }) => (
-                                        <BlurView intensity={20} tint="light" style={styles.contactItem}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                                {item.avatar_url ? (
-                                                    <Image source={{ uri: item.avatar_url }} style={styles.contactAvatar} />
-                                                ) : (
-                                                    <View style={[styles.contactAvatar, { backgroundColor: theme.colors.background.secondary, justifyContent: 'center', alignItems: 'center' }]}>
-                                                        <Text>👤</Text>
-                                                    </View>
-                                                )}
-                                                <View style={{ marginLeft: 12 }}>
-                                                    <Text style={styles.contactName}>{item.nickname || item.full_name || 'User'}</Text>
-                                                    {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
-                                                </View>
-                                            </View>
-
-                                            {item.status === 'accepted' ? (
-                                                <View style={styles.friendBadge}>
-                                                    <Check size={14} color={theme.colors.primary} />
-                                                    <Text style={styles.friendBadgeText}>{t('friends')}</Text>
-                                                </View>
-                                            ) : item.status === 'sent' && !isRequestExpired(item.request_sent_at) ? (
-                                                <View style={styles.sentBadge}>
-                                                    <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
-                                                </View>
-                                            ) : !item.is_registered ? (
-                                                <TouchableOpacity
-                                                    style={[styles.connectBtn, { backgroundColor: theme.colors.primary }]} // Invite color
-                                                    onPress={() => handleInvite(item.phone)}
-                                                >
-                                                    <Text style={styles.connectBtnText}>{t('invite') || 'Invite'}</Text>
-                                                </TouchableOpacity>
-                                            ) : (
-                                                <TouchableOpacity
-                                                    style={[styles.connectBtn, { backgroundColor: theme.colors.secondary }]}
-                                                    onPress={() => handleSendRequest(item.id)}
-                                                >
-                                                    <UserPlus size={16} color="#fff" />
-                                                    <Text style={styles.connectBtnText}>{t('connect') || 'Connect'}</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                        </BlurView>
-                                    )}
-                                />
-                            </>
-                        )}
-                    </SafeAreaView>
-                </View>
-            </Modal>
+                onClose={() => setShowAddModal(false)}
+                onSuccess={fetchData}
+            />
         </View>
     );
 }

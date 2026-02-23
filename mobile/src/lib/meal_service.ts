@@ -130,6 +130,52 @@ export const updateMealLogName = async (id: string, name: string) => {
     }
 };
 
+export const updateMealLogLocation = async (id: string, userId: string, address: string | null, placeName: string) => {
+    try {
+        // 1. Update the specific log
+        const { error: error1 } = await supabase
+            .from('food_logs')
+            .update({ place_name: placeName })
+            .eq('id', id);
+
+        if (error1) throw error1;
+
+        // 2. If address exists, update other logs with same address but NULL place_name
+        if (address) {
+            const { error: error2 } = await supabase
+                .from('food_logs')
+                .update({ place_name: placeName })
+                .match({ user_id: userId, address: address })
+                .is('place_name', null);
+
+            if (error2) console.error('Bulk location update failed:', error2);
+        }
+
+        return { error: null };
+    } catch (error) {
+        console.error('Update meal log location failed:', error);
+        return { error };
+    }
+};
+
+export const getPlaceNameByAddress = async (userId: string, address: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('food_logs')
+            .select('place_name')
+            .match({ user_id: userId, address: address })
+            .not('place_name', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (error) throw error;
+        return { data: data?.[0]?.place_name || null, error: null };
+    } catch (error) {
+        console.error('Get place name by address failed:', error);
+        return { data: null, error };
+    }
+};
+
 export const getWeeklyStats = async (userId: string) => {
     try {
         const sevenDaysAgo = new Date();

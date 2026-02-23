@@ -2,14 +2,17 @@ import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
 import { supabase } from '../lib/supabase';
 import { Alert, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const CONTACTS_CACHE_KEY = 'foodcoach_contacts_cache';
 
 export interface Friend {
     id: string;
-    full_name: string | null;
-    nickname: string | null;
+    full_name: string | null; // This will hold the phonebook name primarily
+    nickname: string | null;  // This is the DB nickname
     avatar_url: string | null;
     phone: string | null;
-    status: 'pending' | 'accepted' | 'sent' | 'none'; // 'none' for unconnected/inviteable
+    status: 'pending' | 'accepted' | 'sent' | 'none';
     is_registered: boolean;
     request_sent_at?: string;
 }
@@ -28,15 +31,25 @@ export const socialService = {
         return null;
     },
 
-    // 2. Normalize Phone Number (Simple MVP version)
+    // 2. Normalize Phone Number (Flexible)
     normalizePhone(phone: string): string {
-        // Remove spaces, dashes, parentheses
-        return phone.replace(/[\s\-\(\)]/g, '');
+        // 1. Remove common symbols
+        const rawClean = phone.replace(/[\s\-\(\)]/g, '');
+
+        // 2. If it has a '+', it's already an international format
+        if (rawClean.startsWith('+')) {
+            return '+' + rawClean.replace(/\D/g, '');
+        }
+
+        // 3. For local numbers, remove leading 0 and non-digits
+        let digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('0')) {
+            digits = digits.substring(1);
+        }
+        return digits;
     },
 
     // 3. Find Friends on FoodCoach (Matches contacts with Profiles)
-    // NOTE: In production, use a secure RPC. Here we client-side filter for MVP if acceptable,
-    // or better, send list to DB. simpler: Query profiles where phone in list.
     // 3. Get Device Contacts (Fast, Local Only)
     async getPhoneContacts(): Promise<Friend[]> {
         const contacts = await this.getContacts();
@@ -47,15 +60,18 @@ export const socialService = {
 
         contacts.forEach(c => {
             if (c.phoneNumbers && c.phoneNumbers.length > 0) {
-                // Use the first valid mobile-like number
                 const rawPhone = c.phoneNumbers[0].number;
                 if (rawPhone) {
                     const normalized = this.normalizePhone(rawPhone);
-                    if (normalized.length > 5 && !seenNumbers.has(normalized)) {
+                    // Minimum length check to avoid matching very short fragments
+                    if (normalized.length >= 7 && !seenNumbers.has(normalized)) {
                         seenNumbers.add(normalized);
+                        // Combine name fields for robustness
+                        const contactName = c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || null;
+
                         results.push({
-                            id: normalized, // temporary ID
-                            full_name: c.name,
+                            id: normalized,
+                            full_name: contactName,
                             nickname: null,
                             avatar_url: c.image?.uri || null,
                             phone: normalized,
@@ -67,7 +83,6 @@ export const socialService = {
             }
         });
 
-        // Basic sort
         results.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
         return results;
     },
@@ -79,69 +94,91 @@ export const socialService = {
         const phoneNumbers = localFriends.map(f => f.phone).filter(p => p !== null) as string[];
         if (phoneNumbers.length === 0) return localFriends;
 
-        // Query Supabase for these phones
-        const { data: profiles, error } = await supabase
-            .from('profiles')
-            .select('id, full_name, nickname, avatar_url, phone')
-            .in('phone', phoneNumbers);
+        // Build a flexible search query using OR with suffix matching
+        const conditions = phoneNumbers.map(num => {
+            // If it starts with +, use exact match, otherwise use suffix match
+            if (num.startsWith('+')) return `phone.eq.${num}`;
+            return `phone.ilike.%${num}`;
+        });
 
-        if (error) {
-            console.error('Error finding friends:', error);
-            return localFriends;
+        // Split into batches if too many contacts to avoid URL length issues
+        let allMatchingProfiles: any[] = [];
+        const batchSize = 50;
+
+        for (let i = 0; i < conditions.length; i += batchSize) {
+            const batch = conditions.slice(i, i + batchSize);
+            const { data, error } = await (supabase as any)
+                .from('profiles')
+                .select('id, full_name, nickname, avatar_url, phone')
+                .or(batch.join(','));
+
+            if (error) {
+                console.error('Error finding friends batch:', error);
+            } else if (data) {
+                allMatchingProfiles = [...allMatchingProfiles, ...data];
+            }
         }
 
-        // Get my basic info for friendship check
+        // Get my info for self-filtering and friendship status
         const { data: { user } } = await supabase.auth.getUser();
-
         let friendships: any[] = [];
         if (user) {
-            const { data: fs } = await supabase
+            const { data: fs } = await (supabase as any)
                 .from('friendships')
                 .select('*')
                 .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`);
             friendships = fs || [];
         }
 
-        const registeredMap = new Map<string, any>();
-        profiles?.forEach(p => {
-            if (p.phone) registeredMap.set(p.phone, p);
-        });
-
-        // Rebuild list with enriched data
+        // Rebuild list with enriched data by matching suffixes in memory
         const enriched = localFriends.map(local => {
             if (!local.phone) return local;
 
-            const registered = registeredMap.get(local.phone);
+            // Find matching profile in the fetched pool (Robust Digit-only match)
+            const cleanLocal = local.phone ? local.phone.replace(/\D/g, '') : '';
+            const registered = allMatchingProfiles.find(p => {
+                const cleanDB = p.phone ? p.phone.replace(/\D/g, '') : '';
+                return cleanLocal && cleanDB && (cleanDB.endsWith(cleanLocal) || cleanLocal.endsWith(cleanDB));
+            });
+
             if (registered) {
-                // It's a registered user
+                console.log(`[PhoneMatch] Matching ${local.full_name} with DB User: ${registered.nickname}`);
                 if (user && registered.id === user.id) return null; // Filter out self
 
-                // Determine status
                 let status: Friend['status'] = 'none';
                 let requestSentAt: string | undefined = undefined;
 
                 if (user) {
-                    const f = friendships.find((f: any) =>
-                        (f.user_id_1 === user.id && f.user_id_2 === registered.id) ||
-                        (f.user_id_2 === user.id && f.user_id_1 === registered.id)
+                    const f = friendships.find((fs: any) =>
+                        (fs.user_id_1 === user.id && fs.user_id_2 === registered.id) ||
+                        (fs.user_id_2 === user.id && fs.user_id_1 === registered.id)
                     );
                     if (f) {
                         if (f.status === 'accepted') status = 'accepted';
                         else if (f.status === 'pending') {
                             status = f.user_id_1 === user.id ? 'sent' : 'pending';
-                            if (status === 'sent') {
-                                requestSentAt = f.created_at;
-                            }
+                            if (status === 'sent') requestSentAt = f.created_at;
                         }
                     }
                 }
 
+                // ABSOLUTE DEFINITIVE NAME PRIORITY
+                const phonebookName = local.full_name;
+                const dbNickname = registered.nickname;
+                const dbFullName = registered.full_name;
+
+                // If we have a phonebook name, it's the ONLY one that matters for display
+                const hasRealPhonebookName = phonebookName && phonebookName.length > 0 && phonebookName !== local.phone;
+                const finalDisplayName = hasRealPhonebookName ? phonebookName : (dbFullName || dbNickname || 'User');
+
+                console.log(`[CONSTRUCT_OBJECT] ${local.phone} -> full_name: "${finalDisplayName}", nickname: "${dbNickname}"`);
+
                 return {
-                    ...local,
-                    id: registered.id, // Use Supabase ID
-                    full_name: registered.full_name || local.full_name,
-                    nickname: registered.nickname,
+                    id: registered.id,
+                    full_name: finalDisplayName,
+                    nickname: dbNickname,
                     avatar_url: registered.avatar_url || local.avatar_url,
+                    phone: local.phone,
                     is_registered: true,
                     status,
                     request_sent_at: requestSentAt
@@ -150,7 +187,6 @@ export const socialService = {
             return local;
         }).filter(f => f !== null) as Friend[];
 
-        // Sort: Registered First, then Status, then Name
         enriched.sort((a, b) => {
             if (a.is_registered && !b.is_registered) return -1;
             if (!a.is_registered && b.is_registered) return 1;
@@ -159,7 +195,50 @@ export const socialService = {
             return (a.full_name || '').localeCompare(b.full_name || '');
         });
 
+        // Store in cache for next time
+        try {
+            const cacheData = enriched.filter(f => f.is_registered).map(f => ({
+                phone: f.phone,
+                registeredData: f
+            }));
+            await AsyncStorage.setItem(CONTACTS_CACHE_KEY, JSON.stringify(cacheData));
+        } catch (e) {
+            console.error('Error saving contacts cache:', e);
+        }
+
         return enriched;
+    },
+
+    // NEW: Get cached results for instant display
+    async getCachedSync(localFriends: Friend[]): Promise<Friend[]> {
+        try {
+            const cachedBody = await AsyncStorage.getItem(CONTACTS_CACHE_KEY);
+            if (!cachedBody) return localFriends;
+
+            const cache = JSON.parse(cachedBody) as Array<{ phone: string, registeredData: Friend }>;
+            const enriched = localFriends.map(local => {
+                const match = cache.find(c => c.phone === local.phone);
+                if (match) {
+                    // Combine local name with cached registration status
+                    return {
+                        ...match.registeredData,
+                        full_name: local.full_name || match.registeredData.full_name
+                    };
+                }
+                return local;
+            });
+
+            // Keep sorting consistent with syncContactsWithApp
+            return enriched.sort((a, b) => {
+                if (a.is_registered && !b.is_registered) return -1;
+                if (!a.is_registered && b.is_registered) return 1;
+                if (a.status === 'accepted' && b.status !== 'accepted') return -1;
+                if (a.status !== 'accepted' && b.status === 'accepted') return 1;
+                return (a.full_name || '').localeCompare(b.full_name || '');
+            });
+        } catch (e) {
+            return localFriends;
+        }
     },
 
     // Legacy method wrapper (optional, but keeping it for safety if used elsewhere)
@@ -173,7 +252,7 @@ export const socialService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return false;
 
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('friendships')
             .insert({
                 user_id_1: user.id,
@@ -185,12 +264,36 @@ export const socialService = {
             console.error('Error sending request:', error);
             return false;
         }
+
+        // Update local cache for instant feedback
+        try {
+            const cachedBody = await AsyncStorage.getItem(CONTACTS_CACHE_KEY);
+            if (cachedBody) {
+                const cache = JSON.parse(cachedBody) as Array<{ phone: string, registeredData: Friend }>;
+                const updatedCache = cache.map(item => {
+                    if (item.registeredData.id === targetUserId) {
+                        return {
+                            ...item,
+                            registeredData: {
+                                ...item.registeredData,
+                                status: 'sent' as const
+                            }
+                        };
+                    }
+                    return item;
+                });
+                await AsyncStorage.setItem(CONTACTS_CACHE_KEY, JSON.stringify(updatedCache));
+            }
+        } catch (e) {
+            console.error('Error updating cache after request:', e);
+        }
+
         return true;
     },
 
     // 5. Accept Friend Request
     async acceptFriendRequest(friendshipId: string): Promise<boolean> {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('friendships')
             .update({ status: 'accepted' })
             .eq('id', friendshipId);
@@ -216,12 +319,12 @@ export const socialService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        const { data: requests, error } = await supabase
+        const { data: requests, error } = await (supabase as any)
             .from('friendships')
             .select(`
                 id,
                 created_at,
-                sender:user_id_1(id, full_name, nickname, avatar_url)
+                sender:user_id_1(id, full_name, nickname, avatar_url, phone)
             `)
             .eq('user_id_2', user.id)
             .eq('status', 'pending');
@@ -231,36 +334,60 @@ export const socialService = {
             return [];
         }
 
-        return requests.map(r => ({
-            id: r.id, // Friendship ID
-            sender: r.sender,
-            created_at: r.created_at
-        }));
+        // Match pending requests with local names
+        const localContacts = await this.getPhoneContacts();
+
+        return requests.map((r: any) => {
+            const sender = r.sender;
+            let displayName = sender.full_name || sender.nickname;
+
+            if (sender.phone) {
+                const matched = localContacts.find(c =>
+                    c.phone && (sender.phone.endsWith(c.phone) || c.phone.endsWith(sender.phone.replace('+', '')))
+                );
+                if (matched && matched.full_name && matched.full_name !== sender.phone) {
+                    displayName = matched.full_name;
+                }
+            }
+
+            return {
+                id: r.id, // Friendship ID
+                sender: {
+                    ...sender,
+                    full_name: displayName // Use matched name as full_name for UI
+                },
+                created_at: r.created_at
+            };
+        });
     },
 
     // 8. Reject/Cancel Friend Request
     async rejectFriendRequest(friendshipId: string): Promise<boolean> {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('friendships')
             .delete()
             .eq('id', friendshipId);
         return !error;
     },
 
-    // 9. Get My Friends
+    // 9. Get My Friends (with local name matching)
     async getMyFriends(): Promise<Friend[]> {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        const { data: friendships, error } = await supabase
+        // 1. Fetch local contacts for name matching
+        const localContacts = await this.getPhoneContacts();
+
+        // 2. Fetch friendships from DB
+        const { data: friendships, error } = await (supabase as any)
             .from('friendships')
             .select(`
                 id,
                 status,
                 user_id_1,
                 user_id_2,
-                profile1:profiles!friendships_user_id_1_fkey(id, full_name, nickname, avatar_url),
-                profile2:profiles!friendships_user_id_2_fkey(id, full_name, nickname, avatar_url)
+                profile1:profiles!friendships_user_id_1_fkey(id, full_name, nickname, avatar_url, phone),
+                profile2:profiles!friendships_user_id_2_fkey(id, full_name, nickname, avatar_url, phone)
             `)
             .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`)
             .eq('status', 'accepted');
@@ -270,20 +397,34 @@ export const socialService = {
             return [];
         }
 
-        // Normalize the list
+        // 3. Normalize and enrich the list with local names
         const friends: Friend[] = [];
-        friendships.forEach(f => {
+        friendships.forEach((f: any) => {
             const isUser1 = f.user_id_1 === user.id;
-            // Use the correct joined profile based on which ID is mine
             const friendProfile: any = isUser1 ? f.profile2 : f.profile1;
-            // Check if friendProfile exists (could be null if join failed)
+
             if (friendProfile) {
+                // Find matching local contact by phone suffix (Robust Digit-only match)
+                const cleanDBPhone = friendProfile.phone ? friendProfile.phone.replace(/\D/g, '') : '';
+                const matchedContact = cleanDBPhone ? localContacts.find(c => {
+                    const cleanLocal = c.phone ? c.phone.replace(/\D/g, '') : '';
+                    return cleanLocal && (cleanDBPhone.endsWith(cleanLocal) || cleanLocal.endsWith(cleanDBPhone));
+                }) : null;
+
+                // ABSOLUTE DEFINITIVE NAME PRIORITY for existing friends
+                const dbName = friendProfile.full_name || friendProfile.nickname;
+                const phoneName = matchedContact?.full_name;
+                const hasRealPhoneName = phoneName && phoneName.length > 0 && phoneName !== friendProfile.phone;
+                const finalDisplayName = hasRealPhoneName ? phoneName : (dbName || 'User');
+
+                console.log(`[MYFRIENDS_FINAL] ${friendProfile.phone} -> ${finalDisplayName}`);
+
                 friends.push({
                     id: friendProfile.id,
-                    full_name: friendProfile.full_name,
+                    full_name: finalDisplayName,
                     nickname: friendProfile.nickname,
                     avatar_url: friendProfile.avatar_url,
-                    phone: null,
+                    phone: friendProfile.phone,
                     status: 'accepted',
                     is_registered: true
                 });

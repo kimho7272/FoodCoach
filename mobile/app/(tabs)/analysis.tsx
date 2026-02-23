@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions, Platform, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -7,7 +7,7 @@ import { analyzeMealImage, AnalysisResult } from '../../src/api/vision_api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { supabase } from '../../src/lib/supabase';
-import { uploadMealImage, saveMealLog } from '../../src/lib/meal_service';
+import { uploadMealImage, saveMealLog, getPlaceNameByAddress } from '../../src/lib/meal_service';
 import { useAlert } from '../../src/context/AlertContext';
 
 import { useHealth } from '../../src/context/HealthContext';
@@ -37,6 +37,8 @@ export default function AnalysisScreen() {
     const [logging, setLogging] = useState(false);
     const [location, setLocation] = useState<{ name: string | null, address: string | null, lat: number, lng: number } | null>(null);
     const [viewMode, setViewMode] = useState<'total' | 'recommended'>('recommended');
+    const [isEditingLocation, setIsEditingLocation] = useState(false);
+    const [tempLocationName, setTempLocationName] = useState('');
 
     useEffect(() => {
         // If we have params but analysis hasn't started
@@ -51,7 +53,22 @@ export default function AnalysisScreen() {
         const loc = await locationService.getCurrentLocation();
         if (loc) {
             const place = await locationService.getPlaceName(loc.latitude, loc.longitude);
-            setLocation({ ...place, lat: loc.latitude, lng: loc.longitude });
+            let finalName = place.name;
+
+            // Check if user has a previously saved name for this address
+            if (place.address) {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const { data: savedName } = await getPlaceNameByAddress(user.id, place.address);
+                        if (savedName) finalName = savedName;
+                    }
+                } catch (e) {
+                    console.log("Failed to fetch historical place name", e);
+                }
+            }
+
+            setLocation({ ...place, name: finalName, lat: loc.latitude, lng: loc.longitude });
         }
     };
 
@@ -90,7 +107,15 @@ export default function AnalysisScreen() {
                     const loc = await locationService.getCurrentLocation();
                     if (loc) {
                         const place = await locationService.getPlaceName(loc.latitude, loc.longitude);
-                        locContext = { ...place, lat: loc.latitude, lng: loc.longitude };
+                        let finalName = place.name;
+
+                        // Check history
+                        if (place.address && user) {
+                            const { data: savedName } = await getPlaceNameByAddress(user.id, place.address);
+                            if (savedName) finalName = savedName;
+                        }
+
+                        locContext = { ...place, name: finalName, lat: loc.latitude, lng: loc.longitude };
                         setLocation(locContext);
                     }
                 } catch (e) {
@@ -176,6 +201,21 @@ export default function AnalysisScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("User not authenticated");
 
+            // Final attempt to get location if still missing
+            let finalLocation = location;
+            if (!finalLocation) {
+                try {
+                    const loc = await locationService.getCurrentLocation();
+                    if (loc) {
+                        const place = await locationService.getPlaceName(loc.latitude, loc.longitude);
+                        finalLocation = { ...place, lat: loc.latitude, lng: loc.longitude };
+                        setLocation(finalLocation);
+                    }
+                } catch (e) {
+                    console.log("Final location fetch failed", e);
+                }
+            }
+
             // 1. Upload image (optional but recommended)
             const imageUrl = await uploadMealImage(user.id, photo.base64);
 
@@ -192,10 +232,10 @@ export default function AnalysisScreen() {
                 image_url: imageUrl || undefined,
                 health_score: result.health_score,
                 description: result.description,
-                location_lat: location?.lat,
-                location_lng: location?.lng,
-                place_name: location?.name,
-                address: location?.address
+                location_lat: finalLocation?.lat,
+                location_lng: finalLocation?.lng,
+                place_name: finalLocation?.name,
+                address: finalLocation?.address
             });
 
             if (error) throw error;
@@ -306,13 +346,38 @@ export default function AnalysisScreen() {
                                                 <Text style={styles.categoryBadgeText}>AI Suggested: {result.category}</Text>
                                             </View>
                                             <Text style={styles.foodName} numberOfLines={1}>{result.food_name}</Text>
-                                            {location && (location.name || location.address) && (
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, opacity: 0.8 }}>
+                                            {isEditingLocation ? (
+                                                <TextInput
+                                                    style={styles.locationInput}
+                                                    value={tempLocationName}
+                                                    onChangeText={setTempLocationName}
+                                                    onBlur={() => {
+                                                        if (location) setLocation({ ...location, name: tempLocationName });
+                                                        else setLocation({ lat: 0, lng: 0, address: null, name: tempLocationName });
+                                                        setIsEditingLocation(false);
+                                                    }}
+                                                    onSubmitEditing={() => {
+                                                        if (location) setLocation({ ...location, name: tempLocationName });
+                                                        else setLocation({ lat: 0, lng: 0, address: null, name: tempLocationName });
+                                                        setIsEditingLocation(false);
+                                                    }}
+                                                    autoFocus
+                                                    placeholder="Restaurant or Place Name"
+                                                    placeholderTextColor="#94a3b8"
+                                                />
+                                            ) : (
+                                                <TouchableOpacity
+                                                    style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, opacity: 0.8 }}
+                                                    onPress={() => {
+                                                        setIsEditingLocation(true);
+                                                        setTempLocationName(location?.name || location?.address || '');
+                                                    }}
+                                                >
                                                     <MapPin size={12} color="#94a3b8" />
                                                     <Text style={{ color: '#94a3b8', fontSize: 12, marginLeft: 4 }} numberOfLines={1}>
-                                                        {location.name || location.address}
+                                                        {location?.name || location?.address || 'Tap to add location'}
                                                     </Text>
-                                                </View>
+                                                </TouchableOpacity>
                                             )}
                                             <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>{result.description}</Text>
                                         </View>
@@ -481,5 +546,6 @@ const styles = StyleSheet.create({
     mealTypeBtn: { flex: 1, paddingVertical: 8, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     mealTypeBtnActive: { backgroundColor: 'rgba(16,185,129,0.2)', borderColor: '#10b981' },
     mealTypeText: { color: '#64748b', fontSize: 12, fontWeight: 'bold' },
-    mealTypeTextActive: { color: '#10b981' }
+    mealTypeTextActive: { color: '#10b981' },
+    locationInput: { fontSize: 12, color: 'white', borderBottomWidth: 1, borderBottomColor: '#10b981', padding: 0, marginTop: 4, width: '100%' }
 });

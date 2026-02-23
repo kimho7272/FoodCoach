@@ -171,8 +171,8 @@ export default function EditProfileScreen() {
             });
             if (error) throw error;
 
-            setEditPhone(newPhone);
-            await (supabase as any).from('profiles').update({ phone: cleanPhone }).eq('id', (await supabase.auth.getUser()).data.user?.id);
+            setEditPhone(fullPhone);
+            await (supabase as any).from('profiles').update({ phone: fullPhone }).eq('id', (await supabase.auth.getUser()).data.user?.id);
 
             setShowPhoneModal(false);
             setNewPhone('');
