@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
+import { useLanguage } from '../../hooks/useLanguage';
 
 export default function PrivacyPage() {
-    const [lang, setLang] = useState<'en' | 'ko'>('en');
+    const { language, changeLanguage, isLoaded } = useLanguage();
 
     const content = {
         en: {
@@ -107,7 +108,9 @@ export default function PrivacyPage() {
         }
     };
 
-    const t = content[lang];
+    const t = content[language];
+
+    if (!isLoaded) return <div style={{ minHeight: '100vh', backgroundColor: '#0F172A' }} />;
 
     return (
         <main className="animate-fade-in" style={{ paddingTop: '8rem', paddingBottom: '8rem' }}>
@@ -116,31 +119,33 @@ export default function PrivacyPage() {
                     <Link href="/" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t.back}</Link>
                     <div className="glass" style={{ display: 'flex', borderRadius: '12px', padding: '4px' }}>
                         <button
-                            onClick={() => setLang('en')}
+                            onClick={() => changeLanguage('en')}
                             style={{
-                                padding: '6px 16px',
+                                padding: '4px 12px',
                                 borderRadius: '8px',
                                 border: 'none',
                                 cursor: 'pointer',
-                                fontSize: '14px',
+                                fontSize: '12px',
                                 fontWeight: 700,
-                                backgroundColor: lang === 'en' ? 'var(--primary)' : 'transparent',
-                                color: lang === 'en' ? 'white' : 'var(--text-secondary)'
+                                backgroundColor: language === 'en' ? 'var(--primary)' : 'transparent',
+                                color: language === 'en' ? 'white' : 'var(--text-secondary)',
+                                transition: 'all 0.2s ease'
                             }}
                         >
                             EN
                         </button>
                         <button
-                            onClick={() => setLang('ko')}
+                            onClick={() => changeLanguage('ko')}
                             style={{
-                                padding: '6px 16px',
+                                padding: '4px 12px',
                                 borderRadius: '8px',
                                 border: 'none',
                                 cursor: 'pointer',
-                                fontSize: '14px',
+                                fontSize: '12px',
                                 fontWeight: 700,
-                                backgroundColor: lang === 'ko' ? 'var(--primary)' : 'transparent',
-                                color: lang === 'ko' ? 'white' : 'var(--text-secondary)'
+                                backgroundColor: language === 'ko' ? 'var(--primary)' : 'transparent',
+                                color: language === 'ko' ? 'white' : 'var(--text-secondary)',
+                                transition: 'all 0.2s ease'
                             }}
                         >
                             KO
