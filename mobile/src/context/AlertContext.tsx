@@ -16,6 +16,7 @@ interface AlertOptions {
     onCancel?: () => void;
     confirmText?: string;
     cancelText?: string;
+    activeButton?: 'confirm' | 'cancel';
 }
 
 interface AlertContextData {
@@ -38,14 +39,24 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setVisible(false);
     }, []);
 
+    const [localActive, setLocalActive] = useState<'confirm' | 'cancel' | null>(null);
+
     const handleConfirm = () => {
-        if (options?.onConfirm) options.onConfirm();
-        hideAlert();
+        setLocalActive('confirm');
+        setTimeout(() => {
+            if (options?.onConfirm) options.onConfirm();
+            hideAlert();
+            setLocalActive(null);
+        }, 200);
     };
 
     const handleCancel = () => {
-        if (options?.onCancel) options.onCancel();
-        hideAlert();
+        setLocalActive('cancel');
+        setTimeout(() => {
+            if (options?.onCancel) options.onCancel();
+            hideAlert();
+            setLocalActive(null);
+        }, 200);
     };
 
     const getIcon = () => {
@@ -104,17 +115,45 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                             <View style={styles.buttonRow}>
                                 {options?.type === 'confirm' && (
                                     <TouchableOpacity
-                                        style={[styles.button, styles.cancelButton]}
+                                        activeOpacity={0.8}
+                                        style={[
+                                            styles.button,
+                                            styles.cancelButton,
+                                            (localActive === 'cancel' || (options.activeButton === 'cancel' && localActive === null))
+                                                ? { backgroundColor: '#f59e0b' }
+                                                : { backgroundColor: 'rgba(0,0,0,0.05)' }
+                                        ]}
                                         onPress={handleCancel}
                                     >
-                                        <Text style={styles.cancelButtonText}>{options?.cancelText || 'Cancel'}</Text>
+                                        <Text style={[
+                                            styles.cancelButtonText,
+                                            (localActive === 'cancel' || (options.activeButton === 'cancel' && localActive === null))
+                                                ? { color: 'white' }
+                                                : { color: '#64748b' }
+                                        ]}>
+                                            {options?.cancelText || 'Cancel'}
+                                        </Text>
                                     </TouchableOpacity>
                                 )}
                                 <TouchableOpacity
-                                    style={[styles.button, styles.confirmButton, { backgroundColor: colors.text }]}
+                                    activeOpacity={0.8}
+                                    style={[
+                                        styles.button,
+                                        styles.confirmButton,
+                                        {
+                                            backgroundColor: (localActive === 'confirm' || (options?.activeButton === 'confirm' && localActive === null))
+                                                ? '#f59e0b'
+                                                : 'rgba(0,0,0,0.05)'
+                                        }
+                                    ]}
                                     onPress={handleConfirm}
                                 >
-                                    <Text style={styles.confirmButtonText}>
+                                    <Text style={[
+                                        styles.confirmButtonText,
+                                        (localActive === 'confirm' || (options?.activeButton === 'confirm' && localActive === null))
+                                            ? { color: 'white' }
+                                            : { color: '#64748b' }
+                                    ]}>
                                         {options?.confirmText || (options?.type === 'confirm' ? 'Confirm' : 'OK')}
                                     </Text>
                                 </TouchableOpacity>

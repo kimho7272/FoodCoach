@@ -8,6 +8,7 @@ import { Footprints, Moon, Flame, TrendingUp, Weight, Activity } from 'lucide-re
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, useAnimatedStyle, withTiming, useSharedValue, useAnimatedProps } from 'react-native-reanimated';
 import Svg, { Circle, G } from 'react-native-svg';
+import { theme } from '../constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -67,11 +68,11 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                     <View style={styles.statItem}>
                         <View style={styles.ringContainer}>
                             <Svg width={60} height={60} viewBox="0 0 60 60">
-                                <Circle cx="30" cy="30" r={radius} stroke="rgba(16, 185, 129, 0.1)" strokeWidth="4" fill="none" />
+                                <Circle cx="30" cy="30" r={radius} stroke="rgba(16, 185, 129, 0.15)" strokeWidth="5.5" fill="none" />
                                 <AnimatedCircle
                                     cx="30" cy="30" r={radius}
                                     stroke="#10b981"
-                                    strokeWidth="4"
+                                    strokeWidth="5.5"
                                     fill="none"
                                     strokeDasharray={`${circumference}`}
                                     strokeLinecap="round"
@@ -93,11 +94,11 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                     <View style={styles.statItem}>
                         <View style={styles.ringContainer}>
                             <Svg width={60} height={60} viewBox="0 0 60 60">
-                                <Circle cx="30" cy="30" r={radius} stroke="rgba(59, 130, 246, 0.1)" strokeWidth="4" fill="none" />
+                                <Circle cx="30" cy="30" r={radius} stroke="rgba(59, 130, 246, 0.15)" strokeWidth="5.5" fill="none" />
                                 <AnimatedCircle
                                     cx="30" cy="30" r={radius}
                                     stroke="#3b82f6"
-                                    strokeWidth="4"
+                                    strokeWidth="5.5"
                                     fill="none"
                                     strokeDasharray={`${circumference}`}
                                     strokeLinecap="round"
@@ -147,7 +148,7 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <View>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                                    <View style={[styles.iconBoxSmall, { backgroundColor: data.readinessScore > 80 ? '#10b981' : data.readinessScore > 50 ? '#f59e0b' : '#ef4444' }]}>
+                                    <View style={[styles.iconBoxSmall, { backgroundColor: data.readinessScore > 80 ? theme.colors.primary : data.readinessScore > 50 ? theme.colors.accent : theme.colors.danger }]}>
                                         <Activity size={12} color="#fff" />
                                     </View>
                                     <Text style={styles.readinessLabel}>Daily Readiness</Text>
@@ -157,7 +158,7 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                                 </Text>
                             </View>
                             <View style={{ alignItems: 'flex-end' }}>
-                                <Text style={[styles.readinessScore, { color: data.readinessScore > 80 ? '#059669' : data.readinessScore > 50 ? '#d97706' : '#dc2626' }]}>
+                                <Text style={[styles.readinessScore, { color: data.readinessScore > 80 ? theme.colors.primary : data.readinessScore > 50 ? theme.colors.accent : theme.colors.danger }]}>
                                     {data.readinessScore}
                                 </Text>
                                 <Text style={styles.readinessScale}>/100</Text>
@@ -171,7 +172,7 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                                     styles.progressBarFill,
                                     {
                                         width: `${data.readinessScore}%`,
-                                        backgroundColor: data.readinessScore > 80 ? '#10b981' : data.readinessScore > 50 ? '#f59e0b' : '#ef4444'
+                                        backgroundColor: data.readinessScore > 80 ? theme.colors.primary : data.readinessScore > 50 ? theme.colors.accent : theme.colors.danger
                                     }
                                 ]}
                             />
@@ -201,12 +202,12 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'rgba(255,255,255,0.5)',
+        backgroundColor: theme.colors.glass.card,
         borderRadius: 24,
         padding: 16,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
+        borderColor: theme.colors.glass.border,
     },
     row: {
         flexDirection: 'row',
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 10,
-        color: '#64748b',
+        color: theme.colors.text.secondary,
         fontWeight: 'bold',
         textTransform: 'uppercase',
         marginBottom: 2,
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
     value: {
         fontSize: 14,
         fontWeight: '800',
-        color: '#1e293b',
+        color: theme.colors.text.primary,
         textAlign: 'center',
     },
     iconBox: {
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
         marginTop: 12,
         paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.05)',
+        borderTopColor: theme.colors.glass.border,
         gap: 16,
     },
     detailItem: {
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     },
     detailText: {
         fontSize: 12,
-        color: '#64748b',
+        color: theme.colors.text.secondary,
         fontWeight: '600',
     },
     readinessCard: {
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
     },
     readinessLabel: {
         fontSize: 11,
-        color: '#64748b',
+        color: theme.colors.text.secondary,
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -327,13 +328,13 @@ const styles = StyleSheet.create({
     },
     readinessInsight: {
         fontSize: 13,
-        color: '#334155',
+        color: theme.colors.text.primary,
         fontWeight: '600',
         maxWidth: 200,
     },
     progressBarBg: {
         height: 6,
-        backgroundColor: 'rgba(0,0,0,0.05)',
+        backgroundColor: theme.colors.glass.highlight,
         borderRadius: 3,
         marginTop: 12,
         overflow: 'hidden',

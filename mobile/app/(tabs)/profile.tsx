@@ -117,17 +117,24 @@ export default function ProfileScreen() {
         });
     };
 
-    const renderSettingItem = ({ icon: Icon, label, value, onPress, showArrow = true, color = theme.colors.text.primary }: any) => (
+    const renderSettingItem = ({ icon: Icon, label, value, subValue, onPress, showArrow = true, color = theme.colors.text.primary }: any) => (
         <TouchableOpacity style={styles.settingItem} onPress={onPress}>
-            <View style={styles.settingLeft}>
+            <View style={[styles.settingLeft, { flex: 2 }]}>
                 <View style={[styles.settingIcon, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
                     <Icon size={20} color={color} />
                 </View>
-                <Text style={[styles.settingLabel, { color }]}>{label}</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.settingLabel, { color }]} numberOfLines={1}>{label}</Text>
+                    {subValue && <Text style={styles.settingSubValue} numberOfLines={1}>{subValue}</Text>}
+                </View>
             </View>
-            <View style={styles.settingRight}>
-                {value && <Text style={styles.settingValue}>{value}</Text>}
-                {showArrow && <ChevronRight size={20} color={theme.colors.text.muted} />}
+            <View style={[styles.settingRight, { flex: 1, justifyContent: 'flex-end', gap: 6 }]}>
+                {value && (
+                    <Text style={[styles.settingValue, { color: theme.colors.primary, fontWeight: '700', fontSize: 13 }]} numberOfLines={1}>
+                        {value}
+                    </Text>
+                )}
+                {showArrow && <ChevronRight size={18} color={theme.colors.text.muted} />}
             </View>
         </TouchableOpacity>
     );
@@ -158,9 +165,6 @@ export default function ProfileScreen() {
                     {/* Header */}
                     <View style={styles.header}>
                         <Text style={styles.headerTitle}>{t('account') || 'Account'}</Text>
-                        <TouchableOpacity style={styles.settingsBtn}>
-                            <Settings size={22} color={theme.colors.text.primary} />
-                        </TouchableOpacity>
                     </View>
 
                     {/* Profile Hero */}
@@ -213,21 +217,30 @@ export default function ProfileScreen() {
                     </View>
 
                     {/* Sections */}
+                    {/* Ecosystem Section */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Ecosystem</Text>
                         <BlurView intensity={40} tint="light" style={styles.sectionCard}>
                             {renderSettingItem({
                                 icon: healthData?.isConnected ? Heart : Activity,
                                 label: t('linkHealthApp') || 'Link Health App',
-                                value: healthData?.isConnected ? (Platform.OS === 'ios' ? 'Apple Health' : 'Samsung Health') : t('notConnected') || 'Not Connected',
+                                subValue: healthData?.isConnected ? (Platform.OS === 'ios' ? 'Apple Health' : 'Samsung Health') : null,
+                                value: healthData?.isConnected ? (language === 'Korean' ? '연결됨' : 'Connected') : (t('notConnected') || 'Not Connected'),
                                 onPress: () => setSyncModalVisible(true),
                                 color: healthData?.isConnected ? theme.colors.primary : theme.colors.text.primary
                             })}
-                            <View style={styles.divider} />
+                        </BlurView>
+                    </View>
+
+                    {/* Nutrition Section */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>{t('target') || 'Target'}</Text>
+                        <BlurView intensity={40} tint="light" style={styles.sectionCard}>
                             {renderSettingItem({
                                 icon: Apple,
                                 label: t('fuelingStrategy') || 'Fueling Strategy',
-                                value: profile?.target_calories ? `${profile.target_calories} kcal` : 'AI Default',
+                                subValue: profile?.target_calories ? `${profile.target_calories} kcal` : '1800 kcal',
+                                value: 'AI Optimized',
                                 onPress: () => router.push('/fueling_strategy')
                             })}
                         </BlurView>
@@ -256,12 +269,20 @@ export default function ProfileScreen() {
                                 label: t('language') || 'Language',
                                 value: language,
                                 onPress: () => {
-                                    const next = language === 'English' ? 'Korean' : 'English';
-                                    setLanguage(next);
+                                    const isKorean = language === 'Korean';
                                     showAlert({
-                                        title: 'Language Updated',
-                                        message: next === 'Korean' ? '한국어로 설정되었습니다.' : 'Language set to English.',
-                                        type: 'info'
+                                        title: t('languageModalTitle') || 'Language / 언어',
+                                        message: isKorean ? '변경하실 언어를 선택해 주세요.' : 'Select the language you want to use.',
+                                        type: 'confirm',
+                                        activeButton: isKorean ? 'confirm' : 'cancel',
+                                        onConfirm: async () => {
+                                            await setLanguage('Korean');
+                                        },
+                                        onCancel: async () => {
+                                            await setLanguage('English');
+                                        },
+                                        confirmText: '한국어',
+                                        cancelText: 'English'
                                     });
                                 }
                             })}
@@ -274,7 +295,7 @@ export default function ProfileScreen() {
                             {renderSettingItem({
                                 icon: Lock,
                                 label: t('privacy') || 'Privacy',
-                                onPress: () => Linking.openURL('https://foodcoach.ai/privacy')
+                                onPress: () => Linking.openURL('https://food-coach-mu.vercel.app/privacy')
                             })}
                             <View style={styles.divider} />
                             {renderSettingItem({
@@ -330,8 +351,9 @@ const styles = StyleSheet.create({
     settingLeft: { flexDirection: 'row', alignItems: 'center' },
     settingIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
     settingLabel: { fontSize: 16, fontWeight: '600', color: theme.colors.text.primary },
+    settingSubValue: { fontSize: 11, color: theme.colors.text.muted, marginTop: 1, fontWeight: '600' },
     settingRight: { flexDirection: 'row', alignItems: 'center' },
-    settingValue: { color: theme.colors.text.primary, fontSize: 14, marginRight: 8 },
+    settingValue: { color: theme.colors.text.primary, fontSize: 14 },
     divider: { height: 1, backgroundColor: theme.colors.glass.border, marginLeft: 68 },
     logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 40, gap: 8, paddingVertical: 16 },
     logoutText: { color: theme.colors.danger, fontWeight: 'bold', fontSize: 16 },

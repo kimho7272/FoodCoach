@@ -49,7 +49,7 @@ export default function PrivacyPage() {
 
                     <h2 style={{ marginTop: '2.5rem', marginBottom: '1rem' }}>7. Contact Us</h2>
                     <p>If you have questions or comments about this Privacy Policy, please contact us at:</p>
-                    <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>Email: kimho7272@gmail.com</p>
+                    <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>Email: foodcoach.dev@gmail.com</p>
                 </div>
             </div>
         </main>

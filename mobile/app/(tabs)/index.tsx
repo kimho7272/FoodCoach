@@ -315,17 +315,17 @@ export default function HomeScreen() {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                        <BlurView intensity={80} tint="light" style={styles.streakBadge}>
+                        <View style={styles.streakBadge}>
                             <Text style={styles.streakLabel}>🔥 {t('streak')}</Text>
                             <View style={styles.streakCountBox}>
                                 <Text style={styles.streakCount}>{streak}</Text>
                             </View>
-                        </BlurView>
+                        </View>
                     </View>
 
                     {/* NEW: My Meals Today Section (Moved to Top) */}
                     <View style={[styles.sectionHeader, { marginTop: 0 }]}>
-                        <Text style={styles.sectionTitle}>My Meals Today</Text>
+                        <Text style={styles.sectionTitle}>{t('yourMealsToday')}</Text>
                         <TouchableOpacity onPress={() => router.push('/meal_history' as any)}>
                             <Text style={styles.seeAllText}>{t('viewAll')}</Text>
                         </TouchableOpacity>
@@ -390,7 +390,7 @@ export default function HomeScreen() {
                         >
                             <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
                                 <Activity size={16} color={theme.colors.danger} />
-                                <Text style={styles.macroLabel}>{t('calories') || 'Calories'}</Text>
+                                <Text style={styles.macroLabel} numberOfLines={1} adjustsFontSizeToFit>{t('calories') || 'Calories'}</Text>
                                 <Text style={styles.macroValue}>
                                     {totals.calories} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>kcal</Text>
                                 </Text>
@@ -403,7 +403,7 @@ export default function HomeScreen() {
                         >
                             <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(251, 146, 60, 0.1)' }]}>
                                 <BarChart2 size={16} color={theme.colors.accent} />
-                                <Text style={styles.macroLabel}>{t('carbs')}</Text>
+                                <Text style={styles.macroLabel} numberOfLines={1} adjustsFontSizeToFit>{t('carbs')}</Text>
                                 <Text style={styles.macroValue}>
                                     {totals.carbs} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>g</Text>
                                 </Text>
@@ -416,7 +416,7 @@ export default function HomeScreen() {
                         >
                             <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                                 <Zap size={16} color={theme.colors.primary} />
-                                <Text style={styles.macroLabel}>{t('protein')}</Text>
+                                <Text style={styles.macroLabel} numberOfLines={1} adjustsFontSizeToFit>{t('protein')}</Text>
                                 <Text style={styles.macroValue}>
                                     {totals.protein} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>g</Text>
                                 </Text>
@@ -427,9 +427,9 @@ export default function HomeScreen() {
                             style={styles.macroTouch}
                             onPress={() => setSelectedMacro('Fats')}
                         >
-                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                                <Flame size={16} color={theme.colors.secondary} />
-                                <Text style={styles.macroLabel}>{t('fat')}</Text>
+                            <BlurView intensity={40} tint="light" style={[styles.macroCard, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
+                                <Flame size={16} color="#fb7185" />
+                                <Text style={styles.macroLabel} numberOfLines={1} adjustsFontSizeToFit>{t('fat')}</Text>
                                 <Text style={styles.macroValue}>
                                     {totals.fat} <Text style={{ fontSize: 12, color: theme.colors.text.secondary, fontWeight: 'bold' }}>g</Text>
                                 </Text>
@@ -498,7 +498,7 @@ export default function HomeScreen() {
                                             <Svg width="100" height="30" viewBox="0 0 100 30">
                                                 <Path
                                                     d={`M 0 30 Q 25 ${30 - (hourlyDistribution[0] / 20 || 5)}, 50 ${30 - (hourlyDistribution[2] / 20 || 15)} T 100 ${30 - (hourlyDistribution[5] / 20 || 10)} L 100 30 L 0 30`}
-                                                    fill="rgba(16, 185, 129, 0.05)"
+                                                    fill="rgba(16, 185, 129, 0.08)"
                                                 />
                                                 <Path
                                                     d={`M 0 30 Q 25 ${30 - (hourlyDistribution[0] / 20 || 5)}, 50 ${30 - (hourlyDistribution[2] / 20 || 15)} T 100 ${30 - (hourlyDistribution[5] / 20 || 10)}`}
@@ -520,7 +520,7 @@ export default function HomeScreen() {
                                         </View>
 
                                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 }}>
-                                            <View style={{ width: 40, height: 4, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                                            <View style={{ width: 40, height: 4, backgroundColor: theme.colors.glass.highlight, borderRadius: 2, overflow: 'hidden' }}>
                                                 <View style={{ width: `${percentage * 100}%`, height: '100%', backgroundColor: theme.colors.primary }} />
                                             </View>
                                             <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.colors.text.muted }}>{Math.round(percentage * 100)}% {t('fuelLabel')}</Text>
@@ -543,7 +543,7 @@ export default function HomeScreen() {
                                         </Defs>
 
                                         {/* Outer Ring: Quantity (Calories) */}
-                                        <Circle cx="70" cy="70" r="60" stroke="rgba(0,0,0,0.03)" strokeWidth="12" fill="none" />
+                                        <Circle cx="70" cy="70" r="60" stroke={theme.colors.glass.highlight} strokeWidth="12" fill="none" />
                                         <AnimatedCircle
                                             cx="70" cy="70" r="60"
                                             stroke="url(#ringGrad)"
@@ -556,7 +556,7 @@ export default function HomeScreen() {
                                         />
 
                                         {/* Inner Ring: Quality (Health Score) */}
-                                        <Circle cx="70" cy="70" r="45" stroke="rgba(0,0,0,0.03)" strokeWidth="8" fill="none" />
+                                        <Circle cx="70" cy="70" r="45" stroke={theme.colors.glass.highlight} strokeWidth="8" fill="none" />
                                         <AnimatedCircle
                                             cx="70" cy="70" r="45"
                                             stroke="url(#qualityGrad)"
@@ -786,16 +786,12 @@ const styles = StyleSheet.create({
     streakBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
+        paddingHorizontal: 0,
         paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor: theme.colors.glass.highlight,
-        borderWidth: 1,
-        borderColor: theme.colors.glass.border,
     },
-    streakLabel: { fontSize: 12, fontWeight: 'bold', color: theme.colors.accent, marginRight: 6 },
-    streakCountBox: { backgroundColor: 'rgba(245, 158, 11, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }, // Amber tint
-    streakCount: { color: theme.colors.accent, fontWeight: 'bold', fontSize: 12 },
+    streakLabel: { fontSize: 13, fontWeight: 'bold', color: theme.colors.accent, marginRight: 6 },
+    streakCountBox: { backgroundColor: 'rgba(245, 158, 11, 0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+    streakCount: { color: theme.colors.accent, fontWeight: '800', fontSize: 14 },
     sectionTitle: { fontSize: 18, fontWeight: '800', color: theme.colors.text.primary },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     seeAllText: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
@@ -819,9 +815,10 @@ const styles = StyleSheet.create({
     statusBox: { alignItems: 'center' },
     statusIcon: { backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 10, borderRadius: 16, marginBottom: 4 }, // Emerald tint
     statusText: { fontSize: 10, color: theme.colors.primary, fontWeight: 'bold' },
-    macroRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-    macroCard: { flex: 1, padding: 12, borderRadius: 20, borderWidth: 1, borderColor: theme.colors.glass.border, alignItems: 'center' },
-    macroLabel: { fontSize: 9, color: theme.colors.text.muted, fontWeight: '800', marginTop: 4 },
+    macroRow: { flexDirection: 'row', gap: 6, marginBottom: 20 },
+    macroTouch: { flex: 1 },
+    macroCard: { flex: 1, paddingVertical: 12, paddingHorizontal: 4, borderRadius: 20, borderWidth: 1, borderColor: theme.colors.glass.border, alignItems: 'center', minHeight: 80 },
+    macroLabel: { fontSize: 10, color: theme.colors.text.secondary, fontWeight: '800', marginTop: 4 },
     macroValue: { fontSize: 14, fontWeight: '700', color: theme.colors.text.primary },
     macroPercent: { fontSize: 10, color: theme.colors.text.muted, fontWeight: 'bold' },
     mealSlider: { marginHorizontal: -24, paddingLeft: 24 },
@@ -835,9 +832,9 @@ const styles = StyleSheet.create({
     mealImagePlaceholder: { width: 100, backgroundColor: theme.colors.glass.highlight, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     mealImage: { width: '100%', height: '100%' },
     mealEmoji: { fontSize: 40 },
-    addMealCard: { width: 140, height: 140, borderRadius: 32, borderStyle: 'dashed', borderWidth: 2, borderColor: theme.colors.glass.border, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-    addIconCircle: { backgroundColor: theme.colors.glass.card, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.glass.border },
-    addMealLabel: { fontSize: 12, fontWeight: 'bold', color: theme.colors.text.muted, marginTop: 10 },
+    addMealCard: { width: 90, height: 140, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+    addIconCircle: { backgroundColor: theme.colors.glass.card, padding: 14, borderRadius: 24, borderWidth: 1, borderColor: theme.colors.glass.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8 },
+    addMealLabel: { fontSize: 13, fontWeight: '700', color: theme.colors.text.muted, marginTop: 12 },
     activityCard: { marginBottom: 30 },
     activityInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     activityIcon: { backgroundColor: theme.colors.glass.highlight, padding: 10, borderRadius: 18 },
@@ -852,7 +849,6 @@ const styles = StyleSheet.create({
     cameraGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     navItem: { alignItems: 'center', flex: 1 },
     navLabel: { fontSize: 10, color: theme.colors.text.muted, fontWeight: 'bold', marginTop: 4 },
-    macroTouch: { flex: 1 },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: theme.colors.background.secondary, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, minHeight: 400, borderWidth: 1, borderColor: theme.colors.glass.border },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

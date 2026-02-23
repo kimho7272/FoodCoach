@@ -38,4 +38,4 @@ We do not knowingly solicit information from or market to children under the age
 **7. Contact Us**
 If you have questions or comments about this Privacy Policy, please contact us at:
 
-**Email:** kimho7272@gmail.com
+**Email:** foodcoach.dev@gmail.com
