@@ -177,7 +177,7 @@ export default function PrivacyPage() {
                                 </ul>
                             )}
                             {section.email && (
-                                <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>Email: {section.email}</p>
+                                <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>Contact: Ho Kim ({section.email})</p>
                             )}
                         </div>
                     ))}

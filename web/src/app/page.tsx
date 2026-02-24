@@ -174,7 +174,7 @@ export default function LandingPage() {
               <Image src="/images/Logo.png" alt="FoodCoach Logo" width={24} height={24} />
               <span style={{ fontWeight: 800 }}>FoodCoach</span>
             </div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{t.footer.rights}</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{t.footer.rights} | Ho Kim</p>
           </div>
           <div style={{ display: 'flex', gap: '2rem' }}>
             <Link href="/privacy" style={{ fontSize: '0.9rem', fontWeight: 600 }}>{t.footer.privacy}</Link>
