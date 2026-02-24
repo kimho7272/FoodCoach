@@ -311,7 +311,8 @@ export default function MealHistoryScreen() {
 
     const handleOpenMap = (item: any) => {
         const { location_lat, location_lng, place_name, address } = item;
-        const query = encodeURIComponent(place_name || address || '');
+        const searchQuery = place_name || address;
+        const query = encodeURIComponent(searchQuery || '');
 
         if (!query && !location_lat) {
             showAlert({ title: "No Location", message: "Location details are missing for this meal.", type: 'error' });
@@ -319,12 +320,12 @@ export default function MealHistoryScreen() {
         }
 
         const url = Platform.select({
-            ios: location_lat && location_lng
-                ? `maps:0,0?q=${place_name || 'Meal Location'}@${location_lat},${location_lng}`
-                : `maps:0,0?q=${query}`,
-            android: location_lat && location_lng
-                ? `geo:${location_lat},${location_lng}?q=${location_lat},${location_lng}(${place_name || 'Meal Location'})`
-                : `geo:0,0?q=${query}`
+            ios: query
+                ? `maps:0,0?q=${query}`
+                : `maps:0,0?q=Meal Location@${location_lat},${location_lng}`,
+            android: query
+                ? `geo:0,0?q=${query}`
+                : `geo:${location_lat},${location_lng}?q=${location_lat},${location_lng}(Meal Location)`
         });
 
         if (url) {
