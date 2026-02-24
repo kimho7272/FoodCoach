@@ -311,7 +311,7 @@ export default function MealHistoryScreen() {
 
     const handleOpenMap = (item: any) => {
         const { location_lat, location_lng, place_name, address } = item;
-        const searchQuery = [place_name, address].filter(Boolean).join(', ');
+        const searchQuery = [place_name, address].filter(Boolean).join(' ');
         const query = encodeURIComponent(searchQuery || '');
 
         if (!query && !location_lat) {
@@ -324,7 +324,7 @@ export default function MealHistoryScreen() {
                 ? `maps:0,0?q=${query}`
                 : `maps:0,0?q=Meal Location@${location_lat},${location_lng}`,
             android: query
-                ? `geo:0,0?q=${query}`
+                ? `https://www.google.com/maps/search/?api=1&query=${query}`
                 : `geo:${location_lat},${location_lng}?q=${location_lat},${location_lng}(Meal Location)`
         });
 
