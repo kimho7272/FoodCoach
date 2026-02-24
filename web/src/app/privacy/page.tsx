@@ -40,7 +40,7 @@ export default function PrivacyPage() {
                 },
                 {
                     title: '4. Disclosure of Your Information',
-                    text: 'We may share information we have collected about you in certain situations, such as by law or to protect rights, or with third-party service providers (e.g., Supabase, Gemini) that perform services for us.'
+                    text: 'We may share information we have collected about you in certain situations, such as by law or with third-party service providers (e.g., Supabase, Gemini) that perform services for us. **However, mobile phone numbers, SMS opt-in data, and text messaging originator consent will not be shared or sold with third parties or affiliates for marketing or promotional purposes.**'
                 },
                 {
                     title: '5. Security of Your Information',
@@ -89,7 +89,7 @@ export default function PrivacyPage() {
                 },
                 {
                     title: '4. 정보의 공개',
-                    text: '당사는 법률 준수, 권리 보호 또는 서비스 제공을 위한 제3자 서비스 제공업체(예: Supabase, Gemini 등)에게 필요한 범위 내에서 정보를 공유할 수 있습니다.'
+                    text: '당사는 법률 준수 또는 서비스 제공을 위한 제3자 서비스 제공업체(예: Supabase, Gemini 등)에게 필요한 범위 내에서 정보를 공유할 수 있습니다. **단, 사용자의 휴대폰 번호, SMS 수신 동의 정보는 마케팅이나 홍보 목적으로 제3자 또는 계열사와 공유하거나 판매되지 않습니다.**'
                 },
                 {
                     title: '5. 정보의 보안',
