@@ -37,13 +37,14 @@ interface MealCardProps {
     onZoomImage: (url: string) => void;
     onShowCategoryPicker: (id: string) => void;
     onStartEdit: (id: string, y: number) => void;
+    onOpenMap: (item: any) => void;
 }
 
 const MealCard = React.memo(({
     item, isSelected, isFavorite, updatingId, editingId, editValue,
     editingLocId, editLocValue, onDelete, onUpdateName, onUpdateLocation,
     onSetEditingId, onSetEditValue, onSetEditingLocId, onSetEditLocValue,
-    onToggleFavorite, onZoomImage, onShowCategoryPicker, onStartEdit
+    onToggleFavorite, onZoomImage, onShowCategoryPicker, onStartEdit, onOpenMap
 }: MealCardProps) => {
     const cardY = useRef(0);
 
@@ -118,19 +119,29 @@ const MealCard = React.memo(({
                             placeholderTextColor={theme.colors.text.muted}
                         />
                     ) : (
-                        <TouchableOpacity
-                            style={styles.locationRow}
-                            onPress={() => {
-                                onStartEdit(item.id, cardY.current);
-                                onSetEditingLocId(item.id);
-                                onSetEditLocValue(item.place_name || '');
-                            }}
-                        >
-                            <MapPin size={10} color={theme.colors.text.secondary} />
-                            <Text style={styles.locationText} numberOfLines={1}>
-                                {item.place_name || item.address || 'Unknown Location'}
-                            </Text>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, paddingVertical: 2 }}>
+                            <TouchableOpacity
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    onOpenMap(item);
+                                }}
+                                style={{ padding: 2 }}
+                            >
+                                <MapPin size={12} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{ flex: 1 }}
+                                onPress={() => {
+                                    onStartEdit(item.id, cardY.current);
+                                    onSetEditingLocId(item.id);
+                                    onSetEditLocValue(item.place_name || '');
+                                }}
+                            >
+                                <Text style={styles.locationText} numberOfLines={1}>
+                                    {item.place_name || item.address || 'Unknown Location'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     )}
                     <TouchableOpacity
                         onPress={() => onToggleFavorite(item.id)}
@@ -298,6 +309,36 @@ export default function MealHistoryScreen() {
 
 
 
+    const handleOpenMap = (item: any) => {
+        const { location_lat, location_lng, place_name, address } = item;
+        const query = encodeURIComponent(place_name || address || '');
+
+        if (!query && !location_lat) {
+            showAlert({ title: "No Location", message: "Location details are missing for this meal.", type: 'error' });
+            return;
+        }
+
+        const url = Platform.select({
+            ios: location_lat && location_lng
+                ? `maps:0,0?q=${place_name || 'Meal Location'}@${location_lat},${location_lng}`
+                : `maps:0,0?q=${query}`,
+            android: location_lat && location_lng
+                ? `geo:${location_lat},${location_lng}?q=${location_lat},${location_lng}(${place_name || 'Meal Location'})`
+                : `geo:0,0?q=${query}`
+        });
+
+        if (url) {
+            Linking.canOpenURL(url).then(supported => {
+                if (supported) {
+                    Linking.openURL(url);
+                } else {
+                    const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${query || `${location_lat},${location_lng}`}`;
+                    Linking.openURL(fallbackUrl);
+                }
+            }).catch(err => console.error('Map opening error:', err));
+        }
+    };
+
     return (
         <View style={styles.container}>
             <LinearGradient colors={theme.colors.gradients.background as any} style={StyleSheet.absoluteFill} />
@@ -370,6 +411,7 @@ export default function MealHistoryScreen() {
                                         onStartEdit={(id, y) => {
                                             mainScrollRef.current?.scrollTo({ y: y - 20, animated: true });
                                         }}
+                                        onOpenMap={handleOpenMap}
                                     />
                                 ))
                             )}
