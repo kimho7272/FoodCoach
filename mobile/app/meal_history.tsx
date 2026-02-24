@@ -311,7 +311,7 @@ export default function MealHistoryScreen() {
 
     const handleOpenMap = (item: any) => {
         const { location_lat, location_lng, place_name, address } = item;
-        const searchQuery = place_name || address;
+        const searchQuery = [place_name, address].filter(Boolean).join(', ');
         const query = encodeURIComponent(searchQuery || '');
 
         if (!query && !location_lat) {
