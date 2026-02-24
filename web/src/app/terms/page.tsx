@@ -137,7 +137,7 @@ export default function TermsPage() {
                             <h2 style={{ marginTop: '2.5rem', marginBottom: '1rem' }}>{section.title}</h2>
                             <p>{section.text}</p>
                             {section.email && (
-                                <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>Email: {section.email}</p>
+                                <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>{language === 'ko' ? '운영 담당: Ho Kim' : 'Owner/Operator: Ho Kim'} ({section.email})</p>
                             )}
                         </div>
                     ))}

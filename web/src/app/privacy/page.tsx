@@ -177,7 +177,7 @@ export default function PrivacyPage() {
                                 </ul>
                             )}
                             {section.email && (
-                                <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>Contact: Ho Kim ({section.email})</p>
+                                <p style={{ marginTop: '1rem', fontWeight: 600, color: 'var(--primary)' }}>{language === 'ko' ? '운영 담당: Ho Kim' : 'Owner/Operator: Ho Kim'} ({section.email})</p>
                             )}
                         </div>
                     ))}
