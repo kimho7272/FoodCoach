@@ -9,7 +9,8 @@ const CONTACTS_CACHE_KEY = 'foodcoach_contacts_cache';
 
 export interface Friend {
     id: string;
-    full_name: string | null; // This will hold the phonebook name primarily
+    full_name: string | null; // This will hold the display name
+    contact_name: string | null; // This will strictly hold the phone contacts name
     nickname: string | null;  // This is the DB nickname
     avatar_url: string | null;
     phone: string | null;
@@ -66,6 +67,7 @@ export const socialService = {
                             results.push({
                                 id: normalized,
                                 full_name: contactName,
+                                contact_name: contactName,
                                 nickname: null,
                                 avatar_url: c.image?.uri || null,
                                 phone: normalized,
@@ -194,6 +196,7 @@ export const socialService = {
                 return {
                     id: registered.id,
                     full_name: finalDisplayName,
+                    contact_name: phonebookName || null,
                     nickname: dbNickname,
                     avatar_url: registered.avatar_url || local.avatar_url,
                     phone: local.phone,
@@ -372,15 +375,17 @@ export const socialService = {
             .select(`
                 id,
                 created_at,
-                sender:user_id_1(id, full_name, nickname, avatar_url, phone)
+                sender:profiles!user_id_1(id, full_name, nickname, avatar_url, phone)
             `)
             .eq('user_id_2', user.id)
             .eq('status', 'pending');
 
         if (error) {
-            console.error('Error fetching pending requests:', error);
+            console.error('[GETPENDING] Error:', error);
             return [];
         }
+
+        console.log(`[GETPENDING] Found ${requests?.length || 0} pending requests.`);
 
         // Match pending requests with local names
         const localContacts = await this.getPhoneContacts();
@@ -434,8 +439,8 @@ export const socialService = {
                 status,
                 user_id_1,
                 user_id_2,
-                profile1:profiles!friendships_user_id_1_fkey(id, full_name, nickname, avatar_url, phone),
-                profile2:profiles!friendships_user_id_2_fkey(id, full_name, nickname, avatar_url, phone)
+                profile1:profiles!user_id_1(id, full_name, nickname, avatar_url, phone),
+                profile2:profiles!user_id_2(id, full_name, nickname, avatar_url, phone)
             `)
             .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id}`)
             .eq('status', 'accepted');
@@ -465,17 +470,18 @@ export const socialService = {
                 const hasRealPhoneName = phoneName && phoneName.length > 0 && phoneName !== friendProfile.phone;
                 const finalDisplayName = hasRealPhoneName ? phoneName : (dbName || 'User');
 
-                console.log(`[MYFRIENDS_FINAL] ${friendProfile.phone} -> ${finalDisplayName}`);
-
                 friends.push({
                     id: friendProfile.id,
                     full_name: finalDisplayName,
+                    contact_name: phoneName || null,
                     nickname: friendProfile.nickname,
                     avatar_url: friendProfile.avatar_url,
                     phone: friendProfile.phone,
                     status: 'accepted',
                     is_registered: true
                 });
+            } else {
+                // Profile is NULL, could be an RLS or data integrity issue
             }
         });
         return friends;

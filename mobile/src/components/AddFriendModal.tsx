@@ -100,10 +100,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                     </View>
                 )}
                 <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.contactName}>{item.full_name || 'User'}</Text>
-                    {item.is_registered && item.nickname && (
-                        <Text style={{ fontSize: 11, color: theme.colors.text.muted }}>ID: {item.nickname}</Text>
-                    )}
+                    <Text style={styles.contactName}>{item.nickname || item.full_name || 'User'}</Text>
                     {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
                 </View>
             </View>

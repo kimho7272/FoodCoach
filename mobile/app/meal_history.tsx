@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Calendar, Trash2, ArrowUp, ChevronRight, Flame, Zap, BarChart2, MapPin, ThumbsUp, ZoomIn, X } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
-import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName, updateMealLogLocation } from '../src/lib/meal_service';
+import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName, updateMealLogLocation, toggleMealFavorite } from '../src/lib/meal_service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAlert } from '../src/context/AlertContext';
 import ImageView from 'react-native-image-viewing';
@@ -67,9 +67,17 @@ const MealCard = React.memo(({
                         {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                 </View>
-                <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteBtn}>
-                    <Trash2 size={16} color="#f87171" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                        onPress={() => onToggleFavorite(item.id)}
+                        style={[styles.favBtnHeader, isFavorite && styles.favBtnActive]}
+                    >
+                        <ThumbsUp size={16} color={isFavorite ? theme.colors.primary : theme.colors.text.secondary} fill={isFavorite ? theme.colors.primary : 'none'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteBtn}>
+                        <Trash2 size={16} color="#f87171" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={styles.mealMain}>
@@ -143,12 +151,6 @@ const MealCard = React.memo(({
                             </TouchableOpacity>
                         </View>
                     )}
-                    <TouchableOpacity
-                        onPress={() => onToggleFavorite(item.id)}
-                        style={[styles.favBtn, isFavorite && styles.favBtnActive]}
-                    >
-                        <ThumbsUp size={14} color={isFavorite ? theme.colors.primary : theme.colors.text.secondary} fill={isFavorite ? theme.colors.primary : 'none'} />
-                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -159,7 +161,7 @@ const MealCard = React.memo(({
                 <View style={styles.macroTile}><ArrowUp size={12} color="#ec4899" /><Text style={styles.macroVal}>{item.carbs} <Text style={styles.macroUnit}>g</Text></Text></View>
             </View>
 
-            {item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
+            {item.description && <Text style={styles.description}>{item.description}</Text>}
         </BlurView>
     );
 });
@@ -202,25 +204,25 @@ export default function MealHistoryScreen() {
     });
 
     useEffect(() => {
-        const loadFavorites = async () => {
-            try {
-                const stored = await AsyncStorage.getItem('meal_favorites');
-                if (stored) setFavorites(JSON.parse(stored));
-            } catch (e) {
-                console.error(e);
-            }
-        };
-        loadFavorites();
         fetchLogs();
     }, []);
 
     const toggleFavorite = async (id: string) => {
-        const newFavs = { ...favorites };
-        if (newFavs[id] === 'up') delete newFavs[id];
-        else newFavs[id] = 'up';
-        setFavorites(newFavs);
+        const item = allLogs.find(l => l.id === id);
+        if (!item) return;
+
+        const newState = !item.is_favorite;
+
+        // Optimistic UI Update
+        setAllLogs(prev => prev.map(l => l.id === id ? { ...l, is_favorite: newState } : l));
+
         try {
-            await AsyncStorage.setItem('meal_favorites', JSON.stringify(newFavs));
+            const { error } = await toggleMealFavorite(id, newState);
+            if (error) {
+                // Rollback on error
+                setAllLogs(prev => prev.map(l => l.id === id ? { ...l, is_favorite: !newState } : l));
+                showAlert({ title: "Error", message: "Failed to update favorite status", type: 'error' });
+            }
         } catch (e) {
             console.error(e);
         }
@@ -241,9 +243,9 @@ export default function MealHistoryScreen() {
     }, []);
 
     const displayedLogs = React.useMemo(() => {
-        if (showFavoritesOnly) return allLogs.filter(l => favorites[l.id] === 'up');
+        if (showFavoritesOnly) return allLogs.filter(l => l.is_favorite);
         return allLogs.filter(log => new Date(log.created_at).toDateString() === selectedDate.toDateString());
-    }, [allLogs, showFavoritesOnly, selectedDate, favorites]);
+    }, [allLogs, showFavoritesOnly, selectedDate]);
 
     const handleDelete = (id: string) => {
         showAlert({
@@ -392,7 +394,7 @@ export default function MealHistoryScreen() {
                                         key={item.id}
                                         item={item}
                                         isSelected={selectedId === String(item.id)}
-                                        isFavorite={favorites[item.id] === 'up'}
+                                        isFavorite={!!item.is_favorite}
                                         updatingId={updatingId}
                                         editingId={editingId}
                                         editValue={editValue}
@@ -480,7 +482,7 @@ const styles = StyleSheet.create({
     locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, paddingVertical: 2 },
     locationText: { fontSize: 10, color: theme.colors.text.secondary, fontWeight: '600' },
     locationInput: { fontSize: 10, color: theme.colors.text.primary, borderBottomWidth: 1, borderBottomColor: theme.colors.primary, padding: 0, marginTop: 4 },
-    favBtn: { alignSelf: 'flex-start', marginTop: 10, padding: 6, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: theme.colors.glass.border },
+    favBtnHeader: { padding: 6, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: theme.colors.glass.border },
     favBtnActive: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' },
     macroStrip: { flexDirection: 'row', gap: 8, marginBottom: 12 },
     macroTile: { flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.glass.border },

@@ -30,6 +30,7 @@ export default function FriendsScreen() {
             ]);
             setFriends(myFriends || []);
             setPendingRequests(requests || []);
+            console.log(`[FRIENDS_SCREEN] Fetched ${myFriends?.length || 0} friends and ${requests?.length || 0} requests.`);
         } catch (error) {
             console.error(error);
         } finally {

@@ -18,6 +18,9 @@ export type MealLog = {
     location_lng?: number;
     place_name?: string | null;
     address?: string | null;
+    is_favorite?: boolean;
+    created_at?: string;
+    id?: string;
 };
 
 export const uploadMealImage = async (userId: string, base64Data: string) => {
@@ -56,7 +59,7 @@ export const uploadMealImage = async (userId: string, base64Data: string) => {
 
 export const saveMealLog = async (mealLog: MealLog) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
             .from('food_logs')
             .insert([mealLog])
             .select();
@@ -71,7 +74,7 @@ export const saveMealLog = async (mealLog: MealLog) => {
 
 export const getMealLogs = async (userId: string) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
             .from('food_logs')
             .select('*')
             .eq('user_id', userId)
@@ -87,7 +90,7 @@ export const getMealLogs = async (userId: string) => {
 
 export const deleteMealLog = async (id: string) => {
     try {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('food_logs')
             .delete()
             .eq('id', id);
@@ -102,7 +105,7 @@ export const deleteMealLog = async (id: string) => {
 
 export const updateMealLogCategory = async (id: string, category: string) => {
     try {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('food_logs')
             .update({ meal_type: category })
             .eq('id', id);
@@ -117,7 +120,7 @@ export const updateMealLogCategory = async (id: string, category: string) => {
 
 export const updateMealLogName = async (id: string, name: string) => {
     try {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('food_logs')
             .update({ food_name: name })
             .eq('id', id);
@@ -133,7 +136,7 @@ export const updateMealLogName = async (id: string, name: string) => {
 export const updateMealLogLocation = async (id: string, userId: string, address: string | null, placeName: string) => {
     try {
         // 1. Update the specific log
-        const { error: error1 } = await supabase
+        const { error: error1 } = await (supabase as any)
             .from('food_logs')
             .update({ place_name: placeName })
             .eq('id', id);
@@ -142,7 +145,7 @@ export const updateMealLogLocation = async (id: string, userId: string, address:
 
         // 2. If address exists, update other logs with same address but NULL place_name
         if (address) {
-            const { error: error2 } = await supabase
+            const { error: error2 } = await (supabase as any)
                 .from('food_logs')
                 .update({ place_name: placeName })
                 .match({ user_id: userId, address: address })
@@ -160,7 +163,7 @@ export const updateMealLogLocation = async (id: string, userId: string, address:
 
 export const getPlaceNameByAddress = async (userId: string, address: string) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
             .from('food_logs')
             .select('place_name')
             .match({ user_id: userId, address: address })
@@ -181,7 +184,7 @@ export const getWeeklyStats = async (userId: string) => {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
             .from('food_logs')
             .select('*')
             .eq('user_id', userId)
@@ -193,7 +196,7 @@ export const getWeeklyStats = async (userId: string) => {
         // Group by day for the trend chart
         const dailyTrends: Record<string, { health_score: number, calories: number, count: number }> = {};
 
-        (data || []).forEach(log => {
+        (data || []).forEach((log: any) => {
             const date = new Date(log.created_at).toDateString();
             if (!dailyTrends[date]) {
                 dailyTrends[date] = { health_score: 0, calories: 0, count: 0 };
@@ -210,11 +213,26 @@ export const getWeeklyStats = async (userId: string) => {
         }));
 
         // Calculate Diversity (unique foods)
-        const uniqueFoods = new Set((data || []).map(l => l.food_name.toLowerCase())).size;
+        const uniqueFoods = new Set((data || []).map((l: any) => (l as any).food_name.toLowerCase())).size;
 
         return { trends: formattedTrends, diversity: uniqueFoods, raw: data, error: null };
     } catch (error) {
         console.error('Get weekly stats failed:', error);
         return { trends: [], diversity: 0, raw: [], error };
+    }
+};
+
+export const toggleMealFavorite = async (id: string, isFavorite: boolean) => {
+    try {
+        const { error } = await (supabase as any)
+            .from('food_logs')
+            .update({ is_favorite: isFavorite })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { error: null };
+    } catch (error) {
+        console.error('Toggle meal favorite failed:', error);
+        return { error };
     }
 };
