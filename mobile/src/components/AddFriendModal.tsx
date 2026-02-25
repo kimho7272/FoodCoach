@@ -52,7 +52,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         const success = await socialService.sendFriendRequest(userId);
         if (success) {
             showAlert({ title: t('success'), message: t('requestSent') || 'Request Sent', type: 'success' });
-            setContacts(prev => prev.map(c => c.id === userId ? { ...c, status: 'sent' } : c));
+            setContacts(prev => prev.map(c => c.id === userId ? { ...c, status: 'sent', request_sent_at: new Date().toISOString() } : c));
             if (onSuccess) onSuccess();
         } else {
             showAlert({ title: t('error'), message: t('requestFailed') || 'Failed to send', type: 'error' });
