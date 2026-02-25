@@ -15,6 +15,7 @@ export interface Friend {
     status: 'pending' | 'accepted' | 'sent' | 'none';
     is_registered: boolean;
     request_sent_at?: string;
+    friendship_id?: string;
 }
 
 export const socialService = {
@@ -145,6 +146,7 @@ export const socialService = {
 
                 let status: Friend['status'] = 'none';
                 let requestSentAt: string | undefined = undefined;
+                let friendshipId: string | undefined = undefined;
 
                 if (user) {
                     const f = friendships.find((fs: any) =>
@@ -152,6 +154,7 @@ export const socialService = {
                         (fs.user_id_2 === user.id && fs.user_id_1 === registered.id)
                     );
                     if (f) {
+                        friendshipId = f.id;
                         if (f.status === 'accepted') status = 'accepted';
                         else if (f.status === 'pending') {
                             status = f.user_id_1 === user.id ? 'sent' : 'pending';
@@ -179,7 +182,8 @@ export const socialService = {
                     phone: local.phone,
                     is_registered: true,
                     status,
-                    request_sent_at: requestSentAt
+                    request_sent_at: requestSentAt,
+                    friendship_id: friendshipId
                 } as Friend;
             }
             return local;

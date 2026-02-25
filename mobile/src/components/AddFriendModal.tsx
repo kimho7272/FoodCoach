@@ -59,6 +59,17 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         }
     };
 
+    const handleAcceptRequest = async (friendshipId: string, userId: string) => {
+        const success = await socialService.acceptFriendRequest(friendshipId);
+        if (success) {
+            showAlert({ title: t('success'), message: t('friendAdded') || 'Friend added!', type: 'success' });
+            setContacts(prev => prev.map(c => c.id === userId ? { ...c, status: 'accepted' } : c));
+            if (onSuccess) onSuccess();
+        } else {
+            showAlert({ title: t('error'), message: t('failedToAccept') || 'Failed to accept', type: 'error' });
+        }
+    };
+
     const handleInvite = async (phone: string | null) => {
         if (!phone) return;
         await socialService.inviteViaSMS(phone);
@@ -106,6 +117,14 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                 <View style={styles.sentBadge}>
                     <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
                 </View>
+            ) : item.status === 'pending' ? (
+                <TouchableOpacity
+                    style={[styles.connectBtn, { backgroundColor: theme.colors.primary }]}
+                    onPress={() => item.friendship_id && handleAcceptRequest(item.friendship_id, item.id)}
+                >
+                    <Check size={16} color="#fff" />
+                    <Text style={styles.connectBtnText}>{t('accept') || 'Accept'}</Text>
+                </TouchableOpacity>
             ) : item.is_registered ? (
                 <TouchableOpacity
                     style={[styles.connectBtn, { backgroundColor: theme.colors.secondary }]}

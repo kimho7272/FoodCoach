@@ -26,6 +26,8 @@ export const translations = {
         basedOnHeightWeight: "Based on height/weight",
         basedOnGenderHeightWeight: "Based on Gender, Height & Weight",
         dailyCalorieGoal: "Daily Calorie Goal",
+        accept: "Accept",
+        failedToAccept: "Failed to accept.",
         welcomeMessage: "Hi! I'm Applei.",
         enterNickname: "Enter nickname",
         aboutYou: "About You",
@@ -284,7 +286,7 @@ export const translations = {
         pendingRequests: "Pending Requests",
         searchFriends: "Search friends...",
         noFriendsTitle: "No Friends Yet",
-        noFriendsDesc: "Invite friends from contacts\nand get healthy together!",
+        noFriendsDesc: "No friends yet. Invite friends from contacts\nand get healthy together!",
 
     },
     Korean: {
@@ -569,7 +571,8 @@ export const translations = {
         recommendedValue: "권장값",
         basedOnHeightWeight: "키/몸무게 기준",
         dailyCalorieGoal: "일일 칼로리 목표",
-
+        accept: "수락",
+        failedToAccept: "수락에 실패했습니다.",
     }
 };
 
