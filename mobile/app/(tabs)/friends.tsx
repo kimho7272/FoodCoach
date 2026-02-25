@@ -10,6 +10,7 @@ import { socialService, Friend } from '../../src/services/social_service';
 import { useAlert } from '../../src/context/AlertContext';
 import { theme } from '../../src/constants/theme';
 import { AddFriendModal } from '../../src/components/AddFriendModal';
+import { supabase } from '../../src/lib/supabase';
 
 export default function FriendsScreen() {
     const { t, language } = useTranslation();
@@ -41,6 +42,45 @@ export default function FriendsScreen() {
             fetchData();
         }, [fetchData])
     );
+
+    React.useEffect(() => {
+        let channel: any;
+
+        const setupRealtime = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            channel = supabase
+                .channel('friendship-updates')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'friendships',
+                        // Note: Supabase Realtime filter has some limitations with OR,
+                        // so we subscribe to any change and filter in memory or just fetch all
+                    },
+                    (payload: any) => {
+                        const { new: newRecord, old: oldRecord } = payload;
+                        if (
+                            newRecord?.user_id_1 === user.id || newRecord?.user_id_2 === user.id ||
+                            oldRecord?.user_id_1 === user.id || oldRecord?.user_id_2 === user.id
+                        ) {
+                            fetchData();
+                        }
+                    }
+                )
+                .subscribe();
+        };
+
+        setupRealtime();
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchData]);
 
     const handleAccept = async (requestId: string) => {
         const success = await socialService.acceptFriendRequest(requestId);

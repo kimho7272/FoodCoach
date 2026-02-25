@@ -3,11 +3,18 @@ import { Home, Camera, User, BarChart2, Heart, Users } from 'lucide-react-native
 import { BlurView } from 'expo-blur';
 import { View, Platform, TouchableOpacity } from 'react-native';
 import { useTranslation } from '../../src/lib/i18n';
+import { useEffect } from 'react';
+import { notificationService } from '../../src/services/notification_service';
 
 export default function TabLayout() {
     const pathname = usePathname();
     const isAnalysisScreen = pathname === '/analysis';
     const { t } = useTranslation();
+
+    useEffect(() => {
+        // Register for push notifications on mount
+        notificationService.registerForPushNotifications();
+    }, []);
 
     return (
         <Tabs

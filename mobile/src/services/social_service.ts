@@ -3,6 +3,7 @@ import * as SMS from 'expo-sms';
 import { supabase } from '../lib/supabase';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notificationService } from './notification_service';
 
 const CONTACTS_CACHE_KEY = 'foodcoach_contacts_cache';
 
@@ -16,6 +17,7 @@ export interface Friend {
     is_registered: boolean;
     request_sent_at?: string;
     friendship_id?: string;
+    push_token?: string;
 }
 
 export const socialService = {
@@ -103,7 +105,7 @@ export const socialService = {
             const batch = conditions.slice(i, i + batchSize);
             const { data, error } = await (supabase as any)
                 .from('profiles')
-                .select('id, full_name, nickname, avatar_url, phone')
+                .select('id, full_name, nickname, avatar_url, phone, push_token')
                 .or(batch.join(','));
 
             if (error) {
@@ -183,7 +185,8 @@ export const socialService = {
                     is_registered: true,
                     status,
                     request_sent_at: requestSentAt,
-                    friendship_id: friendshipId
+                    friendship_id: friendshipId,
+                    push_token: registered.push_token
                 } as Friend;
             }
             return local;
@@ -254,6 +257,13 @@ export const socialService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return false;
 
+        // Fetch my profile for the notification name
+        const { data: myProfile } = await (supabase as any)
+            .from('profiles')
+            .select('nickname, full_name')
+            .eq('id', user.id)
+            .single();
+
         const { error } = await (supabase as any)
             .from('friendships')
             .upsert({
@@ -266,6 +276,24 @@ export const socialService = {
         if (error) {
             console.error('Error sending request:', error);
             return false;
+        }
+
+        // Send Push Notification
+        try {
+            const { data: targetProfile } = await (supabase as any)
+                .from('profiles')
+                .select('push_token')
+                .eq('id', targetUserId)
+                .single();
+
+            if (targetProfile?.push_token) {
+                await notificationService.sendFriendRequestNotification(
+                    targetProfile.push_token,
+                    myProfile?.nickname || myProfile?.full_name || 'Someone'
+                );
+            }
+        } catch (e) {
+            console.warn('Notification failed but request was sent:', e);
         }
 
         // Update local cache for instant feedback
