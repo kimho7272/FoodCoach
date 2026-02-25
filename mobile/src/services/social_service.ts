@@ -42,7 +42,12 @@ export const socialService = {
     // 3. Get Device Contacts (Fast, Local Only)
     async getPhoneContacts(): Promise<Friend[]> {
         const contacts = await this.getContacts();
-        if (!contacts || contacts.length === 0) return [];
+        if (!contacts || contacts.length === 0) {
+            console.log('[PhoneContacts] No contacts found or permission denied.');
+            return [];
+        }
+
+        console.log(`[PhoneContacts] Total Device Contacts: ${contacts.length}`);
 
         const results: Friend[] = [];
         const seenNumbers = new Set<string>();
@@ -84,11 +89,12 @@ export const socialService = {
         const phoneNumbers = localFriends.map(f => f.phone).filter(p => p !== null) as string[];
         if (phoneNumbers.length === 0) return localFriends;
 
+        console.log(`[SyncContacts] Total Local Numbers to Sync: ${phoneNumbers.length}`);
+        console.log(`[SyncContacts] Sample Local Numbers: ${phoneNumbers.slice(0, 5).join(', ')}`);
+
         // Build a flexible search query using OR with suffix matching
         const conditions = phoneNumbers.map(num => {
             const digits = num.replace(/\D/g, '');
-            // Use last 8 digits for DB search - covers most unique local parts 
-            // and handles cases with or without country code prefixes (1 or +1)
             const matchPart = digits.length >= 8 ? digits.slice(-8) : digits;
             return `phone.ilike.%${matchPart}`;
         });
@@ -109,6 +115,11 @@ export const socialService = {
             } else if (data) {
                 allMatchingProfiles = [...allMatchingProfiles, ...data];
             }
+        }
+
+        console.log(`[SyncContacts] DB Results Found: ${allMatchingProfiles.length}`);
+        if (allMatchingProfiles.length > 0) {
+            console.log(`[SyncContacts] Sample DB Profiles:`, allMatchingProfiles.slice(0, 3).map(p => `${p.nickname}(${p.phone})`).join(', '));
         }
 
         // Get my info for self-filtering and friendship status
@@ -134,6 +145,14 @@ export const socialService = {
             const registered = allMatchingProfiles.find(p => {
                 const cleanDB = p.phone ? p.phone.replace(/\D/g, '') : '';
                 const dbSuffix = cleanDB.length >= 10 ? cleanDB.slice(-10) : cleanDB;
+
+                // Debug match check for last 8 digits (for manual verification)
+                const local8 = cleanLocal.slice(-8);
+                const db8 = cleanDB.slice(-8);
+                if (local8 === db8 && local8.length >= 8) {
+                    console.log(`[DEBUG_MATCH] Potential match: Contact(${local.full_name}, ${cleanLocal}) <-> DB(${p.nickname}, ${cleanDB})`);
+                    console.log(`[DEBUG_MATCH] localSuffix(10): ${localSuffix}, dbSuffix(10): ${dbSuffix}`);
+                }
 
                 // If the stored DB number is exactly equal to local suffix or vice-versa
                 return localSuffix && dbSuffix && (localSuffix === dbSuffix || cleanLocal === cleanDB);
