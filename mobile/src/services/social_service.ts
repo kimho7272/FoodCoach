@@ -99,20 +99,35 @@ export const socialService = {
 
         // Split into batches if too many contacts to avoid URL length issues
         let allMatchingProfiles: any[] = [];
-        const batchSize = 50; // Standard batch size
+        const batchSize = 50;
 
         for (let i = 0; i < conditions.length; i += batchSize) {
             const batch = conditions.slice(i, i + batchSize);
+            // Try fetching with push_token, but don't fail if column doesn't exist yet
             const { data, error } = await (supabase as any)
                 .from('profiles')
                 .select('id, full_name, nickname, avatar_url, phone, push_token')
                 .or(batch.join(','));
 
             if (error) {
-                console.error('Error finding friends batch:', error);
+                console.warn('SyncContacts: Attempting fetch without push_token due to error:', error.message);
+                const { data: retryData, error: retryError } = await (supabase as any)
+                    .from('profiles')
+                    .select('id, full_name, nickname, avatar_url, phone')
+                    .or(batch.join(','));
+
+                if (retryError) {
+                    console.error('Fatal Sync Error:', retryError.message);
+                } else {
+                    allMatchingProfiles = [...allMatchingProfiles, ...(retryData || [])];
+                }
             } else if (data) {
                 allMatchingProfiles = [...allMatchingProfiles, ...data];
             }
+        }
+
+        if (allMatchingProfiles.length > 0) {
+            console.log(`[SyncContacts] Successfully matched ${allMatchingProfiles.length} registered users.`);
         }
 
         // Get my info for self-filtering and friendship status
@@ -280,13 +295,15 @@ export const socialService = {
 
         // Send Push Notification
         try {
-            const { data: targetProfile } = await (supabase as any)
+            const { data: targetProfile, error: targetProfileError } = await (supabase as any)
                 .from('profiles')
                 .select('push_token')
                 .eq('id', targetUserId)
                 .single();
 
-            if (targetProfile?.push_token) {
+            if (targetProfileError) {
+                console.warn(`Failed to fetch target profile for push notification: ${targetProfileError.message}`);
+            } else if (targetProfile?.push_token) {
                 await notificationService.sendFriendRequestNotification(
                     targetProfile.push_token,
                     myProfile?.nickname || myProfile?.full_name || 'Someone'

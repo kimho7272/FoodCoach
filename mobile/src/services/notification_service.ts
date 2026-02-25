@@ -4,16 +4,20 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-// Configure notification behavior
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-    }),
-});
+// Configure notification behavior ONLY IF NOT IN EXPO GO (to avoid SDK 53+ warnings)
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (!isExpoGo) {
+    Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+        }),
+    });
+}
 
 export const notificationService = {
     /**
@@ -21,8 +25,8 @@ export const notificationService = {
      */
     async registerForPushNotifications(): Promise<string | null> {
         // Expo Go on Android no longer supports remote push notifications as of SDK 53.
-        if (Constants.appOwnership === 'expo') {
-            console.log('Skipping push token registration: Push notifications are not supported in Expo Go (SDK 53+).');
+        if (isExpoGo) {
+            console.log('Skipping push token registration: Push notifications are not supported in Expo Go.');
             return null;
         }
 
