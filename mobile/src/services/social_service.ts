@@ -63,6 +63,10 @@ export const socialService = {
                             seenNumbers.add(normalized);
                             const contactName = c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || null;
 
+                            if (normalized.endsWith('2634648')) {
+                                console.log(`[SPECIFIC_DEBUG] Found 2634648 in device: ${normalized} (Original: ${pn.number}, Name: ${contactName})`);
+                            }
+
                             results.push({
                                 id: normalized,
                                 full_name: contactName,
@@ -96,6 +100,11 @@ export const socialService = {
         const conditions = phoneNumbers.map(num => {
             const digits = num.replace(/\D/g, '');
             const matchPart = digits.length >= 8 ? digits.slice(-8) : digits;
+
+            if (digits.endsWith('2634648')) {
+                console.log(`[SPECIFIC_DEBUG] DB Condition for 2634648: ilike .%${matchPart} (from digits: ${digits})`);
+            }
+
             return `phone.ilike.%${matchPart}`;
         });
 
