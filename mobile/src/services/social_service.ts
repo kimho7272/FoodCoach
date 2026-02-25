@@ -99,7 +99,8 @@ export const socialService = {
         // Build a flexible search query using OR with suffix matching
         const conditions = phoneNumbers.map(num => {
             const digits = num.replace(/\D/g, '');
-            const matchPart = digits.length >= 8 ? digits.slice(-8) : digits;
+            // Use last 7 digits for DB search - highly reliable for US/KR local parts
+            const matchPart = digits.length >= 7 ? digits.slice(-7) : digits;
 
             if (digits.endsWith('2634648')) {
                 console.log(`[SPECIFIC_DEBUG] DB Condition for 2634648: ilike .%${matchPart} (from digits: ${digits})`);
@@ -126,9 +127,17 @@ export const socialService = {
             }
         }
 
+        // --- SPECIFIC TEST QUERY FOR HUSBAND ---
+        const { data: testData } = await (supabase as any)
+            .from('profiles')
+            .select('nickname, phone')
+            .ilike('phone', '%2634648');
+        console.log(`[TEST_DB_QUERY] Forced search for *2634648 record:`, testData);
+        // ----------------------------------------
+
         console.log(`[SyncContacts] DB Results Found: ${allMatchingProfiles.length}`);
         if (allMatchingProfiles.length > 0) {
-            console.log(`[SyncContacts] Sample DB Profiles:`, allMatchingProfiles.slice(0, 3).map(p => `${p.nickname}(${p.phone})`).join(', '));
+            console.log(`[SyncContacts] All DB Numbers returned:`, allMatchingProfiles.map(p => p.phone).join(', '));
         }
 
         // Get my info for self-filtering and friendship status
