@@ -64,6 +64,14 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         await socialService.inviteViaSMS(phone);
     };
 
+    const isRequestExpired = (sentAt?: string) => {
+        if (!sentAt) return false;
+        const sentTime = new Date(sentAt).getTime();
+        const now = new Date().getTime();
+        const hoursDiff = (now - sentTime) / (1000 * 60 * 60);
+        return hoursDiff > 24;
+    };
+
     const filteredContacts = contacts.filter(c =>
         (c.full_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
         (c.nickname || '').toLowerCase().includes(searchText.toLowerCase()) ||
@@ -94,7 +102,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                     <Check size={14} color={theme.colors.primary} />
                     <Text style={styles.friendBadgeText}>{t('friends')}</Text>
                 </View>
-            ) : item.status === 'sent' ? (
+            ) : (item.status === 'sent' && !isRequestExpired(item.request_sent_at)) ? (
                 <View style={styles.sentBadge}>
                     <Text style={styles.sentText}>{t('sent') || 'Sent'}</Text>
                 </View>

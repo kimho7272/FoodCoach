@@ -254,11 +254,12 @@ export const socialService = {
 
         const { error } = await (supabase as any)
             .from('friendships')
-            .insert({
+            .upsert({
                 user_id_1: user.id,
                 user_id_2: targetUserId,
-                status: 'pending'
-            });
+                status: 'pending',
+                created_at: new Date().toISOString()
+            }, { onConflict: 'user_id_1,user_id_2' });
 
         if (error) {
             console.error('Error sending request:', error);
