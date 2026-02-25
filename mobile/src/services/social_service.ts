@@ -33,20 +33,9 @@ export const socialService = {
 
     // 2. Normalize Phone Number (Flexible)
     normalizePhone(phone: string): string {
-        // 1. Remove common symbols
-        const rawClean = phone.replace(/[\s\-\(\)]/g, '');
-
-        // 2. If it has a '+', it's already an international format
-        if (rawClean.startsWith('+')) {
-            return '+' + rawClean.replace(/\D/g, '');
-        }
-
-        // 3. For local numbers, remove leading 0 and non-digits
-        let digits = phone.replace(/\D/g, '');
-        if (digits.startsWith('0')) {
-            digits = digits.substring(1);
-        }
-        return digits;
+        // Return ONLY digits to make matching completely format-agnostic
+        // This handles (469) 123-4567, +14691234567, 4691234567 consistently
+        return phone.replace(/\D/g, '');
     },
 
     // 3. Find Friends on FoodCoach (Matches contacts with Profiles)
@@ -97,18 +86,16 @@ export const socialService = {
 
         // Build a flexible search query using OR with suffix matching
         const conditions = phoneNumbers.map(num => {
-            // Remove ALL non-digits for the search query to be as robust as possible
             const digits = num.replace(/\D/g, '');
-
-            // Use at least 7 or more trailing digits to avoid false positives 
-            // but ensure we match despite country code differences.
-            const matchPart = digits.length >= 10 ? digits.slice(-10) : digits;
+            // Use last 8 digits for DB search - covers most unique local parts 
+            // and handles cases with or without country code prefixes (1 or +1)
+            const matchPart = digits.length >= 8 ? digits.slice(-8) : digits;
             return `phone.ilike.%${matchPart}`;
         });
 
         // Split into batches if too many contacts to avoid URL length issues
         let allMatchingProfiles: any[] = [];
-        const batchSize = 30; // Reduce batch size further for reliability
+        const batchSize = 25; // Smaller batch size for high reliability on mobile networks
 
         for (let i = 0; i < conditions.length; i += batchSize) {
             const batch = conditions.slice(i, i + batchSize);
@@ -140,17 +127,16 @@ export const socialService = {
             if (!local.phone) return local;
 
             // Find matching profile in the fetched pool (Robust Digit-only match)
-            // Use the last 9 digits as a highly reliable common identifier 
-            // 9 digits cover 010-xxxx-xxxx (KR) and (area)-xxx-xxxx (US) minus the first area code digit.
-            // 10 is safest for US, but some people save as 469... (no 1).
+            // Use the last 10 digits as a definitive common identifier (US standard)
             const cleanLocal = local.phone.replace(/\D/g, '');
-            const localSuffix = cleanLocal.length >= 9 ? cleanLocal.slice(-9) : cleanLocal;
+            const localSuffix = cleanLocal.length >= 10 ? cleanLocal.slice(-10) : cleanLocal;
 
             const registered = allMatchingProfiles.find(p => {
                 const cleanDB = p.phone ? p.phone.replace(/\D/g, '') : '';
-                const dbSuffix = cleanDB.length >= 9 ? cleanDB.slice(-9) : cleanDB;
+                const dbSuffix = cleanDB.length >= 10 ? cleanDB.slice(-10) : cleanDB;
 
-                return localSuffix && dbSuffix && (localSuffix === dbSuffix);
+                // If the stored DB number is exactly equal to local suffix or vice-versa
+                return localSuffix && dbSuffix && (localSuffix === dbSuffix || cleanLocal === cleanDB);
             });
 
             if (registered) {
