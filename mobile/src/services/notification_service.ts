@@ -10,6 +10,8 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
 
@@ -18,6 +20,12 @@ export const notificationService = {
      * Get the Expo Push Token for the current device and update it in the user's profile.
      */
     async registerForPushNotifications(): Promise<string | null> {
+        // Expo Go on Android no longer supports remote push notifications as of SDK 53.
+        if (Constants.appOwnership === 'expo') {
+            console.log('Skipping push token registration: Push notifications are not supported in Expo Go (SDK 53+).');
+            return null;
+        }
+
         if (!Device.isDevice) {
             console.log('Must use physical device for Push Notifications');
             return null;
@@ -71,6 +79,8 @@ export const notificationService = {
      * Send a push notification using Expo Push API
      */
     async sendFriendRequestNotification(targetToken: string, requesterName: string) {
+        if (!targetToken) return;
+
         const message = {
             to: targetToken,
             sound: 'default',
