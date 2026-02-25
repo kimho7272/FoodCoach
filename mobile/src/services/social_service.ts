@@ -60,26 +60,27 @@ export const socialService = {
 
         contacts.forEach(c => {
             if (c.phoneNumbers && c.phoneNumbers.length > 0) {
-                const rawPhone = c.phoneNumbers[0].number;
-                if (rawPhone) {
-                    const normalized = this.normalizePhone(rawPhone);
-                    // Minimum length check to avoid matching very short fragments
-                    if (normalized.length >= 7 && !seenNumbers.has(normalized)) {
-                        seenNumbers.add(normalized);
-                        // Combine name fields for robustness
-                        const contactName = c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || null;
+                c.phoneNumbers.forEach(pn => {
+                    const rawPhone = pn.number;
+                    if (rawPhone) {
+                        const normalized = this.normalizePhone(rawPhone);
+                        // Minimum length check (7 digits) to avoid overly broad matches
+                        if (normalized.length >= 7 && !seenNumbers.has(normalized)) {
+                            seenNumbers.add(normalized);
+                            const contactName = c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || null;
 
-                        results.push({
-                            id: normalized,
-                            full_name: contactName,
-                            nickname: null,
-                            avatar_url: c.image?.uri || null,
-                            phone: normalized,
-                            status: 'none',
-                            is_registered: false
-                        });
+                            results.push({
+                                id: normalized,
+                                full_name: contactName,
+                                nickname: null,
+                                avatar_url: c.image?.uri || null,
+                                phone: normalized,
+                                status: 'none',
+                                is_registered: false
+                            });
+                        }
                     }
-                }
+                });
             }
         });
 
@@ -107,7 +108,7 @@ export const socialService = {
 
         // Split into batches if too many contacts to avoid URL length issues
         let allMatchingProfiles: any[] = [];
-        const batchSize = 40; // Slightly smaller batch for complex OR queries
+        const batchSize = 30; // Reduce batch size further for reliability
 
         for (let i = 0; i < conditions.length; i += batchSize) {
             const batch = conditions.slice(i, i + batchSize);
@@ -139,13 +140,15 @@ export const socialService = {
             if (!local.phone) return local;
 
             // Find matching profile in the fetched pool (Robust Digit-only match)
-            // Use the last 10 digits as a definitive common identifier (for US/KR)
+            // Use the last 9 digits as a highly reliable common identifier 
+            // 9 digits cover 010-xxxx-xxxx (KR) and (area)-xxx-xxxx (US) minus the first area code digit.
+            // 10 is safest for US, but some people save as 469... (no 1).
             const cleanLocal = local.phone.replace(/\D/g, '');
-            const localSuffix = cleanLocal.slice(-10);
+            const localSuffix = cleanLocal.length >= 9 ? cleanLocal.slice(-9) : cleanLocal;
 
             const registered = allMatchingProfiles.find(p => {
                 const cleanDB = p.phone ? p.phone.replace(/\D/g, '') : '';
-                const dbSuffix = cleanDB.slice(-10);
+                const dbSuffix = cleanDB.length >= 9 ? cleanDB.slice(-9) : cleanDB;
 
                 return localSuffix && dbSuffix && (localSuffix === dbSuffix);
             });
