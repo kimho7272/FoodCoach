@@ -96,14 +96,18 @@ export const socialService = {
 
         // Build a flexible search query using OR with suffix matching
         const conditions = phoneNumbers.map(num => {
-            // If it starts with +, use exact match, otherwise use suffix match
-            if (num.startsWith('+')) return `phone.eq.${num}`;
-            return `phone.ilike.%${num}`;
+            // Remove ALL non-digits for the search query to be as robust as possible
+            const digits = num.replace(/\D/g, '');
+
+            // Use at least 7 or more trailing digits to avoid false positives 
+            // but ensure we match despite country code differences.
+            const matchPart = digits.length >= 10 ? digits.slice(-10) : digits;
+            return `phone.ilike.%${matchPart}`;
         });
 
         // Split into batches if too many contacts to avoid URL length issues
         let allMatchingProfiles: any[] = [];
-        const batchSize = 50;
+        const batchSize = 40; // Slightly smaller batch for complex OR queries
 
         for (let i = 0; i < conditions.length; i += batchSize) {
             const batch = conditions.slice(i, i + batchSize);
@@ -135,10 +139,15 @@ export const socialService = {
             if (!local.phone) return local;
 
             // Find matching profile in the fetched pool (Robust Digit-only match)
-            const cleanLocal = local.phone ? local.phone.replace(/\D/g, '') : '';
+            // Use the last 10 digits as a definitive common identifier (for US/KR)
+            const cleanLocal = local.phone.replace(/\D/g, '');
+            const localSuffix = cleanLocal.slice(-10);
+
             const registered = allMatchingProfiles.find(p => {
                 const cleanDB = p.phone ? p.phone.replace(/\D/g, '') : '';
-                return cleanLocal && cleanDB && (cleanDB.endsWith(cleanLocal) || cleanLocal.endsWith(cleanDB));
+                const dbSuffix = cleanDB.slice(-10);
+
+                return localSuffix && dbSuffix && (localSuffix === dbSuffix);
             });
 
             if (registered) {
