@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from '../lib/i18n';
 import { BlurView } from 'expo-blur';
 import { HealthData } from '../services/health_service';
 import { useHealth } from '../context/HealthContext';
@@ -20,6 +21,7 @@ interface HealthStatsCardProps {
 
 export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
     const { healthData } = useHealth();
+    const { t } = useTranslation();
     const router = useRouter(); // Initialize router
 
     const stepsProgress = useSharedValue(0);
@@ -85,7 +87,7 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                             </View>
                         </View>
                         <View style={styles.textContainer}>
-                            <Text style={styles.label}>Steps</Text>
+                            <Text style={styles.label}>{t('steps')}</Text>
                             <Text style={styles.value}>{data.steps.toLocaleString()}</Text>
                         </View>
                     </View>
@@ -111,7 +113,7 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                             </View>
                         </View>
                         <View style={styles.textContainer}>
-                            <Text style={styles.label}>Sleep</Text>
+                            <Text style={styles.label}>{t('sleep')}</Text>
                             <Text style={styles.value}>{formatSleep(data.sleepMinutes)}</Text>
                         </View>
                     </View>
@@ -122,7 +124,7 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                             <Flame size={20} color="#f97316" />
                         </View>
                         <View style={styles.textContainer}>
-                            <Text style={styles.label}>Burned</Text>
+                            <Text style={styles.label}>{t('burned')}</Text>
                             <Text style={[styles.value, { color: '#f97316' }]}>{data.caloriesBurned}</Text>
                         </View>
                     </View>
@@ -151,10 +153,10 @@ export const HealthStatsCard: React.FC<HealthStatsCardProps> = () => {
                                     <View style={[styles.iconBoxSmall, { backgroundColor: data.readinessScore > 80 ? theme.colors.primary : data.readinessScore > 50 ? theme.colors.accent : theme.colors.danger }]}>
                                         <Activity size={12} color="#fff" />
                                     </View>
-                                    <Text style={styles.readinessLabel}>Daily Readiness</Text>
+                                    <Text style={styles.readinessLabel}>{t('dailyReadiness')}</Text>
                                 </View>
                                 <Text style={styles.readinessInsight}>
-                                    {data.readinessScore > 80 ? 'Prime state! Go hard.' : data.readinessScore > 50 ? 'Steady pace recommended.' : 'Focus on recovery today.'}
+                                    {data.readinessScore > 80 ? t('primeState') : data.readinessScore > 50 ? t('steadyPace') : t('focusOnRecovery')}
                                 </Text>
                             </View>
                             <View style={{ alignItems: 'flex-end' }}>

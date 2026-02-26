@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Calendar, Trash2, ArrowUp, ChevronRight, Flame, Zap, BarChart2, MapPin, ThumbsUp, ZoomIn, X } from 'lucide-react-native';
+import { ChevronLeft, Calendar, Trash2, ArrowUp, ChevronRight, Flame, Zap, BarChart2, MapPin, ThumbsUp, ZoomIn, X, MessageCircle } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { getMealLogs, deleteMealLog, updateMealLogCategory, updateMealLogName, updateMealLogLocation, toggleMealFavorite } from '../src/lib/meal_service';
@@ -11,10 +11,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAlert } from '../src/context/AlertContext';
 import ImageView from 'react-native-image-viewing';
 import { theme } from '../src/constants/theme';
+import { useTranslation } from '../src/lib/i18n';
+import { messageService } from '../src/services/message_service';
+import { MealChatModal } from '../src/components/MealChatModal';
 
 const { width } = Dimensions.get('window');
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+const MEAL_TYPE_LABELS: Record<string, string> = {
+    'Breakfast': 'breakfast',
+    'Lunch': 'lunch',
+    'Dinner': 'dinner',
+    'Snack': 'snack'
+};
 
 interface MealCardProps {
     item: any;
@@ -47,6 +56,7 @@ const MealCard = React.memo(({
     onToggleFavorite, onZoomImage, onShowCategoryPicker, onStartEdit, onOpenMap
 }: MealCardProps) => {
     const cardY = useRef(0);
+    const { t, language } = useTranslation();
 
     return (
         <BlurView
@@ -60,7 +70,7 @@ const MealCard = React.memo(({
             <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
                     <TouchableOpacity onPress={() => onShowCategoryPicker(item.id)} style={styles.typeBadge}>
-                        <Text style={styles.typeText}>{item.meal_type}</Text>
+                        <Text style={styles.typeText}>{t(MEAL_TYPE_LABELS[item.meal_type] as any) || item.meal_type}</Text>
                         <ChevronRight size={10} color={theme.colors.text.secondary} />
                     </TouchableOpacity>
                     <Text style={styles.timeText}>
@@ -108,12 +118,14 @@ const MealCard = React.memo(({
                             onSetEditingId(item.id);
                             onSetEditValue(item.food_name);
                         }}>
-                            <Text style={styles.mealName} numberOfLines={1}>{item.food_name}</Text>
+                            <Text style={styles.mealName} numberOfLines={1}>
+                                {language === 'Korean' && item.food_name_ko ? item.food_name_ko : item.food_name}
+                            </Text>
                         </TouchableOpacity>
                     )}
                     <View style={styles.scoreRow}>
                         <View style={[styles.scoreDot, { backgroundColor: item.health_score >= 7 ? theme.colors.primary : (item.health_score >= 4 ? theme.colors.secondary : '#ef4444') }]} />
-                        <Text style={styles.scoreText}>METABOLIC SCORE: {item.health_score}/10</Text>
+                        <Text style={styles.scoreText}>{t('metabolicScore')}: {item.health_score}/10</Text>
                     </View>
                     {editingLocId === item.id ? (
                         <TextInput
@@ -123,7 +135,7 @@ const MealCard = React.memo(({
                             onBlur={() => onUpdateLocation(item.id, editLocValue)}
                             onSubmitEditing={() => onUpdateLocation(item.id, editLocValue)}
                             autoFocus
-                            placeholder="Restaurant or Place Name"
+                            placeholder={t('restaurantPlaceholder')}
                             placeholderTextColor={theme.colors.text.muted}
                         />
                     ) : (
@@ -146,11 +158,12 @@ const MealCard = React.memo(({
                                 }}
                             >
                                 <Text style={styles.locationText} numberOfLines={1}>
-                                    {item.place_name || item.address || 'Unknown Location'}
+                                    {item.place_name || item.address || t('unknownLocation')}
                                 </Text>
                             </TouchableOpacity>
                         </View>
                     )}
+
                 </View>
             </View>
 
@@ -161,7 +174,11 @@ const MealCard = React.memo(({
                 <View style={styles.macroTile}><ArrowUp size={12} color="#ec4899" /><Text style={styles.macroVal}>{item.carbs} <Text style={styles.macroUnit}>g</Text></Text></View>
             </View>
 
-            {item.description && <Text style={styles.description}>{item.description}</Text>}
+            {item.description && (
+                <Text style={styles.description}>
+                    {language === 'Korean' && item.description_ko ? item.description_ko : item.description}
+                </Text>
+            )}
         </BlurView>
     );
 });
@@ -169,6 +186,7 @@ const MealCard = React.memo(({
 export default function MealHistoryScreen() {
     const router = useRouter();
     const { showAlert } = useAlert();
+    const { t, language } = useTranslation();
     const params = useLocalSearchParams();
     const { date, highlightId } = params;
 
@@ -193,6 +211,7 @@ export default function MealHistoryScreen() {
     const [zoomImage, setZoomImage] = useState<string | null>(null);
     const [editingLocId, setEditingLocId] = useState<string | null>(null);
     const [editLocValue, setEditLocValue] = useState('');
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     const mainScrollRef = useRef<ScrollView>(null);
     const itemPositions = useRef<Map<string, number>>(new Map());
@@ -205,7 +224,14 @@ export default function MealHistoryScreen() {
 
     useEffect(() => {
         fetchLogs();
+        getCurrentUser();
     }, []);
+
+    const getCurrentUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) setCurrentUserId(user.id);
+    };
+
 
     const toggleFavorite = async (id: string) => {
         const item = allLogs.find(l => l.id === id);
@@ -221,7 +247,7 @@ export default function MealHistoryScreen() {
             if (error) {
                 // Rollback on error
                 setAllLogs(prev => prev.map(l => l.id === id ? { ...l, is_favorite: !newState } : l));
-                showAlert({ title: "Error", message: "Failed to update favorite status", type: 'error' });
+                showAlert({ title: t('error'), message: t('failed'), type: 'error' });
             }
         } catch (e) {
             console.error(e);
@@ -249,14 +275,14 @@ export default function MealHistoryScreen() {
 
     const handleDelete = (id: string) => {
         showAlert({
-            title: "Delete Meal",
-            message: "Are you sure you want to delete this meal record?",
+            title: t('deleteMealTitle'),
+            message: t('deleteMealConfirm'),
             type: 'confirm',
-            confirmText: "Delete",
+            confirmText: t('deleteConfirm'),
             onConfirm: async () => {
                 const { error } = await deleteMealLog(id);
                 if (!error) setAllLogs(prev => prev.filter(l => l.id !== id));
-                else showAlert({ title: "Error", message: "Failed to delete meal.", type: 'error' });
+                else showAlert({ title: t('error'), message: t('failed'), type: 'error' });
             }
         });
     };
@@ -317,7 +343,7 @@ export default function MealHistoryScreen() {
         const query = encodeURIComponent(searchQuery || '');
 
         if (!query && !location_lat) {
-            showAlert({ title: "No Location", message: "Location details are missing for this meal.", type: 'error' });
+            showAlert({ title: t('unknownLocation'), message: t('noLogsFound'), type: 'error' });
             return;
         }
 
@@ -352,7 +378,7 @@ export default function MealHistoryScreen() {
                             <ChevronLeft size={24} color={theme.colors.text.primary} />
                         </BlurView>
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{showFavoritesOnly ? 'Favorites' : 'History'}</Text>
+                    <Text style={styles.headerTitle}>{showFavoritesOnly ? t('favorites') : t('history')}</Text>
                     <TouchableOpacity onPress={() => setShowFavoritesOnly(!showFavoritesOnly)} style={[styles.toggleBtn, showFavoritesOnly && styles.toggleBtnActive]}>
                         <ThumbsUp size={20} color={showFavoritesOnly ? theme.colors.primary : theme.colors.text.muted} fill={showFavoritesOnly ? theme.colors.primary : 'none'} />
                     </TouchableOpacity>
@@ -365,7 +391,7 @@ export default function MealHistoryScreen() {
                                 const isSelected = d.toDateString() === selectedDate.toDateString();
                                 return (
                                     <TouchableOpacity key={i} onPress={() => setSelectedDate(d)} style={[styles.dateCard, isSelected && styles.dateCardActive]}>
-                                        <Text style={[styles.dateDay, isSelected && styles.dateTextActive]}>{d.toLocaleDateString('en-US', { weekday: 'short' })}</Text>
+                                        <Text style={[styles.dateDay, isSelected && styles.dateTextActive]}>{d.toLocaleDateString(language === 'Korean' ? 'ko-KR' : 'en-US', { weekday: 'short' })}</Text>
                                         <Text style={[styles.dateNum, isSelected && styles.dateTextActive]}>{d.getDate()}</Text>
                                     </TouchableOpacity>
                                 );
@@ -386,7 +412,7 @@ export default function MealHistoryScreen() {
                             {displayedLogs.length === 0 ? (
                                 <View style={styles.empty}>
                                     <Calendar size={60} color={theme.colors.text.muted} style={{ opacity: 0.3, marginBottom: 16 }} />
-                                    <Text style={styles.emptyText}>No logs found for this period.</Text>
+                                    <Text style={styles.emptyText}>{t('noLogsFound')}</Text>
                                 </View>
                             ) : (
                                 displayedLogs.map(item => (
@@ -424,14 +450,15 @@ export default function MealHistoryScreen() {
                 )}
             </SafeAreaView>
 
+
             <Modal visible={!!showCategoryPicker} transparent animationType="fade">
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
                 <View style={styles.modalContent}>
                     <BlurView intensity={80} tint="dark" style={styles.pickerCard}>
-                        <Text style={styles.pickerHeader}>Category</Text>
+                        <Text style={styles.pickerHeader}>{t('category')}</Text>
                         {MEAL_TYPES.map(type => (
                             <TouchableOpacity key={type} style={styles.pickerBtn} onPress={() => handleUpdateCategory(showCategoryPicker!, type)}>
-                                <Text style={styles.pickerText}>{type}</Text>
+                                <Text style={styles.pickerText}>{t(MEAL_TYPE_LABELS[type] as any) || type}</Text>
                             </TouchableOpacity>
                         ))}
                         <TouchableOpacity style={styles.closeBtn} onPress={() => setShowCategoryPicker(null)}><X size={20} color="#fff" /></TouchableOpacity>
@@ -497,5 +524,39 @@ const styles = StyleSheet.create({
     pickerHeader: { fontSize: 20, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 20 },
     pickerBtn: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     pickerText: { fontSize: 16, color: '#fff', textAlign: 'center', fontWeight: '600' },
-    closeBtn: { position: 'absolute', top: 20, right: 20, padding: 4 }
+    closeBtn: { position: 'absolute', top: 20, right: 20, padding: 4 },
+    chatEntryBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+        marginTop: 6,
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)'
+    },
+    chatEntryBtnActive: {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderColor: 'rgba(16, 185, 129, 0.2)'
+    },
+    chatIconWrapper: { position: 'relative' },
+    unreadCountBadge: {
+        position: 'absolute',
+        top: -6,
+        right: -8,
+        backgroundColor: '#ef4444',
+        minWidth: 14,
+        height: 14,
+        borderRadius: 7,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.background.primary
+    },
+    unreadCountText: { color: '#fff', fontSize: 8, fontWeight: 'bold' },
+    chatBtnText: { color: theme.colors.text.muted, fontSize: 11, fontWeight: '600' },
+    chatBtnTextActive: { color: theme.colors.primary, fontWeight: '700' }
 });

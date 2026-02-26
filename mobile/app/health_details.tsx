@@ -8,23 +8,28 @@ import { BlurView } from 'expo-blur';
 import { supabase } from '../src/lib/supabase';
 import { getWeeklyStats } from '../src/lib/meal_service';
 import { theme } from '../src/constants/theme';
+import { useTranslation } from '../src/lib/i18n';
 
 const { width } = Dimensions.get('window');
 
-const AnalysisCard = ({ title, children, icon: Icon, color }: { title: string, children: React.ReactNode, icon: any, color?: string }) => (
-    <BlurView intensity={40} tint="light" style={styles.card}>
-        <View style={styles.cardHeader}>
-            <View style={[styles.cardIconBox, { backgroundColor: `${color || theme.colors.primary}15` }]}>
-                <Icon size={18} color={color || theme.colors.primary} />
+const AnalysisCard = ({ title, children, icon: Icon, color }: { title: string, children: React.ReactNode, icon: any, color?: string }) => {
+    const { t } = useTranslation();
+    return (
+        <BlurView intensity={40} tint="light" style={styles.card}>
+            <View style={styles.cardHeader}>
+                <View style={[styles.cardIconBox, { backgroundColor: `${color || theme.colors.primary}15` }]}>
+                    <Icon size={18} color={color || theme.colors.primary} />
+                </View>
+                <Text style={styles.cardTitle}>{t(title as any) || title}</Text>
             </View>
-            <Text style={styles.cardTitle}>{title}</Text>
-        </View>
-        {children}
-    </BlurView>
-);
+            {children}
+        </BlurView>
+    );
+};
 
 export default function HealthDetailsScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [weeklyData, setWeeklyData] = useState<any>(null);
 
@@ -75,14 +80,14 @@ export default function HealthDetailsScreen() {
                             <ChevronLeft color={theme.colors.text.primary} size={24} />
                         </BlurView>
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Health Intelligence</Text>
+                    <Text style={styles.headerTitle}>{t('healthIntelligence')}</Text>
                     <View style={{ width: 44 }} />
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
                     {/* Correlation Chart Card */}
-                    <AnalysisCard title="Quantity vs Quality" icon={TrendingUp} color={theme.colors.secondary}>
-                        <Text style={styles.cardSub}>Correlation between calories and health performance.</Text>
+                    <AnalysisCard title={t('quantityVsQuality')} icon={TrendingUp} color={theme.colors.secondary}>
+                        <Text style={styles.cardSub}>{t('correlationDesc')}</Text>
                         <View style={styles.chartArea}>
                             {weeklyData.trends.map((day: any, i: number) => {
                                 const scoreH = (day.avgScore / 10) * 120;
@@ -99,20 +104,20 @@ export default function HealthDetailsScreen() {
                             })}
                         </View>
                         <View style={styles.legend}>
-                            <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: theme.colors.primary }]} /><Text style={styles.legendText}>Score</Text></View>
-                            <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: theme.colors.secondary, opacity: 0.5 }]} /><Text style={styles.legendText}>Kcal</Text></View>
+                            <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: theme.colors.primary }]} /><Text style={styles.legendText}>{t('score')}</Text></View>
+                            <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: theme.colors.secondary, opacity: 0.5 }]} /><Text style={styles.legendText}>{t('kcal')}</Text></View>
                         </View>
                     </AnalysisCard>
 
                     {/* Comparative Analysis */}
                     <View style={styles.statsRow}>
                         <BlurView intensity={30} tint="light" style={styles.statBox}>
-                            <Text style={styles.statLabel}>WEEKDAY AVG</Text>
+                            <Text style={styles.statLabel}>{t('weekdayAvg')}</Text>
                             <Text style={styles.statVal}>{avgWeekdayScore}</Text>
                             <View style={styles.statBar}><View style={[styles.statFill, { width: `${parseFloat(avgWeekdayScore) * 10}%`, backgroundColor: theme.colors.primary }]} /></View>
                         </BlurView>
                         <BlurView intensity={30} tint="light" style={styles.statBox}>
-                            <Text style={styles.statLabel}>WEEKEND AVG</Text>
+                            <Text style={styles.statLabel}>{t('weekendAvg')}</Text>
                             <Text style={styles.statVal}>{avgWeekendScore}</Text>
                             <View style={styles.statBar}><View style={[styles.statFill, { width: `${parseFloat(avgWeekendScore) * 10}%`, backgroundColor: theme.colors.secondary }]} /></View>
                         </BlurView>
@@ -122,17 +127,17 @@ export default function HealthDetailsScreen() {
                     <LinearGradient colors={theme.colors.gradients.primary as any} style={styles.verdictCard}>
                         <View style={styles.verdictHead}>
                             <Zap size={20} color={theme.colors.text.inverse} />
-                            <Text style={styles.verdictTitle}>Behavioral Verdict</Text>
+                            <Text style={styles.verdictTitle}>{t('behavioralVerdict')}</Text>
                         </View>
                         <Text style={styles.verdictText}>
                             {parseFloat(avgWeekendScore) < parseFloat(avgWeekdayScore)
-                                ? `Your performance dips by ${(parseFloat(avgWeekdayScore) - parseFloat(avgWeekendScore)).toFixed(1)} points during weekends. Pre-plan Saturday meals for better stability.`
-                                : "Exceptional consistency! You maintain a steady metabolic profile across the entire week. Your habits are reaching the elite standard."}
+                                ? t('weekendDipAdvice').replace('%{points}', (parseFloat(avgWeekdayScore) - parseFloat(avgWeekendScore)).toFixed(1))
+                                : t('consistencyAdvice')}
                         </Text>
                     </LinearGradient>
 
                     {/* Meal Performance */}
-                    <AnalysisCard title="Strategic Performance" icon={Utensils} color={theme.colors.accent}>
+                    <AnalysisCard title={t('strategicPerformance')} icon={Utensils} color={theme.colors.accent}>
                         <View style={styles.mealList}>
                             {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) => {
                                 const typeLogs = (weeklyData.raw || []).filter((l: any) => l.meal_type === type);
@@ -140,7 +145,7 @@ export default function HealthDetailsScreen() {
                                 const per = (parseFloat(avgS) / 10) * 100;
                                 return (
                                     <View key={type} style={styles.mealRow}>
-                                        <Text style={styles.mealName}>{type}</Text>
+                                        <Text style={styles.mealName}>{t(type.toLowerCase() as any)}</Text>
                                         <View style={styles.mealProgressArea}>
                                             <View style={styles.mealTrack}><View style={[styles.mealFill, { width: `${per}%`, backgroundColor: per >= 70 ? theme.colors.primary : theme.colors.secondary }]} /></View>
                                             <Text style={styles.mealScore}>{avgS}</Text>

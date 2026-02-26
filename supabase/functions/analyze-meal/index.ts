@@ -75,7 +75,8 @@ serve(async (req) => {
     Required JSON Structure:
     {
       "is_food": boolean,
-      "food_name": "short name",
+      "food_name": "short name in English",
+      "food_name_ko": "short name in Korean",
       "restaurant_name": "Optional: Name of restaurant if identified using location/image",
       "total": {
         "calories": number,
@@ -88,7 +89,8 @@ serve(async (req) => {
       },
       "score": number (0-100 confidence),
       "health_score": number (0-10),
-      "description": "1-sentence health insight"
+      "description": "1-sentence health insight in English",
+      "description_ko": "1-sentence health insight in Korean"
     }
     
     Return ONLY valid JSON.`;

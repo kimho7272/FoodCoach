@@ -299,10 +299,33 @@ export default function ProfileScreen() {
                             })}
                             <View style={styles.divider} />
                             {renderSettingItem({
-                                icon: Info,
-                                label: 'Version',
-                                value: '1.2.5 (Premium)',
-                                showArrow: false
+                                icon: Trash2,
+                                label: t('deleteAccount') || 'Delete Account',
+                                color: theme.colors.danger,
+                                showArrow: true,
+                                onPress: () => {
+                                    showAlert({
+                                        title: t('deleteAccount') || 'Delete Account',
+                                        message: t('deleteAccountConfirm') || 'Are you sure you want to delete your account? This action cannot be undone.',
+                                        type: 'confirm',
+                                        onConfirm: async () => {
+                                            try {
+                                                const { data: { user } } = await supabase.auth.getUser();
+                                                if (user) {
+                                                    // First delete profile to trigger any cleanup
+                                                    await (supabase as any).from('profiles').delete().eq('id', user.id);
+                                                    // Then absolute sign out (Auth deletion usually requires admin API or service role, 
+                                                    // but we'll at least sign out and wipe local data)
+                                                    await supabase.auth.signOut();
+                                                    // Navigation is handled by RootLayout's SIGNED_OUT listener
+                                                }
+                                            } catch (e) {
+                                                console.error(e);
+                                                showAlert({ title: t('error'), message: 'Failed to delete account', type: 'error' });
+                                            }
+                                        }
+                                    });
+                                }
                             })}
                         </BlurView>
                     </View>

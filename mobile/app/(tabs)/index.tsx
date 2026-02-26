@@ -310,7 +310,7 @@ export default function HomeScreen() {
                                     activeOpacity={0.7}
                                 >
                                     <Text style={styles.greetingText}>
-                                        {t('hello')}, {userProfile?.nickname || userProfile?.full_name?.split(' ')[0] || (language === 'Korean' ? '친구' : 'Friend')}{language === 'Korean' ? '님' : ''}!
+                                        {t('hello')}, {userProfile?.nickname || userProfile?.full_name?.split(' ')[0] || t('friend')}{language === 'Korean' ? '님' : ''}!
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -612,7 +612,7 @@ export default function HomeScreen() {
                             <View>
                                 <Text style={styles.modalTitle}>{String(selectedMacro)} {t('breakdown')}</Text>
                                 <Text style={{ fontSize: 13, color: theme.colors.text.muted, fontWeight: '600', marginTop: 4 }}>
-                                    {language === 'Korean' ? '오늘의 섭취량 분석' : "Today's Intake Analysis"}
+                                    {t('intakeAnalysis')}
                                 </Text>
                             </View>
                             <TouchableOpacity onPress={() => setSelectedMacro(null)} style={styles.closeBtn}>
@@ -731,7 +731,7 @@ export default function HomeScreen() {
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.selectionTitle}>{t('takePhoto')}</Text>
-                                    <Text style={styles.selectionDesc}>{language === 'Korean' ? '카메라로 식단을 촬영하여 분석합니다' : 'Take a photo of your meal to analyze'}</Text>
+                                    <Text style={styles.selectionDesc}>{t('takePhotoDesc')}</Text>
                                 </View>
                             </TouchableOpacity>
 
@@ -744,7 +744,7 @@ export default function HomeScreen() {
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.selectionTitle}>{t('chooseGallery')}</Text>
-                                    <Text style={styles.selectionDesc}>{language === 'Korean' ? '갤러리에서 사진을 선택하여 분석합니다' : 'Select a photo from your library'}</Text>
+                                    <Text style={styles.selectionDesc}>{t('chooseGalleryDesc')}</Text>
                                 </View>
                             </TouchableOpacity>
                         </View>

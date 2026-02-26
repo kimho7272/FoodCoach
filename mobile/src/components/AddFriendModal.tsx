@@ -166,7 +166,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
 
                     <View style={{ padding: 16 }}>
                         <Text style={{ fontSize: 13, color: theme.colors.text.secondary }}>
-                            {language === 'Korean' ? '연락처에 있는 친구들을 찾아보세요' : 'Find friends from your contacts'}
+                            {t('findFromContacts')}
                         </Text>
                     </View>
 
@@ -174,7 +174,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                         <Search size={20} color={theme.colors.text.secondary} />
                         <TextInput
                             style={styles.modalInput}
-                            placeholder={language === 'Korean' ? '이름 또는 전화번호 검색' : 'Search name or phone'}
+                            placeholder={t('searchPlaceholder')}
                             value={searchText}
                             onChangeText={setSearchText}
                             placeholderTextColor={theme.colors.text.muted}
@@ -197,7 +197,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
                                     <Text style={styles.emptyText}>
-                                        {language === 'Korean' ? '검색 결과가 없습니다.' : 'No results found.'}
+                                        {t('noResultsFound')}
                                     </Text>
                                 </View>
                             }

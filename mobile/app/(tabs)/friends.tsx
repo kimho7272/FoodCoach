@@ -11,6 +11,7 @@ import { useAlert } from '../../src/context/AlertContext';
 import { theme } from '../../src/constants/theme';
 import { AddFriendModal } from '../../src/components/AddFriendModal';
 import { supabase } from '../../src/lib/supabase';
+import { messageService } from '../../src/services/message_service';
 
 export default function FriendsScreen() {
     const { t, language } = useTranslation();
@@ -20,16 +21,19 @@ export default function FriendsScreen() {
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [myFriends, requests] = await Promise.all([
+            const [myFriends, requests, unreads] = await Promise.all([
                 socialService.getMyFriends(),
-                socialService.getPendingRequests()
+                socialService.getPendingRequests(),
+                messageService.getUnreadCounts()
             ]);
             setFriends(myFriends || []);
             setPendingRequests(requests || []);
+            if (unreads.data) setUnreadCounts(unreads.data);
             console.log(`[FRIENDS_SCREEN] Fetched ${myFriends?.length || 0} friends and ${requests?.length || 0} requests.`);
         } catch (error) {
             console.error(error);
@@ -59,8 +63,6 @@ export default function FriendsScreen() {
                         event: '*',
                         schema: 'public',
                         table: 'friendships',
-                        // Note: Supabase Realtime filter has some limitations with OR,
-                        // so we subscribe to any change and filter in memory or just fetch all
                     },
                     (payload: any) => {
                         const { new: newRecord, old: oldRecord } = payload;
@@ -70,6 +72,17 @@ export default function FriendsScreen() {
                         ) {
                             fetchData();
                         }
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'social_messages'
+                    },
+                    () => {
+                        fetchData();
                     }
                 )
                 .subscribe();
@@ -164,6 +177,11 @@ export default function FriendsScreen() {
                     </View>
                 </View>
                 <View style={styles.arrowContainer}>
+                    {unreadCounts[item.id] > 0 && (
+                        <View style={styles.unreadRowBadge}>
+                            <Text style={styles.unreadRowText}>{unreadCounts[item.id] > 99 ? '99+' : unreadCounts[item.id]}</Text>
+                        </View>
+                    )}
                     <Text style={styles.arrow}>›</Text>
                 </View>
             </BlurView>
@@ -300,4 +318,16 @@ const styles = StyleSheet.create({
     sentText: { color: theme.colors.text.secondary, fontWeight: 'bold', fontSize: 12 },
     modalSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.glass.highlight, margin: 16, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.glass.border },
     modalInput: { flex: 1, marginLeft: 10, fontSize: 16, color: theme.colors.text.primary },
+    unreadRowBadge: {
+        backgroundColor: '#ef4444',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+        marginRight: 8
+    },
+    unreadRowText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold'
+    }
 });

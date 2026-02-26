@@ -3,12 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 import { translations, TranslationKeys } from './translations';
 
-type Language = 'English' | 'Korean';
+export type Language = 'English' | 'Korean';
 
 interface LanguageContextType {
     language: Language;
     setLanguage: (lang: Language) => Promise<void>;
-    t: (key: TranslationKeys) => string;
+    t: (key: TranslationKeys, params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -40,10 +40,18 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
         await AsyncStorage.setItem('user_language', lang);
     };
 
-    const t = (key: TranslationKeys): string => {
+    const t = (key: TranslationKeys, params?: Record<string, string | number>): string => {
         const currentTranslations = translations[language] as any;
         const fallbackTranslations = translations['English'] as any;
-        return currentTranslations[key] || fallbackTranslations[key] || key;
+        let str = currentTranslations[key] || fallbackTranslations[key] || key;
+
+        if (params) {
+            Object.entries(params).forEach(([k, v]) => {
+                str = str.replace(`%{${k}}`, String(v));
+            });
+        }
+
+        return str;
     };
 
     return (

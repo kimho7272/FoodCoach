@@ -4,6 +4,7 @@ import { decode } from 'base64-arraybuffer';
 export type MealLog = {
     user_id: string;
     food_name: string;
+    food_name_ko?: string;
     calories: number;
     protein: string;
     fat: string;
@@ -14,6 +15,7 @@ export type MealLog = {
     image_url?: string;
     health_score?: number;
     description?: string;
+    description_ko?: string;
     location_lat?: number;
     location_lng?: number;
     place_name?: string | null;

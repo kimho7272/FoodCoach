@@ -7,6 +7,8 @@ import { socialService, Friend } from '../services/social_service';
 import { useRouter } from 'expo-router';
 import { AddFriendModal } from './AddFriendModal';
 import { theme } from '../constants/theme';
+import { messageService } from '../services/message_service';
+import { supabase } from '../lib/supabase';
 
 interface FriendsCardProps {
     refreshTrigger?: number;
@@ -21,10 +23,28 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
     const [aliases, setAliases] = useState<{ [key: string]: string }>({});
     const [editingFriend, setEditingFriend] = useState<Friend | null>(null);
     const [newAlias, setNewAlias] = useState('');
+    const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
 
     useEffect(() => {
         loadFriends();
         loadAliases();
+        loadUnreadCounts();
+
+        // Subscribe to messages
+        const channel = supabase
+            .channel('friends_card_messages')
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'social_messages'
+            }, () => {
+                loadUnreadCounts();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [refreshTrigger]);
 
     const loadFriends = async () => {
@@ -41,6 +61,11 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
         } catch (e) {
             console.error('Failed to load aliases', e);
         }
+    };
+
+    const loadUnreadCounts = async () => {
+        const { data } = await messageService.getUnreadCounts();
+        if (data) setUnreadCounts(data);
     };
 
     const handleSaveAlias = async () => {
@@ -76,7 +101,7 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
                     <ActivityIndicator style={{ marginLeft: 20 }} color={theme.colors.primary} />
                 ) : (
                     friends.map((friend) => {
-                        const displayName = aliases[friend.id] || friend.nickname || (friend.full_name ? friend.full_name.split(' ')[0] : '') || 'Friend';
+                        const displayName = aliases[friend.id] || friend.nickname || (friend.full_name ? friend.full_name.split(' ')[0] : '') || t('friend');
                         return (
                             <TouchableOpacity
                                 key={friend.id}
@@ -97,9 +122,14 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
                                         </View>
                                     )}
                                     <View style={styles.statusDot} />
+                                    {unreadCounts[friend.id] > 0 && (
+                                        <View style={styles.unreadBadge}>
+                                            <Text style={styles.unreadText}>{unreadCounts[friend.id] > 9 ? '9+' : unreadCounts[friend.id]}</Text>
+                                        </View>
+                                    )}
                                 </View>
                                 <Text style={styles.friendName} numberOfLines={1}>
-                                    {aliases[friend.id] || friend.nickname || 'Friend'}
+                                    {aliases[friend.id] || friend.nickname || t('friend')}
                                 </Text>
                             </TouchableOpacity>
                         );
@@ -126,5 +156,24 @@ const styles = StyleSheet.create({
     avatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: theme.colors.glass.border },
     statusDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: theme.colors.primary, position: 'absolute', bottom: 0, right: 0, borderWidth: 2, borderColor: theme.colors.background.primary },
     friendName: { fontSize: 11, color: theme.colors.text.primary, fontWeight: '800', textAlign: 'center', marginTop: 2 },
+    unreadBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: '#ef4444',
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: theme.colors.background.primary,
+        paddingHorizontal: 2,
+    },
+    unreadText: {
+        color: '#fff',
+        fontSize: 8,
+        fontWeight: '900',
+    },
     contactSubName: { fontSize: 9, color: theme.colors.text.muted, fontWeight: '600', textAlign: 'center' }
 });

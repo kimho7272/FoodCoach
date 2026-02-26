@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, Modal, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,7 +16,8 @@ import { useRouter } from 'expo-router';
 import { signInWithSocial } from '../src/lib/auth_service';
 import { ActivityIndicator } from 'react-native';
 import { useAlert } from '../src/context/AlertContext';
-import { useTranslation } from '../src/lib/i18n';
+import { useTranslation, Language } from '../src/lib/i18n';
+import { Globe } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 const fruitCharacter = require('../assets/applei.png');
@@ -25,7 +26,7 @@ const googleLogo = require('../assets/google_logo.jpg');
 export default function LoginScreen() {
     const router = useRouter();
     const { showAlert } = useAlert();
-    const { language } = useTranslation();
+    const { t, language, setLanguage } = useTranslation();
     const bobValue = useSharedValue(0);
     const [isLoading, setIsLoading] = React.useState(false);
 
@@ -44,6 +45,11 @@ export default function LoginScreen() {
         transform: [{ translateY: bobValue.value }]
     }));
 
+    const toggleLanguage = async () => {
+        const nextLang: Language = language === 'Korean' ? 'English' : 'Korean';
+        await setLanguage(nextLang);
+    };
+
     const handleSocialLogin = async (provider: 'apple' | 'google' | 'kakao') => {
         setIsLoading(true);
         try {
@@ -54,7 +60,7 @@ export default function LoginScreen() {
                 const errorMsg = error.message || 'Unknown error occurred';
                 const errorDetails = (error as any).details || (error as any).hint || '';
                 showAlert({
-                    title: 'Login Failed',
+                    title: t('error') || 'Login Failed',
                     message: `${errorMsg}\n\nTechnical Details: ${errorDetails}`,
                     type: 'error'
                 });
@@ -91,6 +97,20 @@ export default function LoginScreen() {
             </View>
 
             <SafeAreaView style={styles.safeArea}>
+                {/* Language Toggle */}
+                <TouchableOpacity
+                    onPress={toggleLanguage}
+                    style={styles.langToggle}
+                    activeOpacity={0.7}
+                >
+                    <View style={styles.langToggleInner}>
+                        <Globe size={14} color="#FFFFFF" />
+                        <Text style={styles.langToggleText}>
+                            {language === 'Korean' ? 'English' : '한국어'}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+
                 <View style={styles.centeredContainer}>
                     <View style={styles.contentWrapper}>
                         {/* Header with Logo/Character */}
@@ -107,7 +127,7 @@ export default function LoginScreen() {
                             </View>
 
                             <Text style={styles.greetingText}>
-                                건강한 식습관,{"\n"}오늘부터 시작해보세요.
+                                {t('loginGreeting')}
                             </Text>
                         </Animated.View>
 
@@ -122,14 +142,14 @@ export default function LoginScreen() {
                                 style={styles.googleButton}
                             >
                                 <Image source={googleLogo} style={styles.googleButtonIcon} />
-                                <Text style={styles.googleButtonText}>Google로 시작하기</Text>
+                                <Text style={styles.googleButtonText}>{t('continueWithGoogle')}</Text>
                             </TouchableOpacity>
                         </Animated.View>
 
                         {/* Disclaimer */}
                         <View style={styles.footerContainer}>
                             <Text style={styles.footerText}>
-                                로그인 시 이용약관 및 개인정보처리방침에 동의하게 됩니다.
+                                {t('loginPolicyDisclaimer')}
                             </Text>
                         </View>
                     </View>
@@ -161,6 +181,28 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+    },
+    langToggle: {
+        position: 'absolute',
+        top: Platform.OS === 'ios' ? 10 : 20,
+        right: 20,
+        zIndex: 100,
+    },
+    langToggleInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    langToggleText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontWeight: 'bold',
     },
     centeredContainer: {
         flex: 1,

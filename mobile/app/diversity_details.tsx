@@ -35,6 +35,7 @@ const CATEGORY_CONFIG: Record<string, { color: string, icon: any }> = {
 };
 
 const RadarChart = ({ data }: { data: Record<string, number> }) => {
+    const { t } = useTranslation();
     const categories = ['Proteins', 'Vegetables', 'Grains', 'Fruits', 'Dairy'];
     const maxValue = 8;
     const centerX = 100;
@@ -88,7 +89,7 @@ const RadarChart = ({ data }: { data: Record<string, number> }) => {
                                 textAnchor="middle"
                                 alignmentBaseline="middle"
                             >
-                                {cat.toUpperCase()}
+                                {t(cat.toLowerCase() as any)}
                             </SvgText>
                         </G>
                     );
@@ -172,7 +173,7 @@ export default function DiversityDetailsScreen() {
                             <ChevronLeft color={theme.colors.text.primary} size={24} />
                         </BlurView>
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Diversity Audit</Text>
+                    <Text style={styles.headerTitle}>{t('diversityAudit')}</Text>
                     <View style={{ width: 44 }} />
                 </View>
 
@@ -181,8 +182,8 @@ export default function DiversityDetailsScreen() {
                     <BlurView intensity={40} tint="light" style={styles.mainCard}>
                         <View style={styles.cardHeader}>
                             <View>
-                                <Text style={styles.cardTitle}>Food Group Balance</Text>
-                                <Text style={styles.cardSub}>7-day nutritional coverage</Text>
+                                <Text style={styles.cardTitle}>{t('foodGroupBalance')}</Text>
+                                <Text style={styles.cardSub}>{t('nutritionalCoverage')}</Text>
                             </View>
                             <View style={styles.scoreBadge}>
                                 <Text style={styles.scoreText}>{diversityScore}%</Text>
@@ -200,7 +201,7 @@ export default function DiversityDetailsScreen() {
                                     <View key={cat} style={styles.metricItem}>
                                         <View style={styles.metricHead}>
                                             <Icon size={12} color={config.color} />
-                                            <Text style={styles.metricLabel}>{cat}</Text>
+                                            <Text style={styles.metricLabel}>{t(cat.toLowerCase() as any)}</Text>
                                         </View>
                                         <Text style={styles.metricValue}>{count}</Text>
                                         <View style={styles.progressBar}>
@@ -216,11 +217,12 @@ export default function DiversityDetailsScreen() {
                     <LinearGradient colors={theme.colors.gradients.primary as any} style={styles.insightCard}>
                         <View style={styles.insightHeader}>
                             <Award color={theme.colors.text.inverse} size={22} />
-                            <Text style={styles.insightTitle}>Exploration Status</Text>
+                            <Text style={styles.insightTitle}>{t('explorationStatus')}</Text>
                         </View>
                         <Text style={styles.insightText}>
-                            You've discovered <Text style={{ fontWeight: '900' }}>{analysis.uniqueItems.length}</Text> unique ingredients this week.
-                            Your metabolic variety is <Text style={{ fontWeight: '900' }}>{analysis.uniqueItems.length > 15 ? 'Excellent' : 'Improving'}</Text>.
+                            {t('uniqueIngredientsDetected', { count: analysis.uniqueItems.length })}
+                            {"\n"}
+                            {t('varietyStatus', { status: analysis.uniqueItems.length > 15 ? t('excellentVariety') : t('improvingVariety') })}
                         </Text>
                     </LinearGradient>
 
@@ -228,21 +230,20 @@ export default function DiversityDetailsScreen() {
                     <BlurView intensity={20} tint="light" style={styles.adviceCard}>
                         <View style={styles.adviceHead}>
                             <Target size={18} color={theme.colors.primary} />
-                            <Text style={styles.adviceTitle}>NUTRITIONAL ADVICE</Text>
+                            <Text style={styles.adviceTitle}>{t('nutritionalAdvice')}</Text>
                         </View>
                         {analysis.missing.length > 0 ? (
                             <Text style={styles.adviceText}>
-                                We haven't detected many <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>{analysis.missing.join(', ')}</Text> lately.
-                                Try incorporating some in your next meal to boost gut microbiome diversity.
+                                {t('missingGroupsAdvice', { groups: analysis.missing.map(m => t(m.toLowerCase() as any)).join(', ') })}
                             </Text>
                         ) : (
                             <Text style={styles.adviceText}>
-                                Phenomenal balance! You are hitting all core food groups. This is the gold standard for metabolic health.
+                                {t('perfectBalanceAdvice')}
                             </Text>
                         )}
                     </BlurView>
 
-                    <Text style={styles.sectionHeading}>Discovery Gallery</Text>
+                    <Text style={styles.sectionHeading}>{t('discoveryGallery')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>
                         {analysis.uniqueItems.map((item, i) => (
                             <TouchableOpacity
@@ -263,7 +264,7 @@ export default function DiversityDetailsScreen() {
                                     )}
                                 </View>
                                 <Text style={styles.itemTitle} numberOfLines={1}>{item.food_name}</Text>
-                                <Text style={styles.itemGroup}>{classifyFoodGroup(item.food_name)}</Text>
+                                <Text style={styles.itemGroup}>{t(classifyFoodGroup(item.food_name).toLowerCase() as any)}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>

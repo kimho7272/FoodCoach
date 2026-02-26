@@ -10,6 +10,9 @@ import { supabase } from '../../src/lib/supabase';
 import { uploadMealImage, saveMealLog, getPlaceNameByAddress } from '../../src/lib/meal_service';
 import { useAlert } from '../../src/context/AlertContext';
 
+import { useTranslation } from '../../src/lib/i18n';
+import { theme } from '../../src/constants/theme';
+import { TourTarget } from '../../src/components/TourTarget';
 import { useHealth } from '../../src/context/HealthContext';
 import { locationService } from '../../src/services/location_service';
 import { Camera as CameraIcon, RotateCcw, Check, X, Flame, Zap, BarChart2, MapPin } from 'lucide-react-native';
@@ -20,6 +23,7 @@ export default function AnalysisScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { showAlert } = useAlert();
+    const { t, language } = useTranslation();
     const { healthData } = useHealth(); // Get Health Data
     const [permission, requestPermission] = useCameraPermissions();
 
@@ -148,8 +152,8 @@ export default function AnalysisScreen() {
         } catch (error) {
             console.error('Analysis Error:', error);
             showAlert({
-                title: "Analysis Failed",
-                message: "Could not identify the food. Please try again with a clearer photo.",
+                title: t('analysisFailed'),
+                message: t('clearerPhotoNeeded'),
                 type: 'error'
             });
         } finally {
@@ -168,12 +172,12 @@ export default function AnalysisScreen() {
     if (!permission.granted) {
         return (
             <View style={styles.permissionContainer}>
-                <Text style={styles.permissionText}>Grant access to your camera to identify your meals</Text>
+                <Text style={styles.permissionText}>{t('grantCameraAccess')}</Text>
                 <TouchableOpacity
                     onPress={requestPermission}
                     style={styles.enableBtn}
                 >
-                    <Text style={styles.enableBtnText}>Enable Camera</Text>
+                    <Text style={styles.enableBtnText}>{t('enableCamera')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -224,7 +228,8 @@ export default function AnalysisScreen() {
             const { error } = await saveMealLog({
                 user_id: user.id,
                 food_name: result.food_name,
-                calories: selectedNutrition.calories,
+                food_name_ko: result.food_name_ko,
+                calories: result.total.calories,
                 protein: selectedNutrition.macros.protein,
                 fat: selectedNutrition.macros.fat,
                 carbs: selectedNutrition.macros.carbs,
@@ -232,6 +237,7 @@ export default function AnalysisScreen() {
                 image_url: imageUrl || undefined,
                 health_score: result.health_score,
                 description: result.description,
+                description_ko: result.description_ko,
                 location_lat: finalLocation?.lat,
                 location_lng: finalLocation?.lng,
                 place_name: finalLocation?.name,
@@ -241,8 +247,8 @@ export default function AnalysisScreen() {
             if (error) throw error;
 
             showAlert({
-                title: "Success",
-                message: "Meal logged to your dashboard!",
+                title: t('success'),
+                message: t('mealLogged'),
                 type: 'success'
             });
             reset();
@@ -250,8 +256,8 @@ export default function AnalysisScreen() {
         } catch (error: any) {
             console.error(error);
             showAlert({
-                title: "Logging Failed",
-                message: error.message || "Failed to save meal log.",
+                title: t('loggingFailed'),
+                message: error.message || t('failedToSave'),
                 type: 'error'
             });
         } finally {
@@ -286,7 +292,7 @@ export default function AnalysisScreen() {
                                     <X size={24} color="white" />
                                 </TouchableOpacity>
                                 <View style={styles.scanBadge}>
-                                    <Text style={styles.scanBadgeText}>Scan Meal</Text>
+                                    <Text style={styles.scanBadgeText}>{t('scanMeal')}</Text>
                                 </View>
                                 <View style={{ width: 44 }} />
                             </View>
@@ -312,9 +318,9 @@ export default function AnalysisScreen() {
                                 <ActivityIndicator size="large" color="#10b981" />
                                 <View style={styles.analyzingTextWrapper}>
                                     <Text style={styles.analyzingText}>
-                                        {logging ? 'SAVING DATA...' : 'AI ANALYZING MEAL...'}
+                                        {logging ? t('savingData') : t('analyzingMeal')}
                                     </Text>
-                                    {!logging && <Text style={styles.analyzingSubText}>Identifying nutrients & portion size</Text>}
+                                    {!logging && <Text style={styles.analyzingSubText}>{t('identifyingNutrients')}</Text>}
                                 </View>
                             </View>
                         </BlurView>
@@ -325,17 +331,17 @@ export default function AnalysisScreen() {
                             {!result.is_food ? (
                                 <View style={{ alignItems: 'center', paddingVertical: 20 }}>
                                     <View style={[styles.categoryBadge, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
-                                        <Text style={[styles.categoryBadgeText, { color: '#ef4444' }]}>Not Food Detected</Text>
+                                        <Text style={[styles.categoryBadgeText, { color: '#ef4444' }]}>{t('notFoodDetected')}</Text>
                                     </View>
-                                    <Text style={[styles.foodName, { textAlign: 'center' }]}>Wait, that's not food!</Text>
+                                    <Text style={[styles.foodName, { textAlign: 'center' }]}>{t('notFoodTitle')}</Text>
                                     <Text style={{ color: '#94a3b8', textAlign: 'center', marginTop: 12 }}>
-                                        {result.description || "The AI thinks this might not be something you can eat. Please try scanning a meal instead."}
+                                        {result.description || t('notFoodDesc')}
                                     </Text>
                                     <TouchableOpacity
                                         onPress={reset}
                                         style={[styles.discardBtn, { width: '100%', marginTop: 24 }]}
                                     >
-                                        <Text style={styles.discardBtnText}>Try Again</Text>
+                                        <Text style={styles.discardBtnText}>{t('tryAgain')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             ) : (
@@ -343,9 +349,11 @@ export default function AnalysisScreen() {
                                     <View style={styles.resultHeader}>
                                         <View style={{ flex: 1 }}>
                                             <View style={styles.categoryBadge}>
-                                                <Text style={styles.categoryBadgeText}>AI Suggested: {result.category}</Text>
+                                                <Text style={styles.categoryBadgeText}>{t('aiSuggested', { type: t(result.category.toLowerCase() as any) })}</Text>
                                             </View>
-                                            <Text style={styles.foodName} numberOfLines={1}>{result.food_name}</Text>
+                                            <Text style={styles.foodName} numberOfLines={1}>
+                                                {language === 'Korean' && result.food_name_ko ? result.food_name_ko : result.food_name}
+                                            </Text>
                                             {isEditingLocation ? (
                                                 <TextInput
                                                     style={styles.locationInput}
@@ -375,15 +383,17 @@ export default function AnalysisScreen() {
                                                 >
                                                     <MapPin size={12} color="#94a3b8" />
                                                     <Text style={{ color: '#94a3b8', fontSize: 12, marginLeft: 4 }} numberOfLines={1}>
-                                                        {location?.name || location?.address || 'Tap to add location'}
+                                                        {location?.name || location?.address || t('tapToAddLocation')}
                                                     </Text>
                                                 </TouchableOpacity>
                                             )}
-                                            <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>{result.description}</Text>
+                                            <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>
+                                                {language === 'Korean' && result.description_ko ? result.description_ko : result.description}
+                                            </Text>
                                         </View>
                                         <View style={[styles.scoreBadge, { backgroundColor: result.health_score >= 7 ? '#10b981' : (result.health_score >= 4 ? '#f59e0b' : '#ef4444') }]}>
                                             <Text style={styles.scoreValue}>{result.health_score}/10</Text>
-                                            <Text style={styles.scoreLabel}>HEALTH</Text>
+                                            <Text style={styles.scoreLabel}>{t('health')}</Text>
                                         </View>
                                     </View>
 
@@ -400,7 +410,7 @@ export default function AnalysisScreen() {
                                                 <Text style={[
                                                     styles.mealTypeText,
                                                     selectedMealType === type && styles.mealTypeTextActive
-                                                ]}>{type}</Text>
+                                                ]}>{t(type.toLowerCase() as any)}</Text>
                                             </TouchableOpacity>
                                         ))}
                                     </View>
@@ -417,7 +427,7 @@ export default function AnalysisScreen() {
                                                 alignItems: 'center'
                                             }}
                                         >
-                                            <Text style={{ color: viewMode === 'total' ? '#fff' : '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>Total (Full)</Text>
+                                            <Text style={{ color: viewMode === 'total' ? '#fff' : '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>{t('totalFull')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             onPress={() => setViewMode('recommended')}
@@ -429,7 +439,7 @@ export default function AnalysisScreen() {
                                                 alignItems: 'center'
                                             }}
                                         >
-                                            <Text style={{ color: viewMode === 'recommended' ? '#fff' : '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>Recommended</Text>
+                                            <Text style={{ color: viewMode === 'recommended' ? '#fff' : '#94a3b8', fontWeight: 'bold', fontSize: 13 }}>{t('recommended')}</Text>
                                         </TouchableOpacity>
                                     </View>
 
@@ -448,12 +458,12 @@ export default function AnalysisScreen() {
                                         <View style={styles.macroItem}>
                                             <Zap size={16} color="#10b981" />
                                             <Text style={styles.macroValueText}>{result[viewMode].macros.protein}</Text>
-                                            <Text style={styles.macroUnit}>Prot</Text>
+                                            <Text style={styles.macroUnit}>{t('prot')}</Text>
                                         </View>
                                         <View style={styles.macroItem}>
                                             <BarChart2 size={16} color="#6366f1" />
                                             <Text style={styles.macroValueText}>{result[viewMode].macros.carbs}</Text>
-                                            <Text style={styles.macroUnit}>Carb</Text>
+                                            <Text style={styles.macroUnit}>{t('carb')}</Text>
                                         </View>
                                     </View>
 
@@ -463,14 +473,14 @@ export default function AnalysisScreen() {
                                             style={styles.discardBtn}
                                             disabled={logging}
                                         >
-                                            <Text style={styles.discardBtnText}>Discard</Text>
+                                            <Text style={styles.discardBtnText}>{t('discard')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             onPress={handleLogMeal}
                                             style={styles.logBtn}
                                             disabled={logging}
                                         >
-                                            <Text style={styles.logBtnText}>Log {selectedMealType}</Text>
+                                            <Text style={styles.logBtnText}>{t('logType', { type: t(selectedMealType.toLowerCase() as any) })}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </>

@@ -12,10 +12,15 @@ import { AlertProvider } from '../src/context/AlertContext';
 import { TourOverlay } from '../src/components/TourOverlay';
 import { HealthProvider } from '../src/context/HealthContext';
 
+import { supabase } from '../src/lib/supabase';
+import { useRouter, useSegments } from 'expo-router';
+
 SplashScreen.preventAutoHideAsync();
 LogBox.ignoreLogs(['SafeAreaView has been deprecated']);
 
 export default function RootLayout() {
+    const router = useRouter();
+    const segments = useSegments();
     const [fontsLoaded] = useFonts({
         // Custom fonts could be added here
     });
@@ -29,6 +34,18 @@ export default function RootLayout() {
             setAppIsReady(true);
         }
     }, [fontsLoaded]);
+
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+            const inAuthGroup = segments[0] === 'login';
+
+            if (event === 'SIGNED_OUT' && !inAuthGroup) {
+                router.replace('/login');
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [segments]);
 
     if (!fontsLoaded) return null;
 

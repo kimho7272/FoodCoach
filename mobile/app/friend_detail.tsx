@@ -34,7 +34,9 @@ export default function FriendDetailScreen() {
     const [isEditingAlias, setIsEditingAlias] = useState(false);
     const [tempAlias, setTempAlias] = useState('');
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+    const [friendUnreadCount, setFriendUnreadCount] = useState(0);
     const [activeChatMeal, setActiveChatMeal] = useState<any>(null);
+    const [isGeneralChatVisible, setIsGeneralChatVisible] = useState(false);
 
     const sliderPos = useSharedValue(0);
     const tabWidth = (Dimensions.get('window').width - 48 - 8) / 2;
@@ -55,7 +57,7 @@ export default function FriendDetailScreen() {
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
-                table: 'meal_messages'
+                table: 'social_messages'
             }, () => {
                 loadUnreadCounts();
             })
@@ -67,8 +69,10 @@ export default function FriendDetailScreen() {
     }, []);
 
     const loadUnreadCounts = async () => {
-        const { data } = await messageService.getUnreadCounts();
-        if (data) setUnreadCounts(data);
+        if (userId) {
+            const count = await messageService.getUnreadCountForFriend(userId as string);
+            setFriendUnreadCount(count);
+        }
     };
 
     useEffect(() => {
@@ -172,14 +176,28 @@ export default function FriendDetailScreen() {
                             <View style={styles.activeBadge} />
                         </View>
 
-                        <TouchableOpacity
-                            onPress={() => {
-                                setTempAlias(alias || friendProfile?.nickname || '');
-                                setIsEditingAlias(true);
-                            }}
-                        >
-                            <Text style={styles.profileName}>{alias || friendProfile?.nickname || 'Friend'}</Text>
-                        </TouchableOpacity>
+                        <View style={styles.nameRow}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setTempAlias(alias || friendProfile?.nickname || '');
+                                    setIsEditingAlias(true);
+                                }}
+                            >
+                                <Text style={styles.profileName}>{alias || friendProfile?.nickname || 'Friend'}</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.chatIconBtn}
+                                onPress={() => setIsGeneralChatVisible(true)}
+                            >
+                                <MessageCircle size={24} color={theme.colors.primary} />
+                                {friendUnreadCount > 0 && (
+                                    <View style={styles.badgeContainer}>
+                                        <Text style={styles.badgeText}>{friendUnreadCount}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
 
 
                     </View>
@@ -192,7 +210,9 @@ export default function FriendDetailScreen() {
                             activeOpacity={0.7}
                         >
                             <Calendar size={14} color={activeTab === 'recent' ? '#fff' : theme.colors.text.muted} style={{ marginRight: 6 }} />
-                            <Text style={[styles.tabText, activeTab === 'recent' && styles.tabTextActive]}>Recent Meal</Text>
+                            <Text style={[styles.tabText, activeTab === 'recent' && styles.tabTextActive]}>
+                                {language === 'Korean' ? '최근 식단' : 'Recent Meal'}
+                            </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => handleTabChange('favorites')}
@@ -200,7 +220,9 @@ export default function FriendDetailScreen() {
                             activeOpacity={0.7}
                         >
                             <Heart size={14} color={activeTab === 'favorites' ? '#fff' : theme.colors.text.muted} fill={activeTab === 'favorites' ? '#fff' : 'none'} style={{ marginRight: 6 }} />
-                            <Text style={[styles.tabText, activeTab === 'favorites' && styles.tabTextActive]}>Thumbs Up</Text>
+                            <Text style={[styles.tabText, activeTab === 'favorites' && styles.tabTextActive]}>
+                                {language === 'Korean' ? '추천 식단' : 'Thumbs Up'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
 
@@ -217,7 +239,9 @@ export default function FriendDetailScreen() {
                                 <BlurView intensity={20} tint="light" style={styles.emptyCard}>
                                     <Calendar size={48} color={theme.colors.text.muted} />
                                     <Text style={styles.emptyText}>
-                                        {activeTab === 'recent' ? 'No meals in the last 14 days' : 'No Thumbs Up meals found'}
+                                        {activeTab === 'recent'
+                                            ? (language === 'Korean' ? '최근 14일간 기록이 없습니다' : 'No meals in the last 14 days')
+                                            : (language === 'Korean' ? '추천된 식단이 없습니다' : 'No Thumbs Up meals found')}
                                     </Text>
                                 </BlurView>
                             );
@@ -228,10 +252,15 @@ export default function FriendDetailScreen() {
                                 <View style={styles.cardHeader}>
                                     <View style={styles.headerLeft}>
                                         <View style={styles.typeBadge}>
-                                            <Text style={styles.typeText}>{log.meal_type}</Text>
+                                            <Text style={styles.typeText}>
+                                                {language === 'Korean' && log.meal_type === 'Breakfast' ? '아침' :
+                                                    language === 'Korean' && log.meal_type === 'Lunch' ? '점심' :
+                                                        language === 'Korean' && log.meal_type === 'Dinner' ? '저녁' :
+                                                            language === 'Korean' && log.meal_type === 'Snack' ? '간식' : log.meal_type}
+                                            </Text>
                                         </View>
                                         <Text style={styles.timeText}>
-                                            {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} • {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(log.created_at).toLocaleDateString(language === 'Korean' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })} • {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </Text>
                                     </View>
                                 </View>
@@ -252,7 +281,7 @@ export default function FriendDetailScreen() {
                                         <Text style={styles.mealName} numberOfLines={1}>{log.food_name}</Text>
                                         <View style={styles.scoreRow}>
                                             <View style={[styles.scoreDot, { backgroundColor: log.health_score >= 7 ? theme.colors.primary : (log.health_score >= 4 ? theme.colors.secondary : '#ef4444') }]} />
-                                            <Text style={styles.scoreText}>METABOLIC SCORE: {log.health_score}/10</Text>
+                                            <Text style={styles.scoreText}>{language === 'Korean' ? '건강 점수' : 'METABOLIC SCORE'}: {log.health_score}/10</Text>
                                         </View>
                                         {(log.place_name || log.address) && (
                                             <TouchableOpacity
@@ -280,14 +309,9 @@ export default function FriendDetailScreen() {
                                             >
                                                 <View style={styles.chatIconWrapper}>
                                                     <MessageCircle size={16} color={theme.colors.primary} />
-                                                    {unreadCounts[log.id] > 0 && (
-                                                        <View style={styles.unreadBadge}>
-                                                            <Text style={styles.unreadText}>{unreadCounts[log.id]}</Text>
-                                                        </View>
-                                                    )}
                                                 </View>
                                                 <Text style={styles.chatBtnText}>
-                                                    {unreadCounts[log.id] > 0 ? t('newMessages') || 'New message' : t('comment') || 'Comment'}
+                                                    {t('chatWithFood') || 'Chat with food'}
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
@@ -301,7 +325,11 @@ export default function FriendDetailScreen() {
                                     <View style={styles.macroTile}><ArrowUp size={12} color="#ec4899" /><Text style={styles.macroVal}>{log.carbs} <Text style={styles.macroUnit}>g</Text></Text></View>
                                 </View>
 
-                                {log.description && <Text style={styles.description}>{log.description}</Text>}
+                                {log.description && (
+                                    <Text style={styles.description}>
+                                        {language === 'Korean' && log.description_ko ? log.description_ko : log.description}
+                                    </Text>
+                                )}
                             </BlurView>
                         ));
                     })()}
@@ -316,13 +344,15 @@ export default function FriendDetailScreen() {
                 />
 
                 <MealChatModal
-                    isVisible={!!activeChatMeal}
+                    isVisible={!!activeChatMeal || isGeneralChatVisible}
                     onClose={() => {
                         setActiveChatMeal(null);
-                        loadUnreadCounts(); // Refresh unread icons after closing chat
+                        setIsGeneralChatVisible(false);
+                        loadUnreadCounts();
                     }}
                     meal={activeChatMeal}
                     otherUserId={userId as string}
+                    otherUserNickname={alias || friendProfile?.nickname || (language === 'Korean' ? '친구' : 'Friend')}
                 />
 
                 <Modal
@@ -377,7 +407,11 @@ const styles = StyleSheet.create({
     avatar: { width: '100%', height: '100%' },
     avatarPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     activeBadge: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: theme.colors.primary, borderWidth: 2, borderColor: theme.colors.background.primary },
-    profileName: { fontSize: 18, fontWeight: '900', color: theme.colors.text.primary, marginBottom: 16 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    profileName: { fontSize: 18, fontWeight: '900', color: theme.colors.text.primary },
+    chatIconBtn: { position: 'relative', padding: 4 },
+    badgeContainer: { position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', minWidth: 16, height: 16, borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: theme.colors.background.primary },
+    badgeText: { color: '#fff', fontSize: 8, fontWeight: 'bold' },
     chatEntryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' },
     chatIconWrapper: { position: 'relative' },
     unreadBadge: { position: 'absolute', top: -6, right: -8, backgroundColor: '#ef4444', minWidth: 14, height: 14, borderRadius: 7, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 2, borderWidth: 1, borderColor: theme.colors.background.primary },

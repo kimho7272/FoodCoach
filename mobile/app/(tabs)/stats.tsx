@@ -40,7 +40,7 @@ export default function StatsScreen() {
 
             const { data: todayData } = await getMealLogs(user.id);
             const today = new Date().toDateString();
-            const filteredToday = (todayData || []).filter(l => new Date(l.created_at).toDateString() === today);
+            const filteredToday = (todayData || []).filter((l: any) => new Date(l.created_at).toDateString() === today);
 
             // Respect Custom Order (Same logic as Meal History)
             const orderKey = `meal_order_${user.id}_${today}`;
@@ -286,7 +286,7 @@ export default function StatsScreen() {
                     {logs.length === 0 ? (
                         <BlurView intensity={10} tint="light" style={styles.emptyContainer}>
                             <Utensils size={40} color={theme.colors.text.muted} />
-                            <Text style={styles.emptyText}>No Fuel Logged Today</Text>
+                            <Text style={styles.emptyText}>{t('noFuelLogged')}</Text>
                         </BlurView>
                     ) : (
                         logs.map((log) => (
@@ -315,7 +315,7 @@ export default function StatsScreen() {
                                     <Text style={styles.logFoodName} numberOfLines={1}>{log.food_name}</Text>
                                     <View style={styles.logMeta}>
                                         <View style={[styles.healthDot, { backgroundColor: log.health_score >= 7 ? theme.colors.primary : theme.colors.accent }]} />
-                                        <Text style={styles.logMetaText}>{log.meal_type} • {log.calories} kcal</Text>
+                                        <Text style={styles.logMetaText}>{t(log.meal_type.toLowerCase() as any)} • {log.calories} kcal</Text>
                                     </View>
                                 </View>
                                 <View style={styles.scoreBadgeInner}>

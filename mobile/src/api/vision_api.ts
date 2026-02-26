@@ -18,6 +18,7 @@ export type NutritionData = {
 
 export type AnalysisResult = {
     food_name: string;
+    food_name_ko?: string;
     restaurant_name?: string;
 
     // Dual Analysis Data
@@ -29,6 +30,7 @@ export type AnalysisResult = {
     is_food: boolean;
     health_score: number; // 0-10
     description: string;
+    description_ko?: string;
 };
 
 export type UserProfile = {
@@ -98,12 +100,14 @@ export const analyzeMealImage = async (base64Image: string, userProfile?: UserPr
         return {
             is_food: !!data.is_food,
             food_name: data.food_name || "Unknown",
+            food_name_ko: data.food_name_ko,
             restaurant_name: data.restaurant_name,
             total,
             recommended,
             score: data.score || 0,
             health_score: data.health_score || 0,
             description: data.description || "No description provided.",
+            description_ko: data.description_ko,
             category
         };
 
