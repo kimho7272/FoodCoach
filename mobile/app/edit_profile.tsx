@@ -206,7 +206,7 @@ export default function EditProfileScreen() {
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>{t('fullName')}</Text>
                             <View style={styles.disabledInput}>
-                                <Text style={styles.disabledText}>{editName || 'Loading...'}</Text>
+                                <Text style={styles.disabledText}>{editName || t('loading')}</Text>
                             </View>
                         </View>
 
@@ -237,7 +237,7 @@ export default function EditProfileScreen() {
 
                         {/* Physical Info */}
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Physical Profile</Text>
+                            <Text style={styles.sectionTitle}>{t('physicalProfile')}</Text>
                         </View>
 
                         <View style={styles.inputGroup}>
@@ -353,7 +353,7 @@ export default function EditProfileScreen() {
                             <View style={styles.labelRow}>
                                 <Text style={styles.inputLabel}>{t('dailyCalorieGoal')}</Text>
                                 <TouchableOpacity onPress={recommendKcal} style={styles.aiRecommendBtn}>
-                                    <Text style={styles.aiRecommendText}>✨ AI 추천</Text>
+                                    <Text style={styles.aiRecommendText}>✨ {t('aiRecommend')}</Text>
                                 </TouchableOpacity>
                             </View>
                             <View style={styles.adjustRow}>
@@ -429,6 +429,7 @@ export default function EditProfileScreen() {
                                 >
                                     {changingPhone ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalActionText}>{t('sendCode')}</Text>}
                                 </TouchableOpacity>
+                                <Text style={styles.smsDisclaimer}>{t('smsDisclaimer')}</Text>
                             </View>
                         ) : (
                             <View>
@@ -456,8 +457,8 @@ export default function EditProfileScreen() {
                         )}
                     </BlurView>
                 </View>
-            </Modal>
-        </View>
+            </Modal >
+        </View >
     );
 }
 
@@ -517,5 +518,13 @@ const styles = StyleSheet.create({
     modalActionBtn: { backgroundColor: theme.colors.primary, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
     modalActionText: { color: theme.colors.text.inverse, fontWeight: '800', fontSize: 16 },
     otpSentDesc: { textAlign: 'center', color: theme.colors.text.secondary, marginBottom: 20, fontSize: 14 },
-    otpInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingVertical: 16, textAlign: 'center', fontSize: 28, letterSpacing: 8, color: theme.colors.text.primary, borderWidth: 1, borderColor: theme.colors.glass.border, marginBottom: 20 }
+    otpInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingVertical: 16, textAlign: 'center', fontSize: 28, letterSpacing: 8, color: theme.colors.text.primary, borderWidth: 1, borderColor: theme.colors.glass.border, marginBottom: 20 },
+    smsDisclaimer: {
+        fontSize: 10,
+        color: theme.colors.text.muted,
+        textAlign: 'center',
+        marginTop: 12,
+        lineHeight: 14,
+        paddingHorizontal: 4,
+    },
 });

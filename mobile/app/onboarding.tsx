@@ -536,8 +536,11 @@ export default function EnhancedOnboarding() {
                                                             onPress={handleSendOtp}
                                                             disabled={sendingOtp}
                                                         >
-                                                            <Text style={styles.primaryBtnTxt}>{sendingOtp ? "Sending..." : t('sendCode')}</Text>
+                                                            <Text style={styles.primaryBtnTxt}>{sendingOtp ? t('sending') : t('sendCode')}</Text>
                                                         </TouchableOpacity>
+
+                                                        <Text style={styles.smsDisclaimer}>{t('smsDisclaimer')}</Text>
+
                                                         <TouchableOpacity onPress={() => setStep(s => s + 1)} style={{ marginTop: 16 }}>
                                                             <Text style={{ color: theme.colors.text.secondary, textDecorationLine: 'underline' }}>{t('skipVerification')}</Text>
                                                         </TouchableOpacity>
@@ -565,7 +568,7 @@ export default function EnhancedOnboarding() {
                                                             onPress={handleVerifyOtp}
                                                             disabled={otp.length < 6 || verifyingOtp}
                                                         >
-                                                            <Text style={styles.primaryBtnTxt}>{verifyingOtp ? "Verifying..." : t('verifyCode')}</Text>
+                                                            <Text style={styles.primaryBtnTxt}>{verifyingOtp ? t('verifying') : t('verifyCode')}</Text>
                                                         </TouchableOpacity>
 
                                                         <View style={{ flexDirection: 'row', gap: 16, marginTop: 16, alignItems: 'center' }}>
@@ -751,7 +754,7 @@ export default function EnhancedOnboarding() {
                                                         onPress={() => setIsManualKcal(false)}
                                                         style={{ marginTop: 20 }}
                                                     >
-                                                        <Text style={{ fontSize: 13, color: '#6366f1', fontWeight: 'bold', textDecorationLine: 'underline' }}>{t('recommendedValue')}로 초기화</Text>
+                                                        <Text style={{ fontSize: 13, color: '#6366f1', fontWeight: 'bold', textDecorationLine: 'underline' }}>{t('resetToRecommended')}</Text>
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
@@ -822,7 +825,7 @@ export default function EnhancedOnboarding() {
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
-        </View>
+        </View >
 
 
     );
@@ -1207,4 +1210,12 @@ const styles = StyleSheet.create({
     genderBtnActive: { display: 'none' },
     genderBtnText: { display: 'none' },
     genderBtnTextActive: { display: 'none' },
+    smsDisclaimer: {
+        fontSize: 11,
+        color: theme.colors.text.muted,
+        textAlign: 'center',
+        marginTop: 16,
+        lineHeight: 16,
+        paddingHorizontal: 8,
+    },
 });
