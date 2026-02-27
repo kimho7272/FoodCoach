@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView, PanResponder, Alert, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView, PanResponder, Alert, Modal, Linking } from 'react-native';
 import * as Localization from 'expo-localization';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -541,8 +541,18 @@ export default function EnhancedOnboarding() {
 
                                                         <Text style={styles.smsDisclaimer}>{t('smsDisclaimer')}</Text>
 
-                                                        <TouchableOpacity onPress={() => setStep(s => s + 1)} style={{ marginTop: 16 }}>
-                                                            <Text style={{ color: theme.colors.text.secondary, textDecorationLine: 'underline' }}>{t('skipVerification')}</Text>
+                                                        <View style={styles.legalLinksContainer}>
+                                                            <TouchableOpacity onPress={() => Linking.openURL('https://food-coach-mu.vercel.app/privacy')}>
+                                                                <Text style={styles.legalLink}>{t('privacyPolicy')}</Text>
+                                                            </TouchableOpacity>
+                                                            <Text style={styles.legalDivider}> • </Text>
+                                                            <TouchableOpacity onPress={() => Linking.openURL('https://food-coach-mu.vercel.app/terms')}>
+                                                                <Text style={styles.legalLink}>{t('termsOfService')}</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+
+                                                        <TouchableOpacity onPress={() => setStep(s => s + 1)} style={{ marginTop: 24 }}>
+                                                            <Text style={{ color: theme.colors.text.muted, textDecorationLine: 'underline', fontSize: 13 }}>{t('skipVerification')}</Text>
                                                         </TouchableOpacity>
                                                     </>
                                                 ) : (
@@ -1217,5 +1227,21 @@ const styles = StyleSheet.create({
         marginTop: 16,
         lineHeight: 16,
         paddingHorizontal: 8,
+    },
+    legalLinksContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    legalLink: {
+        fontSize: 12,
+        color: theme.colors.primary,
+        textDecorationLine: 'underline',
+        fontWeight: '600',
+    },
+    legalDivider: {
+        fontSize: 12,
+        color: theme.colors.text.muted,
     },
 });

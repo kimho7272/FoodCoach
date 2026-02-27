@@ -22,23 +22,27 @@ export default function TermsPage() {
                     text: 'FoodCoach provides AI-based nutritional coaching. The information provided is for educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment.'
                 },
                 {
-                    title: '3. User Accounts',
+                    title: '3. SMS Messaging',
+                    text: 'By providing your phone number and clicking "Send Code", you explicitly consent to receive one-time passcodes (OTP) via SMS for verification. Standard message and data rates may apply. You can opt-out at any time by replying "STOP".'
+                },
+                {
+                    title: '4. User Accounts',
                     text: 'When you create an account, you must provide accurate and complete information. You are responsible for maintaining the confidentiality of your account and password.'
                 },
                 {
-                    title: '4. Content and Analysis',
+                    title: '5. Content and Analysis',
                     text: 'You retain rights to any photos or data you upload. However, by using the App, you grant us permission to process this data to provide our services and improve our AI models.'
                 },
                 {
-                    title: '5. Limitation of Liability',
+                    title: '6. Limitation of Liability',
                     text: 'FoodCoach shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of the service.'
                 },
                 {
-                    title: '6. Termination',
+                    title: '7. Termination',
                     text: 'We may terminate or suspend your account immediately, without prior notice or liability, for any reason, including breach of these Terms.'
                 },
                 {
-                    title: '7. Contact Information',
+                    title: '8. Contact Information',
                     text: 'If you have any questions about these Terms, please contact us at:',
                     email: 'foodcoach.dev@gmail.com'
                 }
@@ -58,23 +62,27 @@ export default function TermsPage() {
                     text: 'FoodCoach는 AI 기반 영양 코칭을 제공합니다. 제공되는 정보는 교육적 목적으로만 사용되며, 전문적인 의료 조언, 진단 또는 치료를 대신할 수 없습니다.'
                 },
                 {
-                    title: '3. 사용자 계정',
+                    title: '3. SMS 메시징',
+                    text: '전화번호를 제공하고 "인증번호 전송"을 클릭함으로써 귀하는 인증을 위한 일회성 비밀번호(OTP)를 SMS로 수신하는 데 명시적으로 동의하게 됩니다. 표준 메시지 및 데이터 요금이 부과될 수 있습니다. 언제든지 "STOP"이라고 답장하여 수신을 거부할 수 있습니다.'
+                },
+                {
+                    title: '4. 사용자 계정',
                     text: '계정을 생성할 때 정확하고 완전한 정보를 제공해야 합니다. 귀하는 자신의 계정 및 비밀번호의 기밀을 유지할 책임이 있습니다.'
                 },
                 {
-                    title: '4. 콘텐츠 및 분석',
+                    title: '5. 콘텐츠 및 분석',
                     text: '귀하는 귀하가 업로드한 사진이나 데이터에 대한 권리를 보유합니다. 다만, 앱을 이용함으로써 귀하는 당사가 서비스를 제공하고 AI 모델을 개선하기 위해 이 데이터를 처리하는 것을 허용하게 됩니다.'
                 },
                 {
-                    title: '5. 책임의 한계',
+                    title: '6. 책임의 한계',
                     text: 'FoodCoach는 서비스 이용으로 인해 발생하는 간접적, 부수적, 특별 또는 징벌적 손해에 대해 책임을 지지 않습니다.'
                 },
                 {
-                    title: '6. 서비스 중단',
+                    title: '7. 서비스 중단',
                     text: '당사는 약관 위반을 포함하여 어떠한 이유로든 예고 없이 즉시 귀하의 계정을 해지하거나 일시 중지할 수 있습니다.'
                 },
                 {
-                    title: '7. 연락처 정보',
+                    title: '8. 연락처 정보',
                     text: '본 약관에 대해 궁금한 점이 있으시면 다음 이메일로 문의해 주십시오:',
                     email: 'foodcoach.dev@gmail.com'
                 }
