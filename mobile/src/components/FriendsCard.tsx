@@ -31,19 +31,55 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
         loadUnreadCounts();
 
         // Subscribe to messages
-        const channel = supabase
-            .channel('friends_card_messages')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'social_messages'
-            }, () => {
-                loadUnreadCounts();
-            })
-            .subscribe();
+        const setupSubscription = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const channel = supabase
+                .channel('friends_card_realtime')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'friendships'
+                }, (payload: any) => {
+                    const { new: newRecord, old: oldRecord } = payload;
+                    if (
+                        newRecord?.user_id_1 === user.id || newRecord?.user_id_2 === user.id ||
+                        oldRecord?.user_id_1 === user.id || oldRecord?.user_id_2 === user.id
+                    ) {
+                        loadFriends();
+                    }
+                })
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'social_messages',
+                    filter: `receiver_id=eq.${user.id}`
+                }, () => {
+                    loadUnreadCounts();
+                })
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'social_messages',
+                    filter: `receiver_id=eq.${user.id}`
+                }, () => {
+                    loadUnreadCounts();
+                })
+                .subscribe();
+
+            return channel;
+        };
+
+        let activeChannel: any;
+        setupSubscription().then(channel => {
+            activeChannel = channel;
+        });
 
         return () => {
-            supabase.removeChannel(channel);
+            if (activeChannel) {
+                supabase.removeChannel(activeChannel);
+            }
         };
     }, [refreshTrigger]);
 
@@ -122,7 +158,7 @@ export const FriendsCard: React.FC<FriendsCardProps> = ({ refreshTrigger }) => {
                                         </View>
                                     )}
                                     <View style={styles.statusDot} />
-                                    {unreadCounts[friend.id] > 0 && (
+                                    {unreadCounts && unreadCounts[friend.id] > 0 && (
                                         <View style={styles.unreadBadge}>
                                             <Text style={styles.unreadText}>{unreadCounts[friend.id] > 9 ? '9+' : unreadCounts[friend.id]}</Text>
                                         </View>
@@ -158,8 +194,8 @@ const styles = StyleSheet.create({
     friendName: { fontSize: 11, color: theme.colors.text.primary, fontWeight: '800', textAlign: 'center', marginTop: 2 },
     unreadBadge: {
         position: 'absolute',
-        top: -4,
-        right: -4,
+        top: -2,
+        right: -2,
         backgroundColor: '#ef4444',
         minWidth: 16,
         height: 16,

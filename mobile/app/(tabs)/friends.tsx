@@ -34,7 +34,6 @@ export default function FriendsScreen() {
             setFriends(myFriends || []);
             setPendingRequests(requests || []);
             if (unreads.data) setUnreadCounts(unreads.data);
-            console.log(`[FRIENDS_SCREEN] Fetched ${myFriends?.length || 0} friends and ${requests?.length || 0} requests.`);
         } catch (error) {
             console.error(error);
         } finally {
@@ -79,7 +78,20 @@ export default function FriendsScreen() {
                     {
                         event: 'INSERT',
                         schema: 'public',
-                        table: 'social_messages'
+                        table: 'social_messages',
+                        filter: `receiver_id=eq.${user.id}`
+                    },
+                    () => {
+                        fetchData();
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'social_messages',
+                        filter: `receiver_id=eq.${user.id}`
                     },
                     () => {
                         fetchData();
@@ -170,6 +182,11 @@ export default function FriendsScreen() {
                             </View>
                         )}
                         <View style={styles.statusDot} />
+                        {unreadCounts[item.id] > 0 && (
+                            <View style={styles.unreadBadge}>
+                                <Text style={styles.unreadText}>{unreadCounts[item.id] > 99 ? '9+ ' : unreadCounts[item.id]}</Text>
+                            </View>
+                        )}
                     </View>
                     <View style={styles.friendText}>
                         <Text style={styles.friendName}>{item.full_name || 'User'}</Text>
@@ -177,11 +194,6 @@ export default function FriendsScreen() {
                     </View>
                 </View>
                 <View style={styles.arrowContainer}>
-                    {unreadCounts[item.id] > 0 && (
-                        <View style={styles.unreadRowBadge}>
-                            <Text style={styles.unreadRowText}>{unreadCounts[item.id] > 99 ? '99+' : unreadCounts[item.id]}</Text>
-                        </View>
-                    )}
                     <Text style={styles.arrow}>›</Text>
                 </View>
             </BlurView>
@@ -318,16 +330,24 @@ const styles = StyleSheet.create({
     sentText: { color: theme.colors.text.secondary, fontWeight: 'bold', fontSize: 12 },
     modalSearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.glass.highlight, margin: 16, marginBottom: 0, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.glass.border },
     modalInput: { flex: 1, marginLeft: 10, fontSize: 16, color: theme.colors.text.primary },
-    unreadRowBadge: {
+    unreadBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
         backgroundColor: '#ef4444',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 10,
-        marginRight: 8
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: theme.colors.background.primary,
+        paddingHorizontal: 2,
+        zIndex: 10
     },
-    unreadRowText: {
+    unreadText: {
         color: '#fff',
         fontSize: 10,
-        fontWeight: 'bold'
+        fontWeight: '900',
     }
 });

@@ -7,13 +7,16 @@ import { getMealLogs } from '../src/lib/meal_service';
 import { useTranslation } from '../src/lib/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { ChevronLeft, MessageCircle, Calendar, User, Zap, Activity, Heart, MapPin, ZoomIn, Flame, BarChart2, ArrowUp, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, MessageCircle, Calendar, User, Zap, Activity, Heart, MapPin, ZoomIn, Flame, BarChart2, ArrowUp, ChevronRight, MoreVertical, Trash2 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../src/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageView from 'react-native-image-viewing';
 import { messageService } from '../src/services/message_service';
+import { socialService } from '../src/services/social_service';
 import { MealChatModal } from '../src/components/MealChatModal';
+import { useAlert } from '../src/context/AlertContext';
+import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +24,7 @@ export default function FriendDetailScreen() {
     const { userId } = useLocalSearchParams();
     const router = useRouter();
     const { t, language } = useTranslation();
+    const { showAlert } = useAlert();
     const [friendProfile, setFriendProfile] = useState<{
         id: string;
         avatar_url: string | null;
@@ -37,6 +41,10 @@ export default function FriendDetailScreen() {
     const [friendUnreadCount, setFriendUnreadCount] = useState(0);
     const [activeChatMeal, setActiveChatMeal] = useState<any>(null);
     const [isGeneralChatVisible, setIsGeneralChatVisible] = useState(false);
+    const [isMoreMenuVisible, setIsMoreMenuVisible] = useState(false);
+    const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
+    const [isUnfriending, setIsUnfriending] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     const sliderPos = useSharedValue(0);
     const tabWidth = (Dimensions.get('window').width - 48 - 8) / 2;
@@ -76,6 +84,48 @@ export default function FriendDetailScreen() {
     };
 
     useEffect(() => {
+        const setupFriendshipWatch = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            setCurrentUserId(user.id);
+
+            const channel = supabase
+                .channel(`friendship_watch_${userId}`)
+                .on('postgres_changes', {
+                    event: 'DELETE',
+                    schema: 'public',
+                    table: 'friendships'
+                }, (payload: any) => {
+                    const oldRecord = payload.old;
+                    // Check if this deleted friendship involved me and the friend I'm looking at
+                    const involvedMe = oldRecord.user_id_1 === user.id || oldRecord.user_id_2 === user.id;
+                    const involvedFriend = oldRecord.user_id_1 === userId || oldRecord.user_id_2 === userId;
+
+                    if (involvedMe && involvedFriend) {
+                        showAlert({
+                            title: language === 'Korean' ? '친구 해지 알림' : 'Friendship Ended',
+                            message: language === 'Korean'
+                                ? `${alias || friendProfile?.nickname || '친구'}님과의 친구 관계가 해지되었습니다.`
+                                : `Your friendship with ${alias || friendProfile?.nickname || 'friend'} has been disconnected.`,
+                            type: 'info'
+                        });
+                        router.replace('/(tabs)/friends');
+                    }
+                })
+                .subscribe();
+
+            return channel;
+        };
+
+        let activeChannel: any;
+        setupFriendshipWatch().then(ch => activeChannel = ch);
+
+        return () => {
+            if (activeChannel) supabase.removeChannel(activeChannel);
+        };
+    }, [userId, alias, friendProfile]);
+
+    useEffect(() => {
         if (userId) {
             fetchFriendData();
             loadAlias();
@@ -106,6 +156,37 @@ export default function FriendDetailScreen() {
             setIsEditingAlias(false);
         } catch (e) {
             console.error('Failed to save alias', e);
+        }
+    };
+
+    const toggleMoreMenu = () => setIsMoreMenuVisible(!isMoreMenuVisible);
+
+    const handleUnfriend = () => {
+        setIsConfirmModalVisible(true);
+    };
+
+    const handleConfirmUnfriend = async () => {
+        if (!userId) return;
+        setIsUnfriending(true);
+        try {
+            const success = await socialService.unfriend(userId as string);
+            if (success) {
+                setIsConfirmModalVisible(false);
+                showAlert({
+                    title: language === 'Korean' ? '삭제 완료' : 'Removed',
+                    message: language === 'Korean' ? '친구 목록에서 삭제되었습니다.' : 'Removed from friend list.',
+                    type: 'success'
+                });
+                router.replace('/(tabs)/friends');
+            } else {
+                showAlert({
+                    title: t('error'),
+                    message: language === 'Korean' ? '오류가 발생했습니다. 다시 시도해주세요.' : 'Something went wrong. Please try again.',
+                    type: 'error'
+                });
+            }
+        } finally {
+            setIsUnfriending(false);
         }
     };
 
@@ -152,7 +233,12 @@ export default function FriendDetailScreen() {
                             <ChevronLeft size={24} color={theme.colors.text.primary} />
                         </BlurView>
                     </TouchableOpacity>
-                    <View style={{ width: 44 }} />
+
+                    <TouchableOpacity onPress={toggleMoreMenu} style={styles.backBtn}>
+                        <BlurView intensity={20} tint="light" style={styles.backBtnBlur}>
+                            <MoreVertical size={22} color={theme.colors.text.primary} />
+                        </BlurView>
+                    </TouchableOpacity>
                 </View>
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -175,7 +261,6 @@ export default function FriendDetailScreen() {
                             </LinearGradient>
                             <View style={styles.activeBadge} />
                         </View>
-
                         <View style={styles.nameRow}>
                             <TouchableOpacity
                                 onPress={() => {
@@ -198,8 +283,6 @@ export default function FriendDetailScreen() {
                                 )}
                             </TouchableOpacity>
                         </View>
-
-
                     </View>
 
                     <View style={styles.tabContainer}>
@@ -387,6 +470,95 @@ export default function FriendDetailScreen() {
                         </View>
                     </TouchableOpacity>
                 </Modal>
+
+                {/* More Actions Menu */}
+                <Modal
+                    visible={isMoreMenuVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setIsMoreMenuVisible(false)}
+                >
+                    <TouchableOpacity
+                        style={styles.menuOverlay}
+                        activeOpacity={1}
+                        onPress={() => setIsMoreMenuVisible(false)}
+                    >
+                        <BlurView intensity={90} tint="dark" style={styles.menuCard}>
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setIsMoreMenuVisible(false);
+                                    handleUnfriend();
+                                }}
+                            >
+                                <View style={styles.menuIconContainer}>
+                                    <Trash2 size={20} color="#ef4444" />
+                                </View>
+                                <Text style={styles.menuTextDestructive}>{language === 'Korean' ? '친구 해지' : 'Unfriend'}</Text>
+                            </TouchableOpacity>
+
+                            <View style={styles.menuDivider} />
+
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => setIsMoreMenuVisible(false)}
+                            >
+                                <Text style={styles.menuTextCancel}>{t('cancel')}</Text>
+                            </TouchableOpacity>
+                        </BlurView>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* Custom Confirmation Modal */}
+                <Modal
+                    visible={isConfirmModalVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setIsConfirmModalVisible(false)}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => !isUnfriending && setIsConfirmModalVisible(false)}
+                    >
+                        <BlurView intensity={30} tint="dark" style={styles.confirmCard}>
+                            <View style={styles.confirmIconBg}>
+                                <Trash2 size={32} color="#ef4444" />
+                            </View>
+                            <Text style={styles.confirmTitle}>
+                                {language === 'Korean' ? '친구 해지' : 'Unfriend'}
+                            </Text>
+                            <Text style={styles.confirmDesc}>
+                                {language === 'Korean'
+                                    ? `정말로 ${(alias || friendProfile?.nickname || '친구')}님을 친구 목록에서 삭제하시겠습니까?`
+                                    : `Are you sure you want to remove ${alias || friendProfile?.nickname || 'friend'} from your friend list?`}
+                            </Text>
+
+                            <View style={styles.confirmActions}>
+                                <TouchableOpacity
+                                    style={styles.confirmCancel}
+                                    onPress={() => setIsConfirmModalVisible(false)}
+                                    disabled={isUnfriending}
+                                >
+                                    <Text style={styles.confirmCancelText}>{t('cancel')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.confirmDestructive}
+                                    onPress={handleConfirmUnfriend}
+                                    disabled={isUnfriending}
+                                >
+                                    {isUnfriending ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <Text style={styles.confirmDestructiveText}>
+                                            {language === 'Korean' ? '해지하기' : 'Remove'}
+                                        </Text>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </BlurView>
+                    </TouchableOpacity>
+                </Modal>
             </SafeAreaView>
         </View>
     );
@@ -460,4 +632,77 @@ const styles = StyleSheet.create({
     aliasCancelText: { color: theme.colors.text.secondary, fontWeight: '700' },
     aliasSave: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: theme.colors.primary },
     aliasSaveText: { color: '#fff', fontWeight: '800' },
+    menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-start', alignItems: 'flex-end', padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
+    menuCard: { width: 180, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+    menuIconContainer: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center' },
+    menuTextDestructive: { color: '#ef4444', fontSize: 15, fontWeight: '700' },
+    menuTextCancel: { color: theme.colors.text.secondary, fontSize: 15, fontWeight: '600', width: '100%', textAlign: 'center' },
+    menuDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
+    confirmCard: {
+        width: width * 0.85,
+        backgroundColor: 'rgba(30, 30, 35, 0.95)',
+        borderRadius: 32,
+        padding: 32,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        overflow: 'hidden'
+    },
+    confirmIconBg: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20
+    },
+    confirmTitle: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#fff',
+        marginBottom: 12,
+        textAlign: 'center'
+    },
+    confirmDesc: {
+        fontSize: 15,
+        color: theme.colors.text.secondary,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 32
+    },
+    confirmActions: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%'
+    },
+    confirmCancel: {
+        flex: 1,
+        paddingVertical: 16,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        alignItems: 'center'
+    },
+    confirmCancelText: {
+        color: theme.colors.text.secondary,
+        fontSize: 16,
+        fontWeight: '700'
+    },
+    confirmDestructive: {
+        flex: 1,
+        paddingVertical: 16,
+        borderRadius: 16,
+        backgroundColor: '#ef4444',
+        alignItems: 'center',
+        shadowColor: '#ef4444',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8
+    },
+    confirmDestructiveText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '800'
+    }
 });

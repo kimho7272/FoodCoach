@@ -381,11 +381,9 @@ export const socialService = {
             .eq('status', 'pending');
 
         if (error) {
-            console.error('[GETPENDING] Error:', error);
             return [];
         }
 
-        console.log(`[GETPENDING] Found ${requests?.length || 0} pending requests.`);
 
         // Match pending requests with local names
         const localContacts = await this.getPhoneContacts();
@@ -472,6 +470,7 @@ export const socialService = {
 
                 friends.push({
                     id: friendProfile.id,
+                    friendship_id: f.id,
                     full_name: finalDisplayName,
                     contact_name: phoneName || null,
                     nickname: friendProfile.nickname,
@@ -485,5 +484,30 @@ export const socialService = {
             }
         });
         return friends;
+    },
+
+    // 10. Unfriend
+    async unfriend(friendId: string): Promise<boolean> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return false;
+
+        const { error } = await (supabase as any)
+            .from('friendships')
+            .delete()
+            .or(`and(user_id_1.eq.${user.id},user_id_2.eq.${friendId}),and(user_id_1.eq.${friendId},user_id_2.eq.${user.id})`);
+
+        if (error) {
+            console.error('[UNFRIEND] Error:', error);
+            return false;
+        }
+
+        // Clear cache so the status is immediately updated in the contact list
+        try {
+            await AsyncStorage.removeItem(CONTACTS_CACHE_KEY);
+        } catch (e) {
+            console.warn('Failed to clear contacts cache after unfriend:', e);
+        }
+
+        return true;
     }
 };

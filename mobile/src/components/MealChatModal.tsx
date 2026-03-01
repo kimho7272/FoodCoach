@@ -69,22 +69,33 @@ export const MealChatModal: React.FC<MealChatModalProps> = ({ isVisible, onClose
         }
     }, [isVisible, otherUserId]);
 
+    const fetchCurrentUserId = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) setCurrentUserId(user.id);
+        return user?.id;
+    };
+
     useEffect(() => {
-        if (isVisible) {
+        if (isVisible && otherUserId) {
             setAttachedMeal(meal || null);
             setMessages([]);
             setOffset(0);
             setHasMore(true);
-            getCurrentUser().then(() => {
-                loadInitialMessages();
-            });
 
-            // Initial focus and scroll - Multiple attempts to ensure it works with keyboard (Korean/English)
+            const initializeChat = async () => {
+                const uid = currentUserId || (await fetchCurrentUserId());
+                if (uid) {
+                    loadInitialMessages();
+                }
+            };
+
+            initializeChat();
+
+            // Initial focus and scroll
             setTimeout(() => {
                 inputRef.current?.focus();
             }, 400);
 
-            // Sequential scrolls to guarantee we land at the bottom as keyboard/layout stabilizes
             [500, 800, 1200, 1600].forEach(delay => {
                 setTimeout(() => {
                     flatListRef.current?.scrollToEnd({ animated: true });
@@ -100,14 +111,17 @@ export const MealChatModal: React.FC<MealChatModalProps> = ({ isVisible, onClose
                 }
             );
 
-            const cleanupSubscription = setupSubscription();
+            let cleanup: (() => void) | undefined;
+            if (currentUserId) {
+                cleanup = setupSubscription();
+            }
 
             return () => {
                 keyboardShowListener.remove();
-                if (cleanupSubscription) cleanupSubscription();
+                if (cleanup) cleanup();
             };
         }
-    }, [isVisible, otherUserId, meal]);
+    }, [isVisible, otherUserId, meal, currentUserId]);
 
     const getCurrentUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -142,13 +156,29 @@ export const MealChatModal: React.FC<MealChatModalProps> = ({ isVisible, onClose
     };
 
     const setupSubscription = () => {
+        if (!currentUserId) return undefined;
+
+        console.log(`[CHAT_SUBSCRIPTION] Starting for ${currentUserId} ↔ ${otherUserId}`);
+
         const channel = supabase
-            .channel(`social_messages:${otherUserId}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'social_messages' }, async (payload) => {
+            .channel(`social_messages:${otherUserId}_${currentUserId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'social_messages'
+            }, async (payload) => {
                 const newMessage = payload.new as SocialMessage;
+
+                // Debug log to trace message arrival
+                console.log('[CHAT_SUBSCRIPTION] Message received:', newMessage.id);
+
                 const isBetween = (newMessage.sender_id === currentUserId && newMessage.receiver_id === otherUserId) ||
                     (newMessage.sender_id === otherUserId && newMessage.receiver_id === currentUserId);
-                if (!isBetween) return;
+
+                if (!isBetween) {
+                    console.log('[CHAT_SUBSCRIPTION] Ignored: not between us.');
+                    return;
+                }
 
                 if (newMessage.sender_id !== currentUserId) {
                     const { data: sender } = await supabase.from('profiles').select('full_name, avatar_url, nickname').eq('id', newMessage.sender_id).single();
@@ -156,13 +186,30 @@ export const MealChatModal: React.FC<MealChatModalProps> = ({ isVisible, onClose
                 }
 
                 setMessages(prev => {
-                    if (prev.find(m => m.id === newMessage.id)) return prev;
+                    if (prev.find(m => m.id === newMessage.id)) {
+                        console.log('[CHAT_SUBSCRIPTION] Duplicate ignored.');
+                        return prev;
+                    }
+                    console.log('[CHAT_SUBSCRIPTION] Updating state with new message.');
                     return [...prev, newMessage];
                 });
-                if (newMessage.receiver_id === currentUserId) messageService.markAsRead(otherUserId);
+
+                if (newMessage.receiver_id === currentUserId) {
+                    messageService.markAsRead(otherUserId);
+                }
+
+                setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                }, 100);
             })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
+            .subscribe((status) => {
+                console.log(`[CHAT_SUBSCRIPTION] Status: ${status}`);
+            });
+
+        return () => {
+            console.log(`[CHAT_SUBSCRIPTION] Cleanup for ${otherUserId}`);
+            supabase.removeChannel(channel);
+        };
     };
 
     const handleSend = async () => {

@@ -8,6 +8,7 @@ import { socialService, Friend } from '../services/social_service';
 import { useTranslation } from '../lib/i18n';
 import { theme } from '../constants/theme';
 import { useAlert } from '../context/AlertContext';
+import { supabase } from '../lib/supabase';
 
 interface AddFriendModalProps {
     visible: boolean;
@@ -26,6 +27,51 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         if (visible) {
             handleInitialFetch();
         }
+    }, [visible]);
+
+    // Real-time updates for friendship changes
+    useEffect(() => {
+        if (!visible) return;
+
+        let channel: any;
+
+        const setupRealtime = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            channel = supabase
+                .channel('add-friend-modal-realtime')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'friendships',
+                    },
+                    (payload: any) => {
+                        const { new: newRecord, old: oldRecord } = payload;
+                        const myUserId = user.id;
+
+                        // Check if any change involves me
+                        if (
+                            newRecord?.user_id_1 === myUserId || newRecord?.user_id_2 === myUserId ||
+                            oldRecord?.user_id_1 === myUserId || oldRecord?.user_id_2 === myUserId
+                        ) {
+                            console.log('[REALTIME] Friendship changed, refreshing contacts...');
+                            handleInitialFetch();
+                        }
+                    }
+                )
+                .subscribe();
+        };
+
+        setupRealtime();
+
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
     }, [visible]);
 
     const handleInitialFetch = async () => {
@@ -51,7 +97,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     const handleSendRequest = async (userId: string) => {
         const success = await socialService.sendFriendRequest(userId);
         if (success) {
-            showAlert({ title: t('success'), message: t('requestSent') || 'Request Sent', type: 'success' });
+            // Updated UI state directly for immediate feedback
             setContacts(prev => prev.map(c => c.id === userId ? { ...c, status: 'sent', request_sent_at: new Date().toISOString() } : c));
             if (onSuccess) onSuccess();
         } else {
@@ -62,7 +108,6 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     const handleAcceptRequest = async (friendshipId: string, userId: string) => {
         const success = await socialService.acceptFriendRequest(friendshipId);
         if (success) {
-            showAlert({ title: t('success'), message: t('friendAdded') || 'Friend added!', type: 'success' });
             setContacts(prev => prev.map(c => c.id === userId ? { ...c, status: 'accepted' } : c));
             if (onSuccess) onSuccess();
         } else {

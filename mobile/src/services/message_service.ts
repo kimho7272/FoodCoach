@@ -49,7 +49,6 @@ export const messageService = {
             }
         };
 
-        console.log('[MESSAGE_SERVICE] Sending message:', insertData);
 
         const { data, error } = await supabase
             .from('social_messages' as any)
@@ -132,7 +131,6 @@ export const messageService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return { data: null, error: new Error('Not authenticated') };
 
-        console.log(`[MESSAGE_SERVICE] MyID: ${user.id}, FriendID: ${friendId}`);
 
         // Simplified query for testing
         const { data, error } = await supabase
@@ -151,11 +149,8 @@ export const messageService = {
             .range(offset, offset + limit - 1);
 
         if (error) {
-            console.error('[MESSAGE_SERVICE] Query error:', error);
         } else {
-            console.log(`[MESSAGE_SERVICE] Found ${data?.length || 0} messages`);
             if (data && data.length > 0) {
-                console.log('[MESSAGE_SERVICE] First message sample:', JSON.stringify(data[0], null, 2));
             }
         }
 
